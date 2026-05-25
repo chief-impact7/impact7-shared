@@ -21,6 +21,13 @@ export function shortAuthor(id) {
     return typeof id === 'string' && id.includes('@') ? id.split('@')[0] : 'system';
 }
 
+// 신규 표시용 반코드: "반:코드"(aC) 우선, 없으면 "신규 등록: 이름 (코드)"의 괄호 코드.
+// 괄호 안에 숫자가 있는 것만 반코드로 인정 (예: (AX101)·(특강112) ⭕ / (첫데이터)·(수업없음) ❌).
+function newClassCode(aC, afterText) {
+    if (aC) return aC;
+    return afterText.match(/\(([^)]*\d[^)]*)\)/)?.[1]?.trim() || '';
+}
+
 // history before/after에서 상태·반코드·휴원시작일을 best-effort로 추출.
 // 형태: "상태:재원, 반:A101, 요일:월,금" | "status:재원, pause_start_date:.." (일괄 import)
 //      | {"status":"재원","pause_start_date":"..."} | 단독 상태문자열("재원").
@@ -58,8 +65,8 @@ export function classifyHistory(log) {
     const afterText = typeof log.after === 'string' ? log.after : '';
     const combined = `${typeof log.before === 'string' ? log.before : ''} ${afterText}`;
 
-    // 신규 등록 (상태 텍스트 없는 import 로그는 '등록'만 — 가짜 '등원예정' 박지 않음)
-    if (t === 'ENROLL') return { label: '신규', from: '', to: aS || '등록' };
+    // 신규 등록 — '이전 → 정규반코드' 표시 (반코드 없으면 '등록')
+    if (t === 'ENROLL') return { label: '신규', from: '', to: newClassCode(aC, afterText) || '등록' };
     // 퇴원생 "첫데이터 재입력 + 수업 추가" = 재등원 (수업 추가 없는 단순 재입력은 상태 불변이므로 숨김)
     if (bS === '퇴원' && combined.includes('재입력') && combined.includes('수업') && combined.includes('추가')) {
         return { label: '재등원', from: '퇴원', to: '재원' };
@@ -74,7 +81,7 @@ export function classifyHistory(log) {
         if (LEAVE.includes(bS) && aS === '재원') return { label: '복귀', from: bS, to: '재원' };
         if (LEAVE.includes(aS) && !LEAVE.includes(bS)) return { label: '휴원', from: bS || '재원', to: aS };
         if (aS === '퇴원' && bS !== '퇴원') return { label: '퇴원', from: bS || '재원', to: '퇴원' };
-        if ((bS === '' || bS === '상담') && (aS === '등원예정' || aS === '재원')) return { label: '신규', from: '', to: aS };
+        if ((bS === '' || bS === '상담') && (aS === '등원예정' || aS === '재원')) return { label: '신규', from: '', to: newClassCode(aC, afterText) || '등록' };
     }
 
     // 휴원기간(pause_start_date) 기반 — status는 활성 유지하고 휴원 날짜만 변하는 예약 휴원/복귀 경로.

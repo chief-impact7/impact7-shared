@@ -13,9 +13,16 @@ test('상태 전이 분류', () => {
     assert.equal(line({ change_type: 'UPDATE', before: '상태:재원, 반:A101, 요일:월, 금', after: '상태:재원, 반:A103, 요일:월, 금' }), '전반:A101>A103');
 });
 
-test('신규 / 등록 기본값', () => {
+test('신규 — 정규반코드 표시 (없으면 등록)', () => {
+    // 반:코드 있으면 그 반코드 ('등원예정' 대신)
+    assert.equal(line({ change_type: 'UPDATE', before: '상태:상담, 반:—, 요일:N/A', after: '상태:등원예정, 반:A103, 요일:월, 금' }), '신규:>A103');
+    assert.equal(line({ change_type: 'UPDATE', before: '상태:상담', after: '상태:재원, 반:HS201, 요일:월, 금' }), '신규:>HS201');
+    // ENROLL 괄호 코드
+    assert.equal(line({ change_type: 'ENROLL', before: '—', after: '신규 등록: 황시윤 (AX101)' }), '신규:>AX101');
+    assert.equal(line({ change_type: 'ENROLL', before: '—', after: '신규 등록: 김지유2 (특강112)' }), '신규:>특강112');
+    // 반코드 없으면 '등록' (가짜 등원예정 박지 않음)
     assert.equal(line({ change_type: 'ENROLL', before: '—', after: '신규 등록: 김채윤2 (수업없음)' }), '신규:>등록');
-    assert.equal(line({ change_type: 'UPDATE', before: '상태:상담, 반:—, 요일:N/A', after: '상태:등원예정, 반:A103, 요일:월, 금' }), '신규:>등원예정');
+    assert.equal(line({ change_type: 'ENROLL', before: '—', after: '신규 등록 (첫데이터): 변지민' }), '신규:>등록');
 });
 
 test('휴원기간(pause) 기반 — status 재원 유지', () => {
