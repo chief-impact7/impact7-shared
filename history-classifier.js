@@ -90,8 +90,9 @@ export function classifyHistory(log) {
     if (bP && !aP && (aS === '재원' || aS === '등원예정')) return { label: '복귀', from: '휴원', to: aS };
 
     // 수업 추가 ("추가: SP201 ... 총 N개 누적" — 수업추가 로그 시그니처. 코드 있을 때만)
+    // 코드는 영문+숫자(HA103)뿐 아니라 한글(내신 csKey·특강명)도 추출 — 콤마/여는괄호 직전까지.
     if (afterText.includes('추가:') && afterText.includes('누적')) {
-        const added = afterText.match(/추가:\s*([A-Za-z]*\d+)/)?.[1];
+        const added = afterText.match(/추가:\s*([^,(]+)/)?.[1]?.trim();
         if (added) return { label: '수업추가', from: '', to: added };
     }
 

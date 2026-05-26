@@ -44,6 +44,15 @@ test('수업추가 / 오탐 방지', () => {
     assert.equal(label({ change_type: 'UPDATE', before: 'memo', after: '메모 추가: 5점 가산' }), null);
 });
 
+test('수업추가 / 한글 코드(내신 csKey·특강명) 추출', () => {
+    // 특강 한글명 — DSC 반편성 마법사 로그
+    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: 수요특강 (특강) 누적' }), '수업추가:>수요특강');
+    // 내신 csKey
+    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: 2단지목동중2A (내신) 누적' }), '수업추가:>2단지목동중2A');
+    // 정규 영문+숫자 코드 — 여는괄호 전까지
+    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: HA103 (정규), 총 2개 누적' }), '수업추가:>HA103');
+});
+
 test('숨김 대상', () => {
     assert.equal(label({ change_type: 'STATUS_CHANGE', before: '{"status":"상담"}', after: '{"status":"등원예정"}' }), null);
     assert.equal(label({ change_type: 'PROMOTION', before: '중1', after: '중2' }), null);
