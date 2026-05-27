@@ -1,13 +1,5 @@
-// 등원예정 → 재원 자동 전환 + history_log 기록.
-// Firebase 의존성은 createPromoteEnrollPending()에 주입한다.
-
-/**
- * @param {{ db, writeBatch, doc, collection, serverTimestamp }} firebase
- * @param {{ idField?: string, batchUpdate?: function }} opts
- *   idField: 학생 문서 ID 필드명 ('id' | 'docId', 기본 'id')
- *   batchUpdate: 감사 래퍼(DSC audit.js). 없으면 plain batch.update 사용.
- * @returns {function(students: array, today: string): Promise<array>}
- */
+// 등원예정 → 재원 자동 전환 + history_log 기록. Firebase 의존성은 주입한다.
+// idField: 학생 문서 ID 필드명('id'|'docId'). batchUpdate: DSC audit 래퍼(없으면 plain update).
 export function createPromoteEnrollPending(firebase, { idField = 'id', batchUpdate } = {}) {
   const { db, writeBatch, doc, collection, serverTimestamp } = firebase;
 
