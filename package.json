@@ -1,13 +1,15 @@
 {
   "name": "@impact7/shared",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "impact7 에코시스템 공유 순수 로직 (DB/DSC 등이 import)",
   "type": "module",
   "exports": {
-    "./history": "./history-classifier.js"
+    "./history": "./history-classifier.js",
+    "./enrollment-status": "./enrollment-status.js"
   },
   "files": [
-    "history-classifier.js"
+    "history-classifier.js",
+    "enrollment-status.js"
   ],
   "scripts": {
     "test": "node --test"
