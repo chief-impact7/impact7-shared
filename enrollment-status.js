@@ -33,3 +33,42 @@ export function reconcileEnrollments(status, enrollments) {
   }
   return { enrollments: list, valid: true };
 }
+
+// ─── 학생 2계층 분류 (대분류: 재원생/비원생, 세부: status) ───
+export const STUDENT_STATUS_GROUPS = [
+  { category: '재원생', statuses: ['등원예정', '재원', '실휴원', '가휴원'] },
+  { category: '비원생', statuses: ['상담', '퇴원', '종강'] },
+];
+
+// status → 대분류('재원생' | '비원생')
+export function studentCategory(status) {
+  return ENROLLABLE_STATUSES.has(status) ? '재원생' : '비원생';
+}
+
+// status별 색상 tone (의미 기반, 각 앱이 CSS 클래스로 매핑)
+export const STATUS_TONE = {
+  '재원': 'active',
+  '등원예정': 'scheduled',
+  '실휴원': 'paused',
+  '가휴원': 'paused',
+  '상담': 'consult',
+  '퇴원': 'ended-hard',
+  '종강': 'ended-soft',
+};
+
+// ─── status 전이 규칙 ───
+// 신규 등록 시 선택 가능 (휴원·퇴원·종강 제외; 상담은 진단평가 경로로만 등록)
+export const INITIAL_STATUSES = ['등원예정', '재원'];
+
+// 주어진 맥락에서 선택 가능한 status 목록.
+// current: 편집 중인 학생의 현재 status (신규면 무시), isNew: 신규 등록 여부
+// - 신규: 등원예정/재원만 (휴원 진입 차단)
+// - 비원생(상담/퇴원/종강): 등원예정/재원으로만 재원생화 + 현 status 유지 (휴원 직접 진입 차단)
+// - 재원생: 재원계열 전체(휴원은 여기서만 진입) + 퇴원/종강 (상담 제외 → 재원→상담 직접 전환 차단)
+export function selectableStatuses(current, isNew) {
+  if (isNew) return [...INITIAL_STATUSES];
+  if (NON_ENROLLABLE_STATUSES.has(current)) {
+    return [...new Set([current, ...INITIAL_STATUSES])];
+  }
+  return ['등원예정', '재원', '실휴원', '가휴원', '퇴원', '종강'];
+}

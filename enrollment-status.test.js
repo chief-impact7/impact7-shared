@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import {
   isEnrollableStatus, hasRealEnrollment, reconcileEnrollments,
+  studentCategory, selectableStatuses, STUDENT_STATUS_GROUPS,
 } from './enrollment-status.js';
 
 test('isEnrollableStatus — 재원 계열만 true', () => {
@@ -37,4 +38,32 @@ test('reconcileEnrollments — 재원 계열 + 실질 반 있으면 valid', () =
   const r = reconcileEnrollments('재원', [{ class_type: '정규', class_number: '104' }]);
   assert.equal(r.valid, true);
   assert.equal(r.enrollments.length, 1);
+});
+
+test('studentCategory — 재원생/비원생 분류', () => {
+  for (const s of ['등원예정', '재원', '실휴원', '가휴원']) assert.equal(studentCategory(s), '재원생');
+  for (const s of ['상담', '퇴원', '종강']) assert.equal(studentCategory(s), '비원생');
+});
+
+test('STUDENT_STATUS_GROUPS — 7개 status 모두 포함, 중복 없음', () => {
+  const all = STUDENT_STATUS_GROUPS.flatMap(g => g.statuses);
+  assert.equal(all.length, 7);
+  assert.equal(new Set(all).size, 7);
+});
+
+test('selectableStatuses — 신규는 등원예정/재원만 (휴원 차단)', () => {
+  const s = selectableStatuses(null, true);
+  assert.deepEqual(s, ['등원예정', '재원']);
+});
+
+test('selectableStatuses — 비원생은 등원예정/재원 + 현 status, 휴원 차단', () => {
+  const s = selectableStatuses('상담', false);
+  assert.ok(s.includes('등원예정') && s.includes('재원') && s.includes('상담'));
+  assert.ok(!s.includes('실휴원') && !s.includes('가휴원'));
+});
+
+test('selectableStatuses — 재원생은 휴원 진입 가능, 상담은 불가', () => {
+  const s = selectableStatuses('재원', false);
+  assert.ok(s.includes('실휴원') && s.includes('가휴원'));
+  assert.ok(!s.includes('상담'));
 });
