@@ -72,3 +72,45 @@ test('HISTORY_BADGE 모든 라벨 매핑 존재', () => {
         assert.ok(HISTORY_BADGE[lab], `${lab} 뱃지 누락`);
     }
 });
+
+import { deriveTenure } from './history-classifier.js';
+const gd = (l) => l.timestamp;
+
+test('deriveTenure: 신규만 → start=신규일, 진행중(end null)', () => {
+  const logs = [{ change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') }];
+  const { start, end } = deriveTenure(logs, gd);
+  assert.equal(start.toISOString().slice(0, 10), '2026-03-06');
+  assert.equal(end, null);
+});
+
+test('deriveTenure: 휴원·복귀는 기간 안 끊음', () => {
+  const logs = [
+    { change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') },
+    { change_type: 'UPDATE', before: '상태:재원', after: '상태:실휴원', timestamp: new Date('2026-05-14') },
+    { change_type: 'UPDATE', before: '상태:실휴원', after: '상태:재원', timestamp: new Date('2026-05-20') },
+  ];
+  const { start, end } = deriveTenure(logs, gd);
+  assert.equal(start.toISOString().slice(0, 10), '2026-03-06');
+  assert.equal(end, null);
+});
+
+test('deriveTenure: 퇴원이면 end=퇴원일', () => {
+  const logs = [
+    { change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') },
+    { change_type: 'WITHDRAW', before: '상태:재원', after: '{"status":"퇴원"}', timestamp: new Date('2026-04-01') },
+  ];
+  const { start, end } = deriveTenure(logs, gd);
+  assert.equal(start.toISOString().slice(0, 10), '2026-03-06');
+  assert.equal(end.toISOString().slice(0, 10), '2026-04-01');
+});
+
+test('deriveTenure: 퇴원 후 재등원 → 새 기간', () => {
+  const logs = [
+    { change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') },
+    { change_type: 'WITHDRAW', before: '상태:재원', after: '{"status":"퇴원"}', timestamp: new Date('2026-04-01') },
+    { change_type: 'UPDATE', before: '상태:퇴원', after: '상태:재원', timestamp: new Date('2026-05-01') },
+  ];
+  const { start, end } = deriveTenure(logs, gd);
+  assert.equal(start.toISOString().slice(0, 10), '2026-05-01');
+  assert.equal(end, null);
+});
