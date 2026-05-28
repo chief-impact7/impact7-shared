@@ -76,3 +76,43 @@ export function applyNaesinFreeDerivation(current, { classSettings, dateStr, res
 
   return current;
 }
+
+// 수업이력용: override 기반 내신/자유학기를 "수업이력 항목"으로 파생한다.
+// history_logs에 로그가 없는 override 케이스(예: 마법사 표준 정규+naesin_class_override)를
+// 수업이력에 노출하기 위함. 명시적 class_type='내신'/'자유학기' enrollment가 있으면 그쪽이
+// 로그로 표현되므로 파생하지 않는다(중복 방지).
+// 반환: [{ class_type:'내신'|'자유학기', code, start_date, end_date }]
+// (호출자가 표시 코드 포맷·로그 중복 dedup·정렬을 담당)
+export function deriveClassPeriodHistory(enrollments, classSettings, { enrollmentCode }) {
+  const list = enrollments || [];
+  const cs = classSettings || {};
+  const entries = [];
+
+  const hasExplicitNaesin = list.some(e => e.class_type === '내신');
+  const hasExplicitFree = list.some(e => e.class_type === '자유학기');
+
+  for (const e of list) {
+    if (e.class_type !== '정규' && e.class_type !== '자유학기') continue;
+
+    // 내신: 정규+override(빈 문자열 제외) → class_settings 내신기간
+    if (!hasExplicitNaesin) {
+      const override = e.naesin_class_override;
+      if (typeof override === 'string' && override !== '') {
+        const c = cs[override];
+        if (c?.naesin_start && c?.naesin_end) {
+          entries.push({ class_type: '내신', code: override, start_date: c.naesin_start, end_date: c.naesin_end });
+        }
+      }
+    }
+
+    // 자유학기: 정규 반코드 → class_settings 자유학기 기간
+    if (!hasExplicitFree && e.class_type === '정규') {
+      const code = enrollmentCode(e);
+      const c = cs[code];
+      if (c?.free_start && c?.free_end) {
+        entries.push({ class_type: '자유학기', code, start_date: c.free_start, end_date: c.free_end });
+      }
+    }
+  }
+  return entries;
+}

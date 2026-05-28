@@ -69,3 +69,40 @@ test('정규 없음 → 입력 그대로', () => {
   const out = applyNaesinFreeDerivation([special], deps({}));
   assert.deepEqual(out, [special]);
 });
+
+import { deriveClassPeriodHistory } from './enrollment-derivation.js';
+const ec = (e) => `${e.level_symbol || ''}${e.class_number || ''}`;
+
+test('수업이력 파생: 정규+override(명시적 내신 없음) → 내신 항목', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03' } };
+  const enr = [{ class_type: '정규', level_symbol: 'HX', class_number: '104', naesin_class_override: '2단지선유고2B' }];
+  const out = deriveClassPeriodHistory(enr, cs, { enrollmentCode: ec });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].class_type, '내신');
+  assert.equal(out[0].code, '2단지선유고2B');
+  assert.equal(out[0].start_date, '2026-05-14');
+});
+
+test('수업이력 파생: 명시적 내신 enrollment 있으면 override 파생 안 함 (중복 방지)', () => {
+  const cs = { '2단지선유고1B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03' } };
+  const enr = [
+    { class_type: '정규', level_symbol: 'HX', class_number: '101', naesin_class_override: '2단지선유고1B' },
+    { class_type: '내신', class_number: '', start_date: '2026-05-15' },
+  ];
+  const out = deriveClassPeriodHistory(enr, cs, { enrollmentCode: ec });
+  assert.equal(out.length, 0);
+});
+
+test('수업이력 파생: override 빈 문자열/내신기간 없음 → 파생 안 함', () => {
+  const enr = [{ class_type: '정규', level_symbol: 'HX', class_number: '104', naesin_class_override: '' }];
+  assert.equal(deriveClassPeriodHistory(enr, {}, { enrollmentCode: ec }).length, 0);
+});
+
+test('수업이력 파생: 정규 반에 자유학기 기간 → 자유학기 항목', () => {
+  const cs = { 'HX104': { free_start: '2026-05-01', free_end: '2026-06-30' } };
+  const enr = [{ class_type: '정규', level_symbol: 'HX', class_number: '104' }];
+  const out = deriveClassPeriodHistory(enr, cs, { enrollmentCode: ec });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].class_type, '자유학기');
+  assert.equal(out[0].code, 'HX104');
+});
