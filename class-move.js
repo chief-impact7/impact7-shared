@@ -16,7 +16,7 @@ export function moveClass(student, { semester, targetLevelSymbol, targetClassNum
   }
   const target = enrollments[idx];
   const before = codeOf(target);
-  const after = `${targetLevelSymbol}${targetClassNumber}`;
+  const after = `${targetLevelSymbol || ''}${targetClassNumber || ''}`;
   const updatedEnrollments = enrollments.map((e, i) =>
     i === idx ? { ...e, level_symbol: targetLevelSymbol, class_number: targetClassNumber } : e
   );

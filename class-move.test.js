@@ -41,6 +41,12 @@ test('경고 없음: 끝자리 홀짝 동일(106→108)', () => {
   assert.equal(r.warning, null);
 });
 
+test('enrollments 없는 학생 → skipped, 빈 배열 반환', () => {
+  const r = moveClass({ name: '무학생' }, { semester: '2026-Spring', targetLevelSymbol: 'HX', targetClassNumber: '108' });
+  assert.equal(r.skipped, true);
+  assert.deepEqual(r.updatedEnrollments, []);
+});
+
 test('특강 enrollment는 대상 아님 (정규만 이동)', () => {
   const s = student([
     { class_type: '특강', level_symbol: 'HX', class_number: '900', semester: '2026-Spring' },
