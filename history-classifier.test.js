@@ -73,44 +73,74 @@ test('HISTORY_BADGE 모든 라벨 매핑 존재', () => {
     }
 });
 
-import { deriveTenure } from './history-classifier.js';
-const gd = (l) => l.timestamp;
+import { deriveTenure, isAttendedStatus } from './history-classifier.js';
 
-test('deriveTenure: 신규만 → start=신규일, 진행중(end null)', () => {
-  const logs = [{ change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') }];
-  const { start, end } = deriveTenure(logs, gd);
-  assert.equal(start.toISOString().slice(0, 10), '2026-03-06');
-  assert.equal(end, null);
+const gd = (l) => l.date instanceof Date ? l.date : new Date(l.date);
+const mkLog = (dateStr, before, after, change_type) => ({
+  date: new Date(dateStr + 'T00:00:00+09:00'), before, after, change_type,
+});
+const att = (date, status) => ({ date, status });
+
+test('deriveTenure: 신규 + 이후 출석 → start=첫 출석일, startEvent=신규일', () => {
+  const logs = [mkLog('2026-03-01', '상담', '등원예정', 'UPDATE')];
+  const attendances = [att('2026-03-10', '결석'), att('2026-03-12', '출석'), att('2026-03-20', '지각')];
+  const { start, end, startEvent } = deriveTenure(logs, gd, attendances);
+  assert.strictEqual(startEvent.getTime(), new Date('2026-03-01T00:00:00+09:00').getTime());
+  assert.strictEqual(start.getTime(), new Date('2026-03-12T00:00:00+09:00').getTime());
+  assert.strictEqual(end, null);
 });
 
-test('deriveTenure: 휴원·복귀는 기간 안 끊음', () => {
+test('deriveTenure: 신규 + 출석 0건 → start=null (등원예정), startEvent 세팅', () => {
+  const logs = [mkLog('2026-05-20', '상담', '등원예정', 'UPDATE')];
+  const attendances = [att('2026-05-25', '결석'), att('2026-05-26', '미확인')];
+  const { start, startEvent } = deriveTenure(logs, gd, attendances);
+  assert.notStrictEqual(startEvent, null);
+  assert.strictEqual(start, null);
+});
+
+test('deriveTenure: 재등원 → 마지막 재등원 이후 첫 출석일', () => {
   const logs = [
-    { change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') },
-    { change_type: 'UPDATE', before: '상태:재원', after: '상태:실휴원', timestamp: new Date('2026-05-14') },
-    { change_type: 'UPDATE', before: '상태:실휴원', after: '상태:재원', timestamp: new Date('2026-05-20') },
+    mkLog('2025-01-01', '상담', '등원예정', 'UPDATE'),
+    mkLog('2025-06-01', '재원', '퇴원', 'WITHDRAW'),
+    mkLog('2026-02-01', '퇴원', '재원', 'UPDATE'),
   ];
-  const { start, end } = deriveTenure(logs, gd);
-  assert.equal(start.toISOString().slice(0, 10), '2026-03-06');
-  assert.equal(end, null);
+  // 재등원(2026-02-01) 이전 출석은 무시, 이후 첫 출석이 start
+  const attendances = [att('2025-02-10', '출석'), att('2026-02-15', '출석'), att('2026-03-01', '출석')];
+  const { start, startEvent } = deriveTenure(logs, gd, attendances);
+  assert.strictEqual(startEvent.getTime(), new Date('2026-02-01T00:00:00+09:00').getTime());
+  assert.strictEqual(start.getTime(), new Date('2026-02-15T00:00:00+09:00').getTime());
+});
+
+test('deriveTenure: 이력 없음 → startEvent=null, start=null', () => {
+  const { start, end, startEvent } = deriveTenure([], gd, []);
+  assert.strictEqual(startEvent, null);
+  assert.strictEqual(start, null);
+  assert.strictEqual(end, null);
 });
 
 test('deriveTenure: 퇴원이면 end=퇴원일', () => {
   const logs = [
-    { change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') },
-    { change_type: 'WITHDRAW', before: '상태:재원', after: '{"status":"퇴원"}', timestamp: new Date('2026-04-01') },
+    mkLog('2025-01-01', '상담', '재원', 'UPDATE'),
+    mkLog('2025-12-01', '재원', '퇴원', 'WITHDRAW'),
   ];
-  const { start, end } = deriveTenure(logs, gd);
-  assert.equal(start.toISOString().slice(0, 10), '2026-03-06');
-  assert.equal(end.toISOString().slice(0, 10), '2026-04-01');
+  const attendances = [att('2025-01-05', '출석')];
+  const { start, end } = deriveTenure(logs, gd, attendances);
+  assert.strictEqual(start.getTime(), new Date('2025-01-05T00:00:00+09:00').getTime());
+  assert.strictEqual(end.getTime(), new Date('2025-12-01T00:00:00+09:00').getTime());
 });
 
-test('deriveTenure: 퇴원 후 재등원 → 새 기간', () => {
-  const logs = [
-    { change_type: 'ENROLL', before: '', after: '신규 등록: 김 (A101)', timestamp: new Date('2026-03-06') },
-    { change_type: 'WITHDRAW', before: '상태:재원', after: '{"status":"퇴원"}', timestamp: new Date('2026-04-01') },
-    { change_type: 'UPDATE', before: '상태:퇴원', after: '상태:재원', timestamp: new Date('2026-05-01') },
-  ];
-  const { start, end } = deriveTenure(logs, gd);
-  assert.equal(start.toISOString().slice(0, 10), '2026-05-01');
-  assert.equal(end, null);
+test('deriveTenure: attendances 미전달 → start=null (안전)', () => {
+  const logs = [mkLog('2026-03-01', '상담', '등원예정', 'UPDATE')];
+  const { start, startEvent } = deriveTenure(logs, gd);
+  assert.notStrictEqual(startEvent, null);
+  assert.strictEqual(start, null);
+});
+
+test('isAttendedStatus: 출석/지각/조퇴만 true', () => {
+  assert.strictEqual(isAttendedStatus('출석'), true);
+  assert.strictEqual(isAttendedStatus('지각'), true);
+  assert.strictEqual(isAttendedStatus('조퇴'), true);
+  assert.strictEqual(isAttendedStatus('결석'), false);
+  assert.strictEqual(isAttendedStatus('미확인'), false);
+  assert.strictEqual(isAttendedStatus(undefined), false);
 });

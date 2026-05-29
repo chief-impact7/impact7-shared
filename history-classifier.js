@@ -105,17 +105,42 @@ export function classifyHistory(log) {
 // 현재 재원기간(tenure): 마지막 신규/재등원 이벤트 ~ (그 뒤 퇴원이면 그 날, 아니면 진행 중).
 // 규칙: 등록(신규)/재등원이 기간 시작, 퇴원이 기간 끝. 휴원/복귀는 기간을 끊지 않음(무시).
 //       퇴원 후 재등원하면 새 기간 시작. (종강은 classifier 미분류 → 종강 학생의 end는 앱이 status로 보완)
-// logs: history_logs 배열. getDate(log) → Date|null (앱이 timestamp→Date 변환 주입).
-// 반환: { start: Date|null, end: Date|null } (end=null이면 진행 중).
-export function deriveTenure(logs, getDate) {
+// 출석으로 인정하는 상태 (결석·미확인·등원전 제외) — 양 앱 SSoT.
+export function isAttendedStatus(status) {
+  return status === '출석' || status === '지각' || status === '조퇴';
+}
+
+// Date → KST 'YYYY-MM-DD' (en-CA 로케일이 YYYY-MM-DD 형식을 보장)
+function ymdSeoul(date) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(date);
+}
+
+// 재원기간 파생. logs로 현재 재원 구간의 시작 이벤트(startEvent)·종료(end)를 잡고,
+// attendances(그 학생의 daily_records {date,status})에서 startEvent 이후 첫 출석일을 start로.
+// 반환: { start: Date|null, end: Date|null, startEvent: Date|null }
+//   - startEvent=null      → 이력 없음
+//   - startEvent≠null, start=null → 미등원(등원예정)
+//   - start≠null           → 첫 출석일부터 재원
+export function deriveTenure(logs, getDate, attendances) {
   const events = (logs || [])
     .map(l => ({ cat: classifyHistory(l), date: getDate(l) }))
     .filter(e => e.cat && e.date instanceof Date && !isNaN(e.date.getTime()))
     .sort((a, b) => a.date - b.date);
-  let start = null, end = null;
+  let startEvent = null, end = null;
   for (const e of events) {
-    if (e.cat.label === '신규' || e.cat.label === '재등원') { start = e.date; end = null; }
+    if (e.cat.label === '신규' || e.cat.label === '재등원') { startEvent = e.date; end = null; }
     else if (e.cat.label === '퇴원') { end = e.date; }
   }
-  return { start, end };
+  let start = null;
+  if (startEvent && Array.isArray(attendances)) {
+    const seStr = ymdSeoul(startEvent);
+    const firstAttended = attendances
+      .filter(a => a && isAttendedStatus(a.status) && typeof a.date === 'string' && a.date >= seStr)
+      .map(a => a.date)
+      .sort()[0];
+    if (firstAttended) start = new Date(firstAttended + 'T00:00:00+09:00');
+  }
+  return { start, end, startEvent };
 }
