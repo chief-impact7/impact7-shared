@@ -116,3 +116,27 @@ export function deriveClassPeriodHistory(enrollments, classSettings, { enrollmen
   }
   return entries;
 }
+
+// 레벨기간 — 현재 수강 중인 반/레벨의 시작일과 경과기간.
+// enrollment.start_date 중 가장 이른 유효일 기준(복귀 시 리셋됨).
+// 이력 기반 재원기간(history deriveTenure)과는 다른 값이다.
+// 반환: { start: 'YYYY-MM-DD'|null, label: '14일'|'3개월'|'1년 2개월'|'등원예정'|'—' }
+export function deriveLevelPeriod(enrollments, todayStr) {
+  const starts = (enrollments || [])
+    .map(e => e?.start_date)
+    .filter(d => d && d !== '?' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= '2020-01-01')
+    .sort();
+  if (!starts.length) return { start: null, label: '—' };
+  const start = starts[0];
+  const startD = new Date(start + 'T00:00:00+09:00');
+  const today = new Date((todayStr || '') + 'T00:00:00+09:00');
+  if (isNaN(today.getTime())) return { start, label: '—' };
+  const diffDays = Math.floor((today - startD) / 86400000);
+  if (diffDays < 0) return { start, label: '등원예정' };
+  const totalMonths = (today.getFullYear() - startD.getFullYear()) * 12 + (today.getMonth() - startD.getMonth());
+  if (totalMonths < 1) return { start, label: `${diffDays}일` };
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  const label = years > 0 ? `${years}년${months > 0 ? ' ' + months + '개월' : ''}` : `${totalMonths}개월`;
+  return { start, label };
+}
