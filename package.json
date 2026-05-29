@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "description": "impact7 에코시스템 공유 순수 로직 (DB/DSC 등이 import)",
   "type": "module",
   "exports": {
@@ -9,7 +9,8 @@
     "./enrollment-derivation": "./enrollment-derivation.js",
     "./class-move": "./class-move.js",
     "./promote-enroll": "./promote-enroll.js",
-    "./student-number": "./student-number.js"
+    "./student-number": "./student-number.js",
+    "./student-label": "./student-label.js"
   },
   "files": [
     "history-classifier.js",
@@ -17,7 +18,8 @@
     "enrollment-derivation.js",
     "class-move.js",
     "promote-enroll.js",
-    "student-number.js"
+    "student-number.js",
+    "student-label.js"
   ],
   "scripts": {
     "test": "node --test"
