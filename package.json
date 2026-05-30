@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.15.0",
+  "version": "1.17.0",
   "description": "impact7 에코시스템 공유 순수 로직 (DB/DSC 등이 import)",
   "type": "module",
   "exports": {

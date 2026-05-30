@@ -129,6 +129,27 @@ test('deriveTenure: 퇴원이면 end=퇴원일', () => {
   assert.strictEqual(end.getTime(), new Date('2025-12-01T00:00:00+09:00').getTime());
 });
 
+test('deriveTenure: 무로그 재등원(현재 재원계열) → end 무효, 신규 후 첫 출석부터', () => {
+  // 신규→퇴원 후 재등원이 history에 명시되지 않은 케이스(무로그). 현재 status가 재원계열이면 end 무시.
+  const logs = [
+    mkLog('2026-03-12', '상담', '등원예정', 'UPDATE'),  // 신규
+    mkLog('2026-03-12', '등원예정', '퇴원', 'WITHDRAW'),  // 퇴원 (재등원 로그 없음)
+  ];
+  const attendances = [att('2026-03-13', '출석'), att('2026-03-16', '출석')];
+  const { start, end } = deriveTenure(logs, gd, attendances, true);  // isCurrentlyEnrolled
+  assert.strictEqual(end, null);
+  assert.strictEqual(start.getTime(), new Date('2026-03-13T00:00:00+09:00').getTime());
+});
+
+test('deriveTenure: 실제 퇴원(현재 비원생) → end 유지', () => {
+  const logs = [
+    mkLog('2025-01-01', '상담', '재원', 'UPDATE'),
+    mkLog('2025-12-01', '재원', '퇴원', 'WITHDRAW'),
+  ];
+  const { end } = deriveTenure(logs, gd, [att('2025-01-05', '출석')], false);
+  assert.strictEqual(end.getTime(), new Date('2025-12-01T00:00:00+09:00').getTime());
+});
+
 test('deriveTenure: attendances 미전달 → start=null (안전)', () => {
   const logs = [mkLog('2026-03-01', '상담', '등원예정', 'UPDATE')];
   const { start, startEvent } = deriveTenure(logs, gd);

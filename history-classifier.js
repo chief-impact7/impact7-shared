@@ -123,7 +123,7 @@ function ymdSeoul(date) {
 //   - startEvent=null      → 이력 없음
 //   - startEvent≠null, start=null → 미등원(등원예정)
 //   - start≠null           → 첫 출석일부터 재원
-export function deriveTenure(logs, getDate, attendances) {
+export function deriveTenure(logs, getDate, attendances, isCurrentlyEnrolled = false) {
   const events = (logs || [])
     .map(l => ({ cat: classifyHistory(l), date: getDate(l) }))
     .filter(e => e.cat && e.date instanceof Date && !isNaN(e.date.getTime()))
@@ -142,5 +142,7 @@ export function deriveTenure(logs, getDate, attendances) {
       .sort()[0];
     if (firstAttended) start = new Date(firstAttended + 'T00:00:00+09:00');
   }
+  // 현재 재원계열인데 history 마지막 분류가 퇴원이면 무로그 재등원으로 보고 end 무효(현재 status가 진실).
+  if (end && isCurrentlyEnrolled) end = null;
   return { start, end, startEvent };
 }
