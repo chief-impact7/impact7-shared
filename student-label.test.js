@@ -114,12 +114,12 @@ test('studentSearchTerms: 졸업 예측 → [대일, 대일고, 대일고(졸업
   assert.deepEqual(studentSearchTerms(SL('중등', 7, { school_middle: '봉영여', school_high: '대일' })), ['대일', '대일고', '대일고(졸업+1)']);
 });
 
-// 버그1: 풀네임+지역명 — 접미어 제거 후에도 지역명이 빠져야 함
-test('지역명 제거: 서울염경중학교 → 염경중1', () => {
-  assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '서울염경중학교' })), '염경중1');
+// 지역명이 학교 정식명 일부인 경우(경기과학고 등) 보호 — 축약형만 제거
+test('지역명 정식명 보호: 경기과학고등학교 → 경기과학고1 (지역명 안 뺌)', () => {
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '경기과학고등학교' })), '경기과학고1');
 });
-test('지역명 제거: 부산영도초등학교 → 영도초6', () => {
-  assert.equal(studentFullLabel(SL('초등', 6, { school_elementary: '부산영도초등학교' })), '영도초6');
+test('지역명 축약형은 제거: 서울목동중 → 목동중2', () => {
+  assert.equal(studentFullLabel(SL('중등', 2, { school_middle: '서울목동중' })), '목동중2');
 });
 test('지역명 제거 후 1글자는 원복: 서울중 → 서울중1', () => {
   assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '서울중' })), '서울중1');

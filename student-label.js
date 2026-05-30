@@ -28,18 +28,15 @@ export function normalizeRealLevelGrade(s) {
 function normalizeSchoolForLabel(name) {
   let s = String(name || '').trim().replace(/\s+/g, ' ');
   s = s.replace(/(초등학교|중학교|고등학교|학교)$/, '').trim();
-  const beforeAbbr = s;
   for (const [a, b] of SCHOOL_ABBR) s = s.split(a).join(b);
-  // 지역명 prefix 제거(제거 후 2글자+ 남을 때만, 1글자는 원복 — 예: '서울중'→'서울중').
-  // 풀네임도 처리됨('서울염경중학교'→접미어제거 '서울염경'→'염경'). 단 약어(사범대부속·외국어 등)가
-  // 적용된 학교는 '서울'이 학교명 일부('서울대 사대부')일 수 있어 지역명 제거를 건너뛴다.
-  if (s === beforeAbbr) {
-    for (const r of REGIONS) {
-      if (s.startsWith(r) && s.length > r.length) {
-        const rest = s.slice(r.length);
-        if (rest.length > 1) s = rest;
-        break;
-      }
+  // 지역명 prefix 제거: 남은 글자가 2자+이고 학부글자(초/중/고)로 끝나는 축약형만 제거.
+  // 지역명이 학교 정식명 일부인 경우(경기과학고·부산국제고·인천하늘고 등)를 보호하려는 의도 —
+  // 풀네임 입력접두('서울염경중학교')는 자동 구분 불가하므로 개별 데이터로 교정한다.
+  for (const r of REGIONS) {
+    if (s.startsWith(r) && s.length > r.length) {
+      const rest = s.slice(r.length);
+      if (rest.length > 1 && /[초중고]$/.test(rest)) s = rest;
+      break;
     }
   }
   return s;
