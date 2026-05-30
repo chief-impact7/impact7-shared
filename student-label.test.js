@@ -125,6 +125,9 @@ test('학교유형 보호: 부산국제/서울예술/서울체육/경기외국�
   assert.equal(studentFullLabel(SL('고등', 1, { school_high: '경기외국어고등학교' })), '경기외고1');
   assert.equal(studentFullLabel(SL('고등', 1, { school_high: '서울사범대부속고등학교' })), '서울사대부고1');
 });
+test('개별 정식명 보호: 인천하늘고등학교 → 인천하늘고1', () => {
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '인천하늘고등학교' })), '인천하늘고1');
+});
 // 일반학교는 입력접두 지역명 제거 (버그1)
 test('일반학교 지역명 제거: 서울염경중학교 → 염경중1', () => {
   assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '서울염경중학교' })), '염경중1');

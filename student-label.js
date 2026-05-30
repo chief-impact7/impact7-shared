@@ -10,6 +10,8 @@ const DUP_EXCEPT = new Set(['서초', '활초', '소초', '속초', '시초', '�
 // 지역명이 학교 정식명 일부인 학교유형(접미어·약어 적용 후 stem 기준) — 지역명 prefix 유지.
 // 예: 경기과학고·부산국제고·서울예술고·서울사대부고·대원외고·서울체육고.
 const REGION_KEEP_SUFFIX = ['과학', '국제', '미술', '예술', '사대부', '외', '체육'];
+// 지역명이 정식명이지만 학교유형 접미사가 아닌 개별 학교(stem 완전일치) — 지역명 유지.
+const REGION_KEEP_EXACT = new Set(['인천하늘']);
 
 // 현재 학부의 학교명. 학부별 필드(school_elementary/middle/high)에서 현재 level 것.
 // 학부별 필드가 없는 객체(temp_attendance·contacts 등 자체 도메인)는 단일 school로 폴백.
@@ -34,7 +36,7 @@ function normalizeSchoolForLabel(name) {
   for (const [a, b] of SCHOOL_ABBR) s = s.split(a).join(b);
   // 지역명 prefix 제거. 단 학교유형(과학·국제·미술·예술·사대부·외·체육고)은 지역명이
   // 정식명 일부('경기과학고')라 유지. 그 외는 입력접두로 보고 제거('서울염경중'→'염경중').
-  if (!REGION_KEEP_SUFFIX.some(k => s.endsWith(k))) {
+  if (!REGION_KEEP_SUFFIX.some(k => s.endsWith(k)) && !REGION_KEEP_EXACT.has(s)) {
     for (const r of REGIONS) {
       if (s.startsWith(r) && s.length > r.length) {
         const rest = s.slice(r.length);
