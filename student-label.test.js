@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { studentFullLabel, normalizeRealLevelGrade, currentSchool } from './student-label.js';
+import { studentFullLabel, normalizeRealLevelGrade, currentSchool, studentSearchTerms } from './student-label.js';
 
 const SL = (level, grade, schools) => ({ level, grade, ...schools });
 
@@ -96,4 +96,20 @@ test('봉영여중3 (예측=기록 중등) → 봉영여중3 (무영향)', () =>
 });
 test('졸업 + 고 학교 없음 → 고(졸업+6)', () => {
   assert.equal(studentFullLabel(SL('중등', 12, { school_middle: '봉영여' })), '고(졸업+6)');
+});
+
+test('studentSearchTerms: 신목 중2 → [신목, 신목중, 신목중2]', () => {
+  assert.deepEqual(studentSearchTerms(SL('중등', 2, { school_middle: '신목' })), ['신목', '신목중', '신목중2']);
+});
+test('studentSearchTerms: 진명여자고등학교 고1 → 정규화 [진명여, 진명여고, 진명여고1]', () => {
+  assert.deepEqual(studentSearchTerms(SL('고등', 1, { school_high: '진명여자고등학교' })), ['진명여', '진명여고', '진명여고1']);
+});
+test('studentSearchTerms: 빈 학교 중2 → [중2]', () => {
+  assert.deepEqual(studentSearchTerms(SL('중등', 2, {})), ['중2']);
+});
+test('studentSearchTerms: 서초 중2 (DUP_EXCEPT) → [서초, 서초중, 서초중2]', () => {
+  assert.deepEqual(studentSearchTerms(SL('중등', 2, { school_middle: '서초' })), ['서초', '서초중', '서초중2']);
+});
+test('studentSearchTerms: 졸업 예측 → [대일, 대일고, 대일고(졸업+1)]', () => {
+  assert.deepEqual(studentSearchTerms(SL('중등', 7, { school_middle: '봉영여', school_high: '대일' })), ['대일', '대일고', '대일고(졸업+1)']);
 });

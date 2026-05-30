@@ -49,3 +49,28 @@ export function studentFullLabel(student) {
   if (norm.graduated) return `${school}${lvPart}(졸업+${norm.grade})`;
   return `${school}${lvPart}${norm.grade ? String(norm.grade) : ''}`;
 }
+
+// 검색어 후보 [학교, 학교+학부글자, 풀라벨]. studentFullLabel과 동일 기준(정규화·예측학부·졸업)으로
+// 표시와 검색을 일치시킨다. 풀라벨에서 학년/졸업 꼬리를 떼어 상위 단계를 복원.
+export function studentSearchTerms(student) {
+  const full = studentFullLabel(student);
+  if (!full) return [];
+  const norm = normalizeRealLevelGrade(student || {});
+  const predLevel = norm.graduated ? '고등' : norm.level;
+  const lv = LEVEL_SHORT[predLevel] || '';
+
+  let schoolPlusLevel = full;
+  if (norm.graduated) {
+    schoolPlusLevel = full.replace(/\(졸업\+\d+\)$/, '');
+  } else if (norm.grade) {
+    const g = String(norm.grade);
+    schoolPlusLevel = full.endsWith(g) ? full.slice(0, -g.length) : full;
+  }
+
+  const school = lv && schoolPlusLevel.endsWith(lv)
+    ? schoolPlusLevel.slice(0, -lv.length)
+    : schoolPlusLevel;
+
+  if (!school) return [full];
+  return Array.from(new Set([school, schoolPlusLevel, full]));
+}
