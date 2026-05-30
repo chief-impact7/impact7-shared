@@ -114,9 +114,23 @@ test('studentSearchTerms: 졸업 예측 → [대일, 대일고, 대일고(졸업
   assert.deepEqual(studentSearchTerms(SL('중등', 7, { school_middle: '봉영여', school_high: '대일' })), ['대일', '대일고', '대일고(졸업+1)']);
 });
 
-// 지역명이 학교 정식명 일부인 경우(경기과학고 등) 보호 — 축약형만 제거
-test('지역명 정식명 보호: 경기과학고등학교 → 경기과학고1 (지역명 안 뺌)', () => {
+// 학교유형(과학·국제·미술·예술·사대부·외·체육고)은 지역명이 정식명이라 유지
+test('학교유형 보호: 경기과학고등학교 → 경기과학고1', () => {
   assert.equal(studentFullLabel(SL('고등', 1, { school_high: '경기과학고등학교' })), '경기과학고1');
+});
+test('학교유형 보호: 부산국제/서울예술/서울체육/경기외국어/서울사대부', () => {
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '부산국제고등학교' })), '부산국제고1');
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '서울예술고등학교' })), '서울예술고1');
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '서울체육고등학교' })), '서울체육고1');
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '경기외국어고등학교' })), '경기외고1');
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '서울사범대부속고등학교' })), '서울사대부고1');
+});
+// 일반학교는 입력접두 지역명 제거 (버그1)
+test('일반학교 지역명 제거: 서울염경중학교 → 염경중1', () => {
+  assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '서울염경중학교' })), '염경중1');
+});
+test('일반학교 지역명 제거: 부산영도초등학교 → 영도초6', () => {
+  assert.equal(studentFullLabel(SL('초등', 6, { school_elementary: '부산영도초등학교' })), '영도초6');
 });
 test('지역명 축약형은 제거: 서울목동중 → 목동중2', () => {
   assert.equal(studentFullLabel(SL('중등', 2, { school_middle: '서울목동중' })), '목동중2');

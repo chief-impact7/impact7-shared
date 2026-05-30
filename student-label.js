@@ -7,6 +7,9 @@ const SCHOOL_ABBR = [['사범대부속', '사대부'], ['여자', '여'], ['외�
 const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종', '강원', '충북', '충남', '전북', '전남', '경북', '경남', '제주'];
 // 학교명이 학부글자로 끝나지만 그 글자가 학부가 아닌 예외(학부글자 유지).
 const DUP_EXCEPT = new Set(['서초', '활초', '소초', '속초', '시초', '도초', '백초', '생초', '연초', '윤중', '안중', '영중', '운중', '아중']);
+// 지역명이 학교 정식명 일부인 학교유형(접미어·약어 적용 후 stem 기준) — 지역명 prefix 유지.
+// 예: 경기과학고·부산국제고·서울예술고·서울사대부고·대원외고·서울체육고.
+const REGION_KEEP_SUFFIX = ['과학', '국제', '미술', '예술', '사대부', '외', '체육'];
 
 // 현재 학부의 학교명. 학부별 필드(school_elementary/middle/high)에서 현재 level 것.
 // 학부별 필드가 없는 객체(temp_attendance·contacts 등 자체 도메인)는 단일 school로 폴백.
@@ -29,14 +32,15 @@ function normalizeSchoolForLabel(name) {
   let s = String(name || '').trim().replace(/\s+/g, ' ');
   s = s.replace(/(초등학교|중학교|고등학교|학교)$/, '').trim();
   for (const [a, b] of SCHOOL_ABBR) s = s.split(a).join(b);
-  // 지역명 prefix 제거: 남은 글자가 2자+이고 학부글자(초/중/고)로 끝나는 축약형만 제거.
-  // 지역명이 학교 정식명 일부인 경우(경기과학고·부산국제고·인천하늘고 등)를 보호하려는 의도 —
-  // 풀네임 입력접두('서울염경중학교')는 자동 구분 불가하므로 개별 데이터로 교정한다.
-  for (const r of REGIONS) {
-    if (s.startsWith(r) && s.length > r.length) {
-      const rest = s.slice(r.length);
-      if (rest.length > 1 && /[초중고]$/.test(rest)) s = rest;
-      break;
+  // 지역명 prefix 제거. 단 학교유형(과학·국제·미술·예술·사대부·외·체육고)은 지역명이
+  // 정식명 일부('경기과학고')라 유지. 그 외는 입력접두로 보고 제거('서울염경중'→'염경중').
+  if (!REGION_KEEP_SUFFIX.some(k => s.endsWith(k))) {
+    for (const r of REGIONS) {
+      if (s.startsWith(r) && s.length > r.length) {
+        const rest = s.slice(r.length);
+        if (rest.length > 1) s = rest;  // 1글자 남으면 원복(예: '서울중')
+        break;
+      }
     }
   }
   return s;
