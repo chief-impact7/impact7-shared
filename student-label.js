@@ -20,7 +20,9 @@ export function currentSchool(student) {
 }
 
 export function normalizeRealLevelGrade(s) {
-  const gradeNum = parseInt(s?.grade, 10);
+  // grade가 '중2'처럼 학부글자 섞인 비정상 입력(진단평가)이어도 첫 숫자그룹만 추출 → 학년 인식.
+  const _gm = String(s?.grade ?? '').match(/\d+/);
+  const gradeNum = _gm ? parseInt(_gm[0], 10) : NaN;
   if (isNaN(gradeNum) || gradeNum <= 0) return { level: s?.level || '초등', grade: 0, graduated: false };
   const base = LEVEL_CUMULATIVE_START[s.level] ?? 0;
   const cumulative = base + gradeNum;
