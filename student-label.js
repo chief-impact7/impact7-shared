@@ -41,10 +41,11 @@ function normalizeSchoolForLabel(name) {
 
 export function studentFullLabel(student) {
   const norm = normalizeRealLevelGrade(student || {});
-  const school = normalizeSchoolForLabel(currentSchool(student));
-  const lv = LEVEL_SHORT[norm.graduated ? '고등' : norm.level] || '';
+  const predLevel = norm.graduated ? '고등' : norm.level;
+  const school = normalizeSchoolForLabel(student?.[SCHOOL_FIELD[predLevel]] || '');
+  const lv = LEVEL_SHORT[predLevel] || '';
   const dup = lv && school.endsWith(lv) && !DUP_EXCEPT.has(school);
   const lvPart = dup ? '' : lv;
-  if (norm.graduated) return school ? `${school}${lvPart}(졸업+${norm.grade})` : `졸업+${norm.grade}`;
+  if (norm.graduated) return `${school}${lvPart}(졸업+${norm.grade})`;
   return `${school}${lvPart}${norm.grade ? String(norm.grade) : ''}`;
 }

@@ -40,8 +40,8 @@ test('사범대부속 → 사대부 (긴 것 우선)', () => {
 test('졸업: 고등 grade 4 → 누적 13 → (졸업+1)', () => {
   assert.equal(studentFullLabel(SL('고등', 4, { school_high: '한국고등학교' })), '한국고(졸업+1)');
 });
-test('누적 학년 보정: 초등 grade 11 → 고2', () => {
-  assert.equal(studentFullLabel(SL('초등', 11, { school_elementary: '한국고등학교' })), '한국고2');
+test('누적 학년 보정: 초등 grade 11 → 고2 (예측 학부=고등 학교 읽음)', () => {
+  assert.equal(studentFullLabel(SL('초등', 11, { school_high: '한국고등학교' })), '한국고2');
 });
 test('학년 없음 → 학교+학부', () => {
   assert.equal(studentFullLabel(SL('초등', 0, { school_elementary: '양명초등학교' })), '양명초');
@@ -60,7 +60,7 @@ test('currentSchool: 현재 학부 필드 반환', () => {
 test('currentSchool: 해당 학부 빈값이면 빈 문자열', () => {
   assert.equal(currentSchool({ level: '고등', school_middle: '봉영여중' }), '');
 });
-test('label: currentSchool 기반 (중등 → school_middle)', () => {
+test('label: 중등1 → school_middle 읽음', () => {
   assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '봉영여자중학교' })), '봉영여중1');
 });
 test('지역명 제거: 서울목동중 → 목동중2', () => {
@@ -80,4 +80,20 @@ test('예외 안중: 안중 → 안중중2', () => {
 });
 test('일반 약어 양명초 → 양명초6 (중복 제거)', () => {
   assert.equal(studentFullLabel(SL('초등', 6, { school_elementary: '양명초' })), '양명초6');
+});
+
+test('누적 중등7 + 고 학교 미입력 → 고(졸업+1) (학교 없이)', () => {
+  assert.equal(studentFullLabel(SL('중등', 7, { school_middle: '봉영여' })), '고(졸업+1)');
+});
+test('중등4 + 고 학교 미입력 → 고1 (진학 예측, 중4 아님)', () => {
+  assert.equal(studentFullLabel(SL('중등', 4, { school_middle: '봉영여' })), '고1');
+});
+test('중등4 + 고 학교 입력 → 대일고1', () => {
+  assert.equal(studentFullLabel(SL('중등', 4, { school_middle: '봉영여', school_high: '대일' })), '대일고1');
+});
+test('봉영여중3 (예측=기록 중등) → 봉영여중3 (무영향)', () => {
+  assert.equal(studentFullLabel(SL('중등', 3, { school_middle: '봉영여중' })), '봉영여중3');
+});
+test('졸업 + 고 학교 없음 → 고(졸업+6)', () => {
+  assert.equal(studentFullLabel(SL('중등', 12, { school_middle: '봉영여' })), '고(졸업+6)');
 });
