@@ -113,3 +113,24 @@ test('studentSearchTerms: 서초 중2 (DUP_EXCEPT) → [서초, 서초중, 서�
 test('studentSearchTerms: 졸업 예측 → [대일, 대일고, 대일고(졸업+1)]', () => {
   assert.deepEqual(studentSearchTerms(SL('중등', 7, { school_middle: '봉영여', school_high: '대일' })), ['대일', '대일고', '대일고(졸업+1)']);
 });
+
+// 버그1: 풀네임+지역명 — 접미어 제거 후에도 지역명이 빠져야 함
+test('지역명 제거: 서울염경중학교 → 염경중1', () => {
+  assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '서울염경중학교' })), '염경중1');
+});
+test('지역명 제거: 부산영도초등학교 → 영도초6', () => {
+  assert.equal(studentFullLabel(SL('초등', 6, { school_elementary: '부산영도초등학교' })), '영도초6');
+});
+test('지역명 제거 후 1글자는 원복: 서울중 → 서울중1', () => {
+  assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '서울중' })), '서울중1');
+});
+// 버그3: 학부별 필드 없이 단일 school만 가진 객체(temp_attendance/contacts) 폴백
+test('school 단일 폴백: 학부필드 없으면 school로 → 신목초6', () => {
+  assert.equal(studentFullLabel({ level: '초등', grade: 6, school: '신목초' }), '신목초6');
+});
+test('currentSchool 폴백: 학부필드 없으면 school 반환', () => {
+  assert.equal(currentSchool({ level: '초등', school: '신목초' }), '신목초');
+});
+test('학부필드 우선: school_*와 school 둘 다면 school_* 사용', () => {
+  assert.equal(currentSchool({ level: '중등', school_middle: '신목', school: '구학교' }), '신목');
+});

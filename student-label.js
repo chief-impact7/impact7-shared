@@ -9,8 +9,9 @@ const REGIONS = ['서울', '경기', '인천', '부산', '대구', '광주', '�
 const DUP_EXCEPT = new Set(['서초', '활초', '소초', '속초', '시초', '도초', '백초', '생초', '연초', '윤중', '안중', '영중', '운중', '아중']);
 
 // 현재 학부의 학교명. 학부별 필드(school_elementary/middle/high)에서 현재 level 것.
+// 학부별 필드가 없는 객체(temp_attendance·contacts 등 자체 도메인)는 단일 school로 폴백.
 export function currentSchool(student) {
-  return student?.[SCHOOL_FIELD[student?.level]] || '';
+  return student?.[SCHOOL_FIELD[student?.level]] || student?.school || '';
 }
 
 export function normalizeRealLevelGrade(s) {
@@ -27,13 +28,18 @@ export function normalizeRealLevelGrade(s) {
 function normalizeSchoolForLabel(name) {
   let s = String(name || '').trim().replace(/\s+/g, ' ');
   s = s.replace(/(초등학교|중학교|고등학교|학교)$/, '').trim();
+  const beforeAbbr = s;
   for (const [a, b] of SCHOOL_ABBR) s = s.split(a).join(b);
-  // 지역명 prefix 제거. 남은 글자가 2글자 이상이고 학부글자(초/중/고)로 끝날 때만 제거(빈값·1글자는 원복).
-  for (const r of REGIONS) {
-    if (s.startsWith(r) && s.length > r.length) {
-      const rest = s.slice(r.length);
-      if (rest.length > 1 && /[초중고]$/.test(rest)) s = rest;
-      break;
+  // 지역명 prefix 제거(제거 후 2글자+ 남을 때만, 1글자는 원복 — 예: '서울중'→'서울중').
+  // 풀네임도 처리됨('서울염경중학교'→접미어제거 '서울염경'→'염경'). 단 약어(사범대부속·외국어 등)가
+  // 적용된 학교는 '서울'이 학교명 일부('서울대 사대부')일 수 있어 지역명 제거를 건너뛴다.
+  if (s === beforeAbbr) {
+    for (const r of REGIONS) {
+      if (s.startsWith(r) && s.length > r.length) {
+        const rest = s.slice(r.length);
+        if (rest.length > 1) s = rest;
+        break;
+      }
     }
   }
   return s;
@@ -42,7 +48,7 @@ function normalizeSchoolForLabel(name) {
 export function studentFullLabel(student) {
   const norm = normalizeRealLevelGrade(student || {});
   const predLevel = norm.graduated ? '고등' : norm.level;
-  const school = normalizeSchoolForLabel(student?.[SCHOOL_FIELD[predLevel]] || '');
+  const school = normalizeSchoolForLabel(student?.[SCHOOL_FIELD[predLevel]] || student?.school || '');
   const lv = LEVEL_SHORT[predLevel] || '';
   const dup = lv && school.endsWith(lv) && !DUP_EXCEPT.has(school);
   const lvPart = dup ? '' : lv;
