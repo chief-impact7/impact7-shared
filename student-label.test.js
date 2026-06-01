@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { studentFullLabel, normalizeRealLevelGrade, currentSchool, studentSearchTerms } from './student-label.js';
+import { studentFullLabel, normalizeRealLevelGrade, currentSchool, studentSearchTerms, formatSchoolLabelFromText } from './student-label.js';
 
 const SL = (level, grade, schools) => ({ level, grade, ...schools });
 
@@ -156,4 +156,19 @@ test('currentSchool 폴백: 학부필드 없으면 school 반환', () => {
 });
 test('학부필드 우선: school_*와 school 둘 다면 school_* 사용', () => {
   assert.equal(currentSchool({ level: '중등', school_middle: '신목', school: '구학교' }), '신목');
+});
+
+// className 텍스트 정규화 (비원생·OCR 인식 — 학생 마스터 객체 없을 때)
+test('className 텍스트: 서울신가초 6학년 → 신가초6 (지역명 제거)', () => {
+  assert.equal(formatSchoolLabelFromText('서울신가초 6학년'), '신가초6');
+});
+test('className 텍스트: 경인초 / 6학년 → 경인초6', () => {
+  assert.equal(formatSchoolLabelFromText('경인초 / 6학년'), '경인초6');
+});
+test('className 텍스트: 양명초/6 → 양명초6', () => {
+  assert.equal(formatSchoolLabelFromText('양명초/6'), '양명초6');
+});
+test('className 텍스트: 학년 없으면 학교명만, 빈값은 빈문자', () => {
+  assert.equal(formatSchoolLabelFromText(''), '');
+  assert.equal(formatSchoolLabelFromText('A반'), 'A반');
 });

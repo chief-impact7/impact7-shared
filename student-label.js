@@ -61,6 +61,24 @@ export function studentFullLabel(student) {
   return `${school}${lvPart}${norm.grade ? String(norm.grade) : ''}`;
 }
 
+// 학생 마스터 객체가 없을 때(비원생·OCR 인식) 합쳐진 className 텍스트를 학교라벨로 정규화한다.
+// 예) "서울신가초 6학년" → "신가초6", "경인초 / 6학년" → "경인초6", "양명초/6" → "양명초6".
+// 학교명 부분에 studentFullLabel과 동일한 normalizeSchoolForLabel(지역명 제거·약어)을 적용하고
+// 학년(마지막 숫자그룹)을 결합한다. 학년을 못 찾거나 학교명이 비면 정규화한 학교명(또는 원문)만 반환.
+export function formatSchoolLabelFromText(raw) {
+  const text = String(raw || '').trim().replace(/\s+/g, ' ');
+  if (!text) return '';
+  const gm = text.match(/(\d+)\s*학년/) || text.match(/[/\s](\d+)\s*$/);
+  const grade = gm ? gm[1] : '';
+  const schoolRaw = text
+    .replace(/[/\s]*\d+\s*학년.*$/, '')
+    .replace(/[/\s]+\d+\s*$/, '')
+    .trim();
+  const school = normalizeSchoolForLabel(schoolRaw);
+  if (!school) return text;
+  return `${school}${grade}`;
+}
+
 // 검색어 후보 [학교, 학교+학부글자, 풀라벨]. studentFullLabel과 동일 기준(정규화·예측학부·졸업)으로
 // 표시와 검색을 일치시킨다. 풀라벨에서 학년/졸업 꼬리를 떼어 상위 단계를 복원.
 export function studentSearchTerms(student) {
