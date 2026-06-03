@@ -14,3 +14,13 @@ export function deriveStudentNumber(student) {
     }
     return { studentNumber: '', source: '' };
 }
+
+export function studentNumberNameKey(name) {
+    return String(name || '').replace(/\s+/g, '');
+}
+
+export function studentNumberIdentityKey(name, studentNumber) {
+    const nameKey = studentNumberNameKey(name);
+    const number = String(studentNumber || '').trim();
+    return nameKey && number ? `${nameKey}|${number}` : '';
+}
