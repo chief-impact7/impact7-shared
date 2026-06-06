@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { studentFullLabel, normalizeRealLevelGrade, currentSchool, studentSearchTerms, formatSchoolLabelFromText } from './student-label.js';
+import {
+  currentSchool,
+  formatSchoolLabelFromText,
+  normalizeRealLevelGrade,
+  schoolLevelGradeLabel,
+  studentFullLabel,
+  studentSearchTerms,
+} from './student-label.js';
 
 const SL = (level, grade, schools) => ({ level, grade, ...schools });
 
@@ -48,6 +55,12 @@ test('학년 없음 → 학교+학부', () => {
 });
 test('school 빈 값 → 학부+학년만', () => {
   assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '' })), '중1');
+});
+test('학교+학부+학년 직접 입력 → 화면 공통 축약형', () => {
+  assert.equal(schoolLevelGradeLabel({ school: '강서', level: '고등', grade: 1 }), '강서고1');
+  assert.equal(schoolLevelGradeLabel({ school: '금옥', level: '중등', grade: 2 }), '금옥중2');
+  assert.equal(schoolLevelGradeLabel({ school: '금옥여', level: '중등', grade: 1 }), '금옥여중1');
+  assert.equal(schoolLevelGradeLabel({ school: '장승', level: '중등', grade: 2 }), '장승중2');
 });
 
 test('normalizeRealLevelGrade: 졸업 판정', () => {

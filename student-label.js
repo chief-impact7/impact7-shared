@@ -50,15 +50,25 @@ function normalizeSchoolForLabel(name) {
   return s;
 }
 
+export function schoolLevelGradeLabel({ school = '', level = '', grade = '' } = {}) {
+  const norm = normalizeRealLevelGrade({ level, grade });
+  const predLevel = norm.graduated ? '고등' : norm.level;
+  const normalizedSchool = normalizeSchoolForLabel(school);
+  const lv = LEVEL_SHORT[predLevel] || '';
+  const dup = lv && normalizedSchool.endsWith(lv) && !DUP_EXCEPT.has(normalizedSchool);
+  const lvPart = dup ? '' : lv;
+  if (norm.graduated) return `${normalizedSchool}${lvPart}(졸업+${norm.grade})`;
+  return `${normalizedSchool}${lvPart}${norm.grade ? String(norm.grade) : ''}`;
+}
+
 export function studentFullLabel(student) {
   const norm = normalizeRealLevelGrade(student || {});
   const predLevel = norm.graduated ? '고등' : norm.level;
-  const school = normalizeSchoolForLabel(student?.[SCHOOL_FIELD[predLevel]] || student?.school || '');
-  const lv = LEVEL_SHORT[predLevel] || '';
-  const dup = lv && school.endsWith(lv) && !DUP_EXCEPT.has(school);
-  const lvPart = dup ? '' : lv;
-  if (norm.graduated) return `${school}${lvPart}(졸업+${norm.grade})`;
-  return `${school}${lvPart}${norm.grade ? String(norm.grade) : ''}`;
+  return schoolLevelGradeLabel({
+    school: student?.[SCHOOL_FIELD[predLevel]] || student?.school || '',
+    level: student?.level,
+    grade: student?.grade,
+  });
 }
 
 // 학생 마스터 객체가 없을 때(비원생·OCR 인식) 합쳐진 className 텍스트를 학교라벨로 정규화한다.
