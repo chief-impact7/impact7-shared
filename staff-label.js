@@ -6,5 +6,5 @@
 export function staffLabel(emailOrId) {
   if (typeof emailOrId !== 'string') return '';
   const t = emailOrId.trim();
-  return t.includes('@') ? t.split('@')[0] : t;
+  return t.split('@')[0];
 }
