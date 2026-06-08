@@ -136,10 +136,14 @@ KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제.
 이유: 로그 텍스트 파싱 전용이며 `종강`이 로그에 기록되지 않아 집합이 다르다.
 → 상태값 추가 시 **두 파일을 모두 확인**해야 한다.
 
-## 소비자 패키지 버전 업 알림
+## 소비자 패키지 버전 업
 
-변경 후 소비자에서 `npm update @impact7/shared` 필요.
-**breaking change** (시그니처·구조 변경)는 minor/major bump + 소비자 PR 선행.
+1. `package.json` `.version` 올림
+2. `git tag vX.Y.Z && git push origin vX.Y.Z`
+3. GitHub Actions(`notify-consumers.yml`)가 자동으로 4개 소비자 레포의 package.json을 수정하고 커밋함
+
+**breaking change** (시그니처·구조 변경)는 minor/major bump + 소비자 레포 영향 확인 선행.
+`npm update @impact7/shared`는 태그 고정 방식에서 동작하지 않음 — 태그를 올려야 한다.
 
 ## pre-commit 훅
 

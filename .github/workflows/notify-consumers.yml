@@ -1,0 +1,27 @@
+name: Notify consumers of new release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo: [impact7DB, impact7HR, impact7exam, impact7newDSC]
+    steps:
+      - name: Dispatch update-shared to ${{ matrix.repo }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.CONSUMER_UPDATE_TOKEN }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'chief-impact7',
+              repo: '${{ matrix.repo }}',
+              event_type: 'update-shared',
+              client_payload: {
+                version: context.ref.replace('refs/tags/', '')
+              }
+            });
