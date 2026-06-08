@@ -9,8 +9,9 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        repo: [impact7DB, impact7HR, impact7exam, impact7newDSC]
+        repo: [impact7DB, impact7HR, exam, impact7newDSC]
     steps:
       - name: Dispatch update-shared to ${{ matrix.repo }}
         uses: actions/github-script@v7
