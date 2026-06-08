@@ -29,5 +29,5 @@
     "test": "node --test"
   },
   "license": "UNLICENSED",
-  "private": false
+  "private": true
 }

@@ -7,6 +7,9 @@
 // 두 앱은 같은 Firebase 프로젝트(impact7db)의 같은 history_logs 컬렉션을 공유하므로
 // before/after 데이터 형태가 동일하다.
 
+// 의도적 분리: enrollment-status.js를 import하지 않는다.
+// 이유: history-classifier는 로그 텍스트 파싱 전용이며 STATUSES가 다르다(종강 미포함 — 로그에 종강 상태가 기록되지 않음).
+// enrollment-status.js의 ENROLLABLE_STATUSES 집합과 drift 위험 있음 — 상태 추가 시 두 파일 동시 확인.
 const STATUSES = ['상담', '등원예정', '재원', '실휴원', '가휴원', '퇴원'];
 const LEAVE = ['실휴원', '가휴원'];
 
