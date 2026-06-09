@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { classifyHistory, shortAuthor, HISTORY_BADGE } from './history-classifier.js';
+import { classifyHistory, shortAuthor, HISTORY_BADGE, parseStatusClass } from './history-classifier.js';
 
 const label = (log) => classifyHistory(log)?.label ?? null;
 const line = (log) => { const c = classifyHistory(log); return c ? `${c.label}:${c.from}>${c.to}` : null; };
@@ -155,6 +155,72 @@ test('deriveTenure: attendances 미전달 → start=null (안전)', () => {
   const { start, startEvent } = deriveTenure(logs, gd);
   assert.notStrictEqual(startEvent, null);
   assert.strictEqual(start, null);
+});
+
+const EMPTY_PARSE = { status: '', classes: '', pauseStart: '' };
+
+test('parseStatusClass: 비문자열·빈값·대시', () => {
+  for (const v of [null, undefined, '', '—'])
+    assert.deepStrictEqual(parseStatusClass(v), EMPTY_PARSE);
+});
+
+test('parseStatusClass: JSON 형식', () => {
+  assert.deepStrictEqual(
+    parseStatusClass('{"status":"재원"}'),
+    { status: '재원', classes: '', pauseStart: '' },
+  );
+  assert.deepStrictEqual(
+    parseStatusClass('{"status":"실휴원","pause_start_date":"2026-05-01"}'),
+    { status: '실휴원', classes: '', pauseStart: '2026-05-01' },
+  );
+  // pause_start_date 누락 시 빈 문자열
+  assert.deepStrictEqual(
+    parseStatusClass('{"status":"가휴원","pause_start_date":""}'),
+    { status: '가휴원', classes: '', pauseStart: '' },
+  );
+  // 깨진 JSON → 이후 파싱으로 fallback
+  assert.deepStrictEqual(parseStatusClass('{broken'), EMPTY_PARSE);
+});
+
+test('parseStatusClass: 한글 상태: 포맷', () => {
+  assert.deepStrictEqual(
+    parseStatusClass('상태:재원, 반:A101, 요일:월, 금'),
+    { status: '재원', classes: 'A101', pauseStart: '' },
+  );
+  // 반:— 는 빈 문자열로 정규화
+  assert.deepStrictEqual(
+    parseStatusClass('상태:등원예정, 반:—, 요일:N/A'),
+    { status: '등원예정', classes: '', pauseStart: '' },
+  );
+  // 반 없이 상태만
+  assert.deepStrictEqual(
+    parseStatusClass('상태:퇴원'),
+    { status: '퇴원', classes: '', pauseStart: '' },
+  );
+});
+
+test('parseStatusClass: 영문 status: 포맷 (일괄 import)', () => {
+  assert.deepStrictEqual(
+    parseStatusClass('status:재원'),
+    { status: '재원', classes: '', pauseStart: '' },
+  );
+  assert.deepStrictEqual(
+    parseStatusClass('status:실휴원, pause_start_date:2026-05-01'),
+    { status: '실휴원', classes: '', pauseStart: '2026-05-01' },
+  );
+  // 수업추가 동반 포맷
+  assert.deepStrictEqual(
+    parseStatusClass('status:재원, 추가: HA101, 총 2개 누적'),
+    { status: '재원', classes: '', pauseStart: '' },
+  );
+});
+
+test('parseStatusClass: 단독 상태 문자열', () => {
+  assert.deepStrictEqual(parseStatusClass('재원'),    { status: '재원',    classes: '', pauseStart: '' });
+  assert.deepStrictEqual(parseStatusClass('퇴원'),    { status: '퇴원',    classes: '', pauseStart: '' });
+  assert.deepStrictEqual(parseStatusClass('실휴원'),  { status: '실휴원',  classes: '', pauseStart: '' });
+  // STATUSES에 없는 임의 문자열
+  assert.deepStrictEqual(parseStatusClass('알수없음'), EMPTY_PARSE);
 });
 
 test('isAttendedStatus: 출석/지각/조퇴만 true', () => {
