@@ -36,15 +36,15 @@ metadata:
 
 | 모듈 | 쿼리 예시 |
 |------|----------|
-| 학생 표시 라벨 | `"studentFullLabel schoolLevelGradeLabel studentSearchTerms normalizeSchoolForLabel"` |
+| 학생 표시 라벨 | `"studentFullLabel schoolLevelGradeLabel studentSearchTerms normalizeSchoolForLabel formatSchoolLabelFromText"` |
 | 학생번호 | `"deriveStudentNumber studentNumberIdentityKey studentNumberNameKey"` |
 | 수강 상태 정합성 | `"ENROLLABLE_STATUSES reconcileEnrollments selectableStatuses STATUS_TONE isEnrollableStatus"` |
-| 수강 파생 | `"enrollment-derivation getActiveEnrollments enrollmentCode"` |
-| 이력 로그 분류 | `"history-classifier HISTORY_BADGE shortAuthor classifyHistory"` |
-| 반 이동 | `"class-move classMove moveEnrollment"` |
-| 승격 등록 | `"promote-enroll promoteEnroll buildPromoteEnrollment"` |
-| 직원 라벨 | `"staff-label staffLabel staffShortLabel"` |
-| 날짜 유틸 | `"datetime formatDateKST formatDateTimeKST parseDateKST"` |
+| 수강 파생 | `"applyNaesinFreeDerivation deriveClassPeriodHistory deriveLevelPeriod enrollmentCode"` |
+| 이력 로그 분류 | `"HISTORY_BADGE classifyHistory shortAuthor deriveTenure isAttendedStatus"` |
+| 반 이동 | `"moveClass class-move"` |
+| 승격 등록 | `"createPromoteEnrollPending promote-enroll"` |
+| 직원 라벨 | `"staffLabel staff-label"` |
+| 날짜 유틸 | `"formatTimeKST formatDateKST formatDateTimeKST"` |
 
 ## 핵심 불변 규칙
 
