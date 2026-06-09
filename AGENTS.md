@@ -167,3 +167,8 @@ sh .agents/hooks/install.sh
 ## 응답 언어
 
 모든 에이전트는 한국어로 응답한다.
+
+## codegraph 탐색 원칙
+
+코드를 탐색할 때 Read·grep 전에 **`codegraph_explore`를 먼저** 실행한다.
+`.memory/reference_codegraph_guide.md`에 도메인별 핵심 쿼리가 정리되어 있다.
