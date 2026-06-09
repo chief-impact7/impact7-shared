@@ -172,3 +172,18 @@ sh .agents/hooks/install.sh
 
 코드를 탐색할 때 Read·grep 전에 **`codegraph_explore`를 먼저** 실행한다.
 `.memory/reference_codegraph_guide.md`에 도메인별 핵심 쿼리가 정리되어 있다.
+
+---
+
+## 하네스: impact7-shared
+
+**목표:** 순수 함수 모듈 추가·검증·릴리스를 에이전트 팀이 일관되게 처리한다.
+
+**트리거:** 새 모듈 추가·기존 모듈 수정·품질 검증·릴리스 요청 시 `impact7-shared-module` 스킬을 사용하라. 단순 질문·단일 파일 편집은 직접 응답 가능.
+
+**변경 이력:**
+| 날짜 | 변경 내용 | 대상 | 사유 |
+|------|----------|------|------|
+| 2026-06-09 | 초기 구성 | quality-guard, module-author, impact7-shared-module | 다중 에이전트 안전성 강화 세션 |
+| 2026-06-09 | 포인터 등록 + description 후속 키워드 추가 + 테스트 수 동기화 | AGENTS.md, SKILL.md, quality-guard.md | 하네스 드리프트 정합 |
+| 2026-06-09 | release 스킬 신설 | .claude/skills/release/SKILL.md | Actions 자동화 연동 릴리스 프로세스 스킬화 |

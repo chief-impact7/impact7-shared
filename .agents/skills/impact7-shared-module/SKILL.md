@@ -1,7 +1,7 @@
 ---
 name: impact7-shared-module
 description: >
-  impact7-shared에 새 순수 함수 모듈을 추가할 때 사용. 모듈 작성 → 테스트 → exports 등록 → 품질 검증 → 버전 bump 전 과정을 에이전트 팀으로 처리. "새 모듈", "모듈 추가", "함수 추가", "impact7-shared에 추가"가 트리거.
+  impact7-shared에 새 순수 함수 모듈을 추가하거나 기존 모듈을 수정할 때 사용. 모듈 작성 → 테스트 → exports 등록 → 품질 검증 → 버전 bump 전 과정을 에이전트 팀으로 처리. "새 모듈", "모듈 추가", "함수 추가", "impact7-shared에 추가", "모듈 수정", "재실행", "보완", "이전 결과 기반으로"가 트리거.
 ---
 
 # impact7-shared 모듈 추가 오케스트레이터
