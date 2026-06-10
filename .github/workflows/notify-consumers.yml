@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        repo: [impact7DB, impact7HR, exam, impact7newDSC]
+        repo: [impact7DB, impact7HR, exam, impact7newDSC, DashBoard]
     steps:
       - name: Dispatch update-shared to ${{ matrix.repo }}
         uses: actions/github-script@v9
