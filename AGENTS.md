@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB/DSC 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 157개 통과.
+- 테스트: `npm test` (`node --test`). 현재 175개 통과.
 
 ## 모듈 목록 및 공개 API
 
@@ -143,6 +143,15 @@ HTML 템플릿 문자열 렌더링용 IME-aware inline 이벤트 어트리뷰트
 | `branchFromClassNumber` | fn | `(num) → '2단지' \| '10단지' \| ''` — '10단지'/'2단지' 접두 우선, 그다음 첫 숫자('1'→2단지, '2'→10단지) |
 | `branchFromStudent` | fn | `(s) → string` — `s.branch` 우선, 없으면 첫 enrollment에서 파생 |
 | `branchesFromStudent` | fn | `(s) → string[]` — 전체 enrollment 파생 합집합, 비면 branch fallback |
+
+### `./leave-cycles` — `leave-cycles.js`
+
+`leave_requests` 휴원/퇴원 사이클 묶음 SSoT. DB·DSC 과거이력 뷰가 공유.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `leaveRequestSortKey` | fn | `(r) → number` — ms. created_at → requested_at → leave_start_date → withdrawal_date → return_date 폴백. Timestamp·Date·문자열 처리 |
+| `groupLeaveCycles` | fn | `(requests) → [{ type: 'leave'\|'leave_to_withdraw'\|'withdraw'\|'reenroll'\|'other', startDate, endDate, returnDate, withdrawalDate, note, subType, requests }]` — cancelled/rejected 제외, 최신 사이클이 앞 |
 
 ---
 
