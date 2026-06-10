@@ -7,7 +7,12 @@ import {
   schoolLevelGradeLabel,
   studentFullLabel,
   studentSearchTerms,
+  LEVEL_SHORT,
 } from './student-label.js';
+
+test('LEVEL_SHORT: 학부 약어 매핑', () => {
+  assert.deepEqual(LEVEL_SHORT, { '초등': '초', '중등': '중', '고등': '고' });
+});
 
 const SL = (level, grade, schools) => ({ level, grade, ...schools });
 

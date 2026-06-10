@@ -1,6 +1,6 @@
 // 학생의 학교+학부+학년 라벨("봉영여중1") 단일 소스. 순수 함수.
 const LEVEL_CUMULATIVE_START = { '초등': 0, '중등': 6, '고등': 9 };
-const LEVEL_SHORT = { '초등': '초', '중등': '중', '고등': '고' };
+export const LEVEL_SHORT = { '초등': '초', '중등': '중', '고등': '고' };
 export const SCHOOL_FIELD = { '초등': 'school_elementary', '중등': 'school_middle', '고등': 'school_high' };
 const SCHOOL_ABBR = [['사범대부속', '사대부'], ['여자', '여'], ['외국어', '외'], ['부속', '부']];
 // 광역시/도 — 학교명 앞 지역명 prefix 제거용.

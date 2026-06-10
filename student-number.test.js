@@ -4,6 +4,7 @@ import {
     deriveStudentNumber,
     studentNumberIdentityKey,
     studentNumberNameKey,
+    normalizeRegistrationNo,
 } from './student-number.js';
 
 test('deriveStudentNumber: student_phone 우선, 010 제거 후 앞 6자리', () => {
@@ -36,4 +37,23 @@ test('studentNumberIdentityKey: OCR 매칭용 이름+학생번호 키', () => {
 test('studentNumberIdentityKey: 이름 또는 번호 없으면 빈 문자열', () => {
     assert.equal(studentNumberIdentityKey('', '123456'), '');
     assert.equal(studentNumberIdentityKey('홍길동', ''), '');
+});
+
+test('normalizeRegistrationNo: 11자리 010 → 앞 3자리 제거', () => {
+    assert.equal(normalizeRegistrationNo('010-1234-5678'), '12345678');
+});
+
+test('normalizeRegistrationNo: 8자리 00 패딩 → 뒤 2자리 제거', () => {
+    assert.equal(normalizeRegistrationNo('12345600'), '123456');
+});
+
+test('normalizeRegistrationNo: falsy/숫자없음 → 빈 문자열', () => {
+    assert.equal(normalizeRegistrationNo(''), '');
+    assert.equal(normalizeRegistrationNo(null), '');
+    assert.equal(normalizeRegistrationNo(undefined), '');
+    assert.equal(normalizeRegistrationNo('abc-def'), '');
+});
+
+test('normalizeRegistrationNo: 그 외 자리수는 숫자만 추출', () => {
+    assert.equal(normalizeRegistrationNo('123-456'), '123456');
 });

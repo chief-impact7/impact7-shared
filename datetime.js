@@ -47,3 +47,8 @@ export function formatDateKST(value) {
     timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
   });
 }
+
+// KST 기준 오늘 날짜: "YYYY-MM-DD"
+export function todayKST() {
+  return formatDateKST(new Date());
+}

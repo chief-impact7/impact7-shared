@@ -24,3 +24,13 @@ export function studentNumberIdentityKey(name, studentNumber) {
     const number = String(studentNumber || '').trim();
     return nameKey && number ? `${nameKey}|${number}` : '';
 }
+
+// 중복 감지·dedup용 등록번호 정규화 — 비교용 키 전용, 저장·표시용 아님.
+// 11자리 010 시작 → 앞 3자리 제거, 8자리 '00' 패딩 → 뒤 2자리 제거, 숫자만.
+export function normalizeRegistrationNo(raw) {
+    if (!raw) return '';
+    let digits = String(raw).replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('010')) digits = digits.slice(3);
+    if (digits.length === 8 && digits.endsWith('00')) digits = digits.slice(0, 6);
+    return digits;
+}

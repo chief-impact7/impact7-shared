@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB/DSC 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 130개 통과.
+- 테스트: `npm test` (`node --test`). 현재 157개 통과.
 
 ## 모듈 목록 및 공개 API
 
@@ -47,8 +47,9 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode }) → enrollment` |
-| `deriveClassPeriodHistory` | fn | `(enrollments, classSettings, { enrollmentCode }) → [{ class_type, code, start_date, end_date }]` |
+| `enrollmentCode` | fn | `(e) → level_symbol+class_number` — 예: `'HA101'`. 아래 두 함수의 옵션 기본값 |
+| `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment` |
+| `deriveClassPeriodHistory` | fn | `(enrollments, classSettings, { enrollmentCode? }?) → [{ class_type, code, start_date, end_date }]` |
 | `deriveLevelPeriod` | fn | `(enrollments, todayStr) → { start: string\|null, label: string }` |
 
 ### `./class-move` — `class-move.js`
@@ -76,6 +77,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `deriveStudentNumber` | fn | `(student) → { studentNumber: string, source: string }` |
 | `studentNumberNameKey` | fn | `(name) → string` — 공백 제거 |
 | `studentNumberIdentityKey` | fn | `(name, studentNumber) → string` — `'이름|번호'` 또는 `''` |
+| `normalizeRegistrationNo` | fn | `(raw) → string` — 비교용 등록번호 정규화 (010 prefix·00 패딩 제거), 저장·표시용 아님 |
 
 ### `./student-label` — `student-label.js`
 
@@ -84,6 +86,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `SCHOOL_FIELD` | const | `{ '초등': 'school_elementary', '중등': 'school_middle', '고등': 'school_high' }` |
+| `LEVEL_SHORT` | const | `{ '초등': '초', '중등': '중', '고등': '고' }` |
 | `currentSchool` | fn | `(student) → string` |
 | `normalizeRealLevelGrade` | fn | `(s) → { level, grade, graduated }` |
 | `schoolLevelGradeLabel` | fn | `({ school, level, grade }) → string` |
@@ -106,6 +109,40 @@ KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제.
 | `formatTimeKST` | fn | `(value) → '오후 3:05'` |
 | `formatDateTimeKST` | fn | `(value, { withYear? }) → '6월 7일 오후 3:05'` |
 | `formatDateKST` | fn | `(value) → 'YYYY-MM-DD'` |
+| `todayKST` | fn | `() → 'YYYY-MM-DD'` — KST 오늘 |
+
+### `./ime-input` — `ime-input.js`
+
+HTML 템플릿 문자열 렌더링용 IME-aware inline 이벤트 어트리뷰트 생성. onSnapshot 재렌더 입력 소실(onchange)·한국어 조합 중 부분 저장(oninput) 문제를 동시에 해결.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `imeInputAttrs` | fn | `(handlerCall) → string` — `oncompositionstart/end` + `oninput` 한 줄 어트리뷰트. handlerCall은 escAttr 처리된 값 가정, 추가 escape 없음 |
+
+### `./html-escape` — `html-escape.js`
+
+순수 문자열 HTML escape. DOM 기반 로컬 구현(DB·DSC)을 대체하는 SSoT.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `esc` | fn | `(str) → string` — `& < > " '` 5종 escape, nullish → `''`. innerHTML 텍스트 삽입용 |
+| `escAttr` | fn | `(str) → string` — HTML 속성용, esc와 동일 5종 escape |
+
+### `./phone` — `phone.js`
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `formatPhone` | fn | `(phone) → string` — 11자리만 `010-1234-5678` 하이픈 분할, 그 외 원본, nullish → `''` |
+
+### `./branch` — `branch.js`
+
+반번호·내신 csKey → 단지(지점) 파생.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `branchFromClassNumber` | fn | `(num) → '2단지' \| '10단지' \| ''` — '10단지'/'2단지' 접두 우선, 그다음 첫 숫자('1'→2단지, '2'→10단지) |
+| `branchFromStudent` | fn | `(s) → string` — `s.branch` 우선, 없으면 첫 enrollment에서 파생 |
+| `branchesFromStudent` | fn | `(s) → string[]` — 전체 enrollment 파생 합집합, 비면 branch fallback |
 
 ---
 

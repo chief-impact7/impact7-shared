@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatTimeKST, formatDateTimeKST, formatDateKST } from './datetime.js';
+import { formatTimeKST, formatDateTimeKST, formatDateKST, todayKST } from './datetime.js';
 
 // 2026-06-07T06:05:00Z = KST 15:05 (오후 3:05)
 const D = new Date('2026-06-07T06:05:00Z');
@@ -33,4 +33,10 @@ test('잘못된 값 → 빈 문자열', () => {
   assert.equal(formatTimeKST(null), '');
   assert.equal(formatDateTimeKST(undefined), '');
   assert.equal(formatDateKST('not-a-date'), '');
+});
+
+test('todayKST: YYYY-MM-DD 형식이며 formatDateKST(new Date())와 일치', () => {
+  const t = todayKST();
+  assert.match(t, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(t, formatDateKST(new Date()));
 });
