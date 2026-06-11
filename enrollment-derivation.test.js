@@ -37,6 +37,27 @@ test('정규+override + 활성 내신기간 → 내신으로 파생, 정규 숨�
   assert.deepEqual(out[0].day, ['화', '목']);
 });
 
+test('학생 개별 naesin_days → 합성 내신 day가 반 스케줄 대신 개별 요일', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03', schedule: { '화': '17:00', '목': '17:00' } } };
+  const regular = { ...reg('2단지선유고2B'), naesin_days: ['월', '수', '토'] };
+  const out = applyNaesinFreeDerivation([regular], deps(cs));
+  assert.deepEqual(out[0].day, ['월', '수', '토']);
+});
+
+test('학생 개별 naesin_schedule → 합성 내신 schedule이 반 기본 위에 병합', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03', schedule: { '화': '17:00', '목': '17:00' } } };
+  const regular = { ...reg('2단지선유고2B'), naesin_days: ['화', '토'], naesin_schedule: { '토': '14:00' } };
+  const out = applyNaesinFreeDerivation([regular], deps(cs));
+  assert.deepEqual(out[0].schedule, { '화': '17:00', '목': '17:00', '토': '14:00' });
+  assert.deepEqual(out[0].day, ['화', '토']);
+});
+
+test('naesin_days 빈 배열 → 반 스케줄 요일 유지 (개별 미설정 취급)', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03', schedule: { '화': '17:00' } } };
+  const out = applyNaesinFreeDerivation([{ ...reg('2단지선유고2B'), naesin_days: [] }], deps(cs));
+  assert.deepEqual(out[0].day, ['화']);
+});
+
 test('명시적 내신 enrollment → 그대로 내신, 정규 숨김', () => {
   const naesin = { class_type: '내신', class_number: '', day: ['목', '월'], start_date: '2026-05-15', end_date: '2026-07-03' };
   const out = applyNaesinFreeDerivation([reg(undefined), naesin], deps({}));

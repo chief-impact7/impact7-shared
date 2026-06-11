@@ -35,12 +35,16 @@ export function applyNaesinFreeDerivation(current, { classSettings, dateStr, res
     const c = cs[csKey];
     if (!c?.naesin_start || !c?.naesin_end) return null;
     if (c.naesin_start > today || c.naesin_end < today) return null;
+    // 학생 개별 override: naesin_days(요일)·naesin_schedule(요일별 시간)가 반 기본을 덮는다.
+    const studentDays = Array.isArray(regularEnroll.naesin_days) && regularEnroll.naesin_days.length > 0
+      ? regularEnroll.naesin_days
+      : Object.keys(c.schedule || {});
     return {
       class_type: '내신',
       level_symbol: '',
       class_number: csKey,
-      day: Object.keys(c.schedule || {}),
-      schedule: c.schedule || {},
+      day: studentDays,
+      schedule: { ...(c.schedule || {}), ...(regularEnroll.naesin_schedule || {}) },
       start_date: c.naesin_start,
       end_date: c.naesin_end,
     };
