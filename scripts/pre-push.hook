@@ -1,0 +1,21 @@
+#!/bin/sh
+# 푸시되는 vX.Y.Z 태그가 그 커밋의 package.json version과 일치하는지 검증.
+# 불일치 태그가 나가면 notify-consumers가 consumer들에 잘못된 버전을 dispatch한다.
+status=0
+while read local_ref local_sha remote_ref remote_sha; do
+    case "$remote_ref" in
+        refs/tags/v*)
+            tag_version="${remote_ref#refs/tags/v}"
+            pkg_version=$(git show "${local_sha}^{commit}:package.json" 2>/dev/null \
+                | sed -n 's/.*"version": "\([^"]*\)".*/\1/p' | head -1)
+            if [ "$tag_version" != "$pkg_version" ]; then
+                echo "❌ 태그 v${tag_version} ≠ 해당 커밋 package.json version ${pkg_version:-?}"
+                echo "   package.json version을 맞춘 커밋에 태그를 다시 만드세요."
+                status=1
+            else
+                echo "✅ 태그 v${tag_version} ↔ package.json version 일치"
+            fi
+            ;;
+    esac
+done
+exit $status
