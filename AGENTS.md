@@ -5,9 +5,9 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 ## 패키지 정체
 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
-- DB/DSC 등 소비자가 `npm i` 로 갱신해 사용한다.
+- DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 175개 통과.
+- 테스트: `npm test` (`node --test`). 현재 193개 통과.
 
 ## 모듈 목록 및 공개 API
 
@@ -170,7 +170,7 @@ HTML 템플릿 문자열 렌더링용 IME-aware inline 이벤트 어트리뷰트
 
 ## 불변 계약 (절대 깨지 않는다)
 
-아래 심볼은 소비자(impact7DB · impact7newDSC)가 직접 의존한다. 변경 전 반드시 사용자 확인.
+아래 심볼은 소비자(impact7DB · impact7newDSC · impact7forms 등)가 직접 의존한다. 변경 전 반드시 사용자 확인.
 
 - `ENROLLABLE_STATUSES`, `NON_ENROLLABLE_STATUSES` — 상태 집합 변경 시 소비자 전체 영향
 - `reconcileEnrollments()` 반환 형태 `{ enrollments, valid, reason? }` — 필드명 변경 금지
@@ -188,7 +188,7 @@ HTML 템플릿 문자열 렌더링용 IME-aware inline 이벤트 어트리뷰트
 
 1. `package.json` `.version` 올림
 2. `git tag vX.Y.Z && git push origin vX.Y.Z`
-3. GitHub Actions(`notify-consumers.yml`)가 자동으로 4개 소비자 레포의 package.json을 수정하고 커밋함
+3. GitHub Actions(`notify-consumers.yml`)가 등록된 소비자 레포의 package.json을 수정하고 커밋함
 
 **breaking change** (시그니처·구조 변경)는 minor/major bump + 소비자 레포 영향 확인 선행.
 `npm update @impact7/shared`는 태그 고정 방식에서 동작하지 않음 — 태그를 올려야 한다.
