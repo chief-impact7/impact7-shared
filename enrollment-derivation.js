@@ -19,36 +19,50 @@ export function enrollmentCode(e) {
   return `${e.level_symbol || ''}${e.class_number || ''}`;
 }
 
+// 활성 내신 enrollment(명시적 내신 또는 정규+override→class_settings 기간 파생) 또는 null.
+// applyNaesinFreeDerivation과 isNaesinActiveAt가 공유하는 단일 판정(SSoT) — 로컬 재구현 금지.
+// current는 호출자가 날짜 필터(미시작·종료 제외)한 활성 enrollment 배열이어야 한다.
+export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, resolveNaesinCsKey }) {
+  const today = dateStr;
+  const cs = classSettings || {};
+  const explicit = current.find(e =>
+    e.class_type === '내신' && _validDate(e.start_date) && e.start_date <= today);
+  if (explicit) return explicit;
+  const regularEnroll = current.find(e => (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number);
+  if (!regularEnroll) return null;
+  const csKey = resolveNaesinCsKey(regularEnroll);
+  if (!csKey) return null;
+  const c = cs[csKey];
+  if (!c?.naesin_start || !c?.naesin_end) return null;
+  if (c.naesin_start > today || c.naesin_end < today) return null;
+  // 학생 개별 override: naesin_days(요일)·naesin_schedule(요일별 시간)가 반 기본을 덮는다.
+  const studentDays = Array.isArray(regularEnroll.naesin_days) && regularEnroll.naesin_days.length > 0
+    ? regularEnroll.naesin_days
+    : Object.keys(c.schedule || {});
+  return {
+    class_type: '내신',
+    level_symbol: '',
+    class_number: csKey,
+    day: studentDays,
+    schedule: { ...(c.schedule || {}), ...(regularEnroll.naesin_schedule || {}) },
+    start_date: c.naesin_start,
+    end_date: c.naesin_end,
+  };
+}
+
+// 기준일에 내신기간이 활성인가(boolean). 등원일정 파생(applyNaesinFreeDerivation)과
+// 동일 판정을 공유하므로 '내신 라벨'과 '파생 등원일정'이 항상 일치한다.
+export function isNaesinActiveAt(current, { classSettings, dateStr, resolveNaesinCsKey }) {
+  return !!deriveActiveNaesinEnrollment(current, { classSettings, dateStr, resolveNaesinCsKey });
+}
+
 export function applyNaesinFreeDerivation(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode: code = enrollmentCode }) {
   const today = dateStr;
   const cs = classSettings || {};
   const regularEnroll = current.find(e => (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number);
 
-  // 1) 내신: 명시적 내신 enrollment 또는 정규+override→class_settings 내신기간 파생
-  const activeNaesin = (() => {
-    const explicit = current.find(e =>
-      e.class_type === '내신' && _validDate(e.start_date) && e.start_date <= today);
-    if (explicit) return explicit;
-    if (!regularEnroll) return null;
-    const csKey = resolveNaesinCsKey(regularEnroll);
-    if (!csKey) return null;
-    const c = cs[csKey];
-    if (!c?.naesin_start || !c?.naesin_end) return null;
-    if (c.naesin_start > today || c.naesin_end < today) return null;
-    // 학생 개별 override: naesin_days(요일)·naesin_schedule(요일별 시간)가 반 기본을 덮는다.
-    const studentDays = Array.isArray(regularEnroll.naesin_days) && regularEnroll.naesin_days.length > 0
-      ? regularEnroll.naesin_days
-      : Object.keys(c.schedule || {});
-    return {
-      class_type: '내신',
-      level_symbol: '',
-      class_number: csKey,
-      day: studentDays,
-      schedule: { ...(c.schedule || {}), ...(regularEnroll.naesin_schedule || {}) },
-      start_date: c.naesin_start,
-      end_date: c.naesin_end,
-    };
-  })();
+  // 1) 내신: 명시적 내신 enrollment 또는 정규+override→class_settings 내신기간 파생 (SSoT 공유)
+  const activeNaesin = deriveActiveNaesinEnrollment(current, { classSettings: cs, dateStr: today, resolveNaesinCsKey });
   if (activeNaesin) {
     const nonRegular = current.filter(e => !['정규', '자유학기', ''].includes(e.class_type || ''));
     return [activeNaesin, ...nonRegular.filter(e => e !== activeNaesin)];

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyNaesinFreeDerivation, enrollmentCode as sharedEnrollmentCode } from './enrollment-derivation.js';
+import { applyNaesinFreeDerivation, isNaesinActiveAt, enrollmentCode as sharedEnrollmentCode } from './enrollment-derivation.js';
 
 test('enrollmentCode: level_symbol+class_number 결합', () => {
   assert.equal(sharedEnrollmentCode({ level_symbol: 'HA', class_number: '101' }), 'HA101');
@@ -148,4 +148,36 @@ test('수업이력 파생: 정규 반에 자유학기 기간 → 자유학기 �
   assert.equal(out.length, 1);
   assert.equal(out[0].class_type, '자유학기');
   assert.equal(out[0].code, 'HX104');
+});
+
+// ─── isNaesinActiveAt (boolean predicate, applyNaesinFreeDerivation과 SSoT 공유) ───
+test('isNaesinActiveAt: 정규+override + 활성 내신기간 → true', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-05-01', naesin_end: '2026-06-30', schedule: { 화: [], 목: [] } } };
+  assert.equal(isNaesinActiveAt([reg('2단지선유고2B')], deps(cs)), true);
+});
+
+test('isNaesinActiveAt: 명시적 내신 enrollment → true', () => {
+  const naesin = { class_type: '내신', start_date: '2026-05-01', level_symbol: '', class_number: 'X' };
+  assert.equal(isNaesinActiveAt([reg(undefined), naesin], deps({})), true);
+});
+
+test('isNaesinActiveAt: override 있으나 내신기간 비활성 → false', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-07-01', naesin_end: '2026-08-31', schedule: {} } };
+  assert.equal(isNaesinActiveAt([reg('2단지선유고2B')], deps(cs)), false);
+});
+
+test('isNaesinActiveAt: override 빈 문자열(명시적 배제) → false', () => {
+  const cs = { '': { naesin_start: '2026-05-01', naesin_end: '2026-06-30' } };
+  assert.equal(isNaesinActiveAt([reg('')], deps(cs)), false);
+});
+
+test('isNaesinActiveAt: override 없는 정규만 → false', () => {
+  assert.equal(isNaesinActiveAt([reg(undefined)], deps({})), false);
+});
+
+test('isNaesinActiveAt가 applyNaesinFreeDerivation 내신 파생과 항상 일치', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-05-01', naesin_end: '2026-06-30', schedule: { 화: [], 목: [] } } };
+  const active = isNaesinActiveAt([reg('2단지선유고2B')], deps(cs));
+  const derived = applyNaesinFreeDerivation([reg('2단지선유고2B')], deps(cs));
+  assert.equal(active, derived[0].class_type === '내신');
 });
