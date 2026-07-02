@@ -52,3 +52,18 @@ export function formatDateKST(value) {
 export function todayKST() {
   return formatDateKST(new Date());
 }
+
+// KST 근무일(영업일) 날짜: 하루 경계를 06:00으로 본다(당일 06:00 ~ 익일 06:00).
+// 익일 00:00~05:59(KST)는 전날 근무일로 귀속한다. 반환 "YYYY-MM-DD", 잘못된 값이면 "".
+// 오후 늦게 시작해 자정을 넘겨 근무하는 운영에서 하루가 자정에 쪼개지지 않게 한다.
+export function businessDayKST(value = new Date(), cutoffHour = 6) {
+  const d = toDate(value);
+  if (!d) return '';
+  const dateStr = formatDateKST(d); // KST 벽시계 날짜
+  const hour = parseInt(d.toLocaleString('en-US', { timeZone: TZ, hour12: false, hour: '2-digit' }), 10) % 24;
+  if (hour >= cutoffHour) return dateStr;
+  // cutoff 이전 → 전날(UTC 산술로 날짜만 -1, 타임존 혼란 없음)
+  const [y, m, day] = dateStr.split('-').map(Number);
+  const prev = new Date(Date.UTC(y, m - 1, day - 1));
+  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}-${String(prev.getUTCDate()).padStart(2, '0')}`;
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatTimeKST, formatDateTimeKST, formatDateKST, todayKST } from './datetime.js';
+import { formatTimeKST, formatDateTimeKST, formatDateKST, todayKST, businessDayKST } from './datetime.js';
 
 // 2026-06-07T06:05:00Z = KST 15:05 (오후 3:05)
 const D = new Date('2026-06-07T06:05:00Z');
@@ -39,4 +39,17 @@ test('todayKST: YYYY-MM-DD 형식이며 formatDateKST(new Date())와 일치', ()
   const t = todayKST();
   assert.match(t, /^\d{4}-\d{2}-\d{2}$/);
   assert.equal(t, formatDateKST(new Date()));
+});
+
+test('businessDayKST: 06시 경계(당일 06:00~익일 06:00)', () => {
+  // KST 05:00(2026-07-02) = 2026-07-01T20:00Z → cutoff 이전 → 전날 07-01
+  assert.equal(businessDayKST(new Date('2026-07-01T20:00:00Z')), '2026-07-01');
+  // KST 06:00(2026-07-02) = 2026-07-01T21:00Z → cutoff 이상 → 당일 07-02
+  assert.equal(businessDayKST(new Date('2026-07-01T21:00:00Z')), '2026-07-02');
+  // KST 22:00(2026-07-02) = 2026-07-02T13:00Z → 당일 07-02
+  assert.equal(businessDayKST(new Date('2026-07-02T13:00:00Z')), '2026-07-02');
+  // KST 00:30(2026-07-03) = 2026-07-02T15:30Z → 전날 근무일 07-02
+  assert.equal(businessDayKST(new Date('2026-07-02T15:30:00Z')), '2026-07-02');
+  // 잘못된 값 → ''
+  assert.equal(businessDayKST('not-a-date'), '');
 });
