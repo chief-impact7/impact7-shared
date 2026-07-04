@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicalizeTeacherEmails, isActiveTeacher, teacherDisplayName } from './teacher-label.js';
+import { canonicalizeTeacherEmails, isActiveTeacher, isSameTeacher, teacherDisplayName } from './teacher-label.js';
 
 test('교수부 재직자만 담임 후보', () => {
   assert.equal(isActiveTeacher({ department: '교수', status: 'active' }), true);
@@ -16,6 +16,14 @@ test('영어이름 첫 토큰, 첫 글자만 대문자', () => {
   assert.equal(teacherDisplayName('nami lee'), 'Nami');
   assert.equal(teacherDisplayName('Rachel'), 'Rachel');
   assert.equal(teacherDisplayName('Edward   Lee'), 'Edward');
+});
+
+test('isSameTeacher — 구·신 메일은 같은 사람, 다른 로컬파트는 다른 사람', () => {
+  assert.equal(isSameTeacher('edward@gw.impact7.kr', 'edward@impact7.kr'), true);
+  assert.equal(isSameTeacher('Edward@impact7.kr', 'edward@impact7.kr'), true);
+  assert.equal(isSameTeacher('edward@impact7.kr', 'iris@impact7.kr'), false);
+  assert.equal(isSameTeacher('', 'edward@impact7.kr'), false);
+  assert.equal(isSameTeacher(null, 'edward@impact7.kr'), false);
 });
 
 test('구·신 메일 중복은 신메일(@impact7.kr) 우선으로 사람당 1건', () => {
