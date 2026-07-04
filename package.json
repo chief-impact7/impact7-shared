@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.37.0",
+  "version": "1.38.0",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -15,6 +15,8 @@
     "./student-number": "./student-number.js",
     "./student-label": "./student-label.js",
     "./staff-label": "./staff-label.js",
+    "./teacher-label": "./teacher-label.js",
+    "./class-code": "./class-code.js",
     "./datetime": "./datetime.js",
     "./leave-cycles": "./leave-cycles.js",
     "./ime-input": "./ime-input.js",
@@ -36,6 +38,8 @@
     "student-number.js",
     "student-label.js",
     "staff-label.js",
+    "teacher-label.js",
+    "class-code.js",
     "datetime.js",
     "leave-cycles.js",
     "ime-input.js",

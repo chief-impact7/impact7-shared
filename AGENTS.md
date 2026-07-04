@@ -102,6 +102,21 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 |------|------|---------|
 | `staffLabel` | fn | `(emailOrId) → string` — `@` 앞만, 이미 ID면 통과 |
 
+### `./teacher-label` — `teacher-label.js`
+
+담임(교수) 규약. 원본 데이터는 impact7db staff(HR 직원현황).
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `isActiveTeacher` | fn | `(staff) → boolean` — 부서 '교수' ∧ status 'active'만 담임 후보 |
+| `teacherDisplayName` | fn | `(englishName) → string` — 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
+
+### `./class-code` — `class-code.js`
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `normalizeClassCode` | fn | `(code) → string` — trim + 대문자 (`'ks132'→'KS132'`), 비교·저장 전 정규화 |
+
 ### `./datetime` — `datetime.js`
 
 KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제.
