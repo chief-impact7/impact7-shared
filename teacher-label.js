@@ -15,3 +15,17 @@ export function teacherDisplayName(englishName) {
   if (!first) return '';
   return first[0].toUpperCase() + first.slice(1).toLowerCase();
 }
+
+// 구(@gw.impact7.kr)·신(@impact7.kr) 메일이 공존하는 teachers 목록을 사람당 1건으로 정규화.
+// 같은 로컬파트는 신메일(@impact7.kr)을 우선하고, 순서는 첫 등장 위치를 보존한다.
+// ('@gw.impact7.kr'는 '@impact7.kr'로 끝나지 않으므로 신메일만 우선 조건에 걸린다)
+export function canonicalizeTeacherEmails(emails) {
+  const byLocal = new Map();
+  for (const email of emails ?? []) {
+    if (typeof email !== 'string' || !email) continue;
+    const local = email.split('@')[0].toLowerCase();
+    const prev = byLocal.get(local);
+    if (!prev || email.toLowerCase().endsWith('@impact7.kr')) byLocal.set(local, email);
+  }
+  return [...byLocal.values()];
+}

@@ -110,6 +110,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 |------|------|---------|
 | `isActiveTeacher` | fn | `(staff) → boolean` — 부서 '교수' ∧ status 'active'만 담임 후보 |
 | `teacherDisplayName` | fn | `(englishName) → string` — 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
+| `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로 |
 
 ### `./class-code` — `class-code.js`
 
