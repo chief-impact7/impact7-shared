@@ -49,10 +49,14 @@ function normalizeSchoolForLabel(name) {
   for (const [a, b] of SCHOOL_ABBR) s = s.split(a).join(b);
   // 지역명 prefix 제거. 단 학교유형(과학·국제·미술·예술·사대부·외·체육고)은 지역명이
   // 정식명 일부('경기과학고')라 유지. 그 외는 입력접두로 보고 제거('서울염경중'→'염경중').
-  if (!REGION_KEEP_SUFFIX.some(k => s.endsWith(k)) && !REGION_KEEP_EXACT.has(s)) {
+  // 접미 없는 축약형('경기과학고')은 학부글자('고')가 붙어 있어 그것을 뗀 stem으로도 유지 판정.
+  const stemNoLevel = s.replace(/[초중고]$/, '');
+  const keepRegion = REGION_KEEP_SUFFIX.some(k => s.endsWith(k) || stemNoLevel.endsWith(k))
+    || REGION_KEEP_EXACT.has(s) || REGION_KEEP_EXACT.has(stemNoLevel);
+  if (!keepRegion) {
     for (const r of REGIONS) {
       if (s.startsWith(r) && s.length > r.length) {
-        const rest = s.slice(r.length);
+        const rest = s.slice(r.length).trimStart();  // 공백 낀 지역명('서울 염경중') 앞 공백 제거
         if (rest.length > 1) s = rest;  // 1글자 남으면 원복(예: '서울중')
         break;
       }

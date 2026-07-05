@@ -308,3 +308,28 @@ test('지역명이 정식명 일부라 1글자 남는 학교(서울고·서울�
   assert.equal(schoolLevelFromName('서울고'), '고등');
   assert.equal(schoolLevelFromName('서울중'), '중등');
 });
+
+// ─── normalizeSchoolForLabel 선재 버그 회귀 (2026-07-05) ───
+// 지역명유지 학교유형(과학·국제·외 등)의 축약형은 학부글자(고)가 붙어 있어 지역명 접미 판정이 어긋나
+// 지역명이 잘못 제거되던 버그(canonical 우회 경로가 아닌 studentFullLabel/schoolLevelGradeLabel 직접 경로).
+test('지역명유지 학교유형 축약형: 직접 라벨도 정식형과 일치', () => {
+  assert.equal(schoolLevelGradeLabel({ school: '경기과학고', level: '고등', grade: 1 }), '경기과학고1');
+  assert.equal(schoolLevelGradeLabel({ school: '경기과학고등학교', level: '고등', grade: 1 }), '경기과학고1');
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '부산국제고' })), '부산국제고1');
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '서울체육고' })), '서울체육고1');
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '인천하늘고' })), '인천하늘고1');
+});
+// 1글자 접미 '외'(외국어)의 축약형(서울외고·경기외중)도 지역명 유지 — stemNoLevel 판정이
+// 지역명을 잘못 떼지 않아야 한다. 실 학교명 '외X고/중'은 모두 외국어 특목이라 지역명이 정식명 일부.
+test('1글자 접미 외: 지역명유지 축약형 직접 라벨', () => {
+  assert.equal(studentFullLabel(SL('고등', 1, { school_high: '서울외고' })), '서울외고1');
+  assert.equal(schoolLevelGradeLabel({ school: '경기외고', level: '고등', grade: 1 }), '경기외고1');
+  // 일반학교 지역명 제거는 회귀 없이 유지되어야 한다(센티넬).
+  assert.equal(studentFullLabel(SL('중등', 2, { school_middle: '서울목동중' })), '목동중2');
+});
+// 공백 낀 지역명('서울 염경중학교')에서 지역명 prefix 제거 후 앞 공백이 남지 않아야 한다.
+test('공백 낀 지역명: prefix 제거 후 앞 공백 잔존 안 함', () => {
+  assert.equal(schoolLevelGradeLabel({ school: '서울 염경중학교', level: '중등', grade: 1 }), '염경중1');
+  assert.equal(studentFullLabel(SL('중등', 1, { school_middle: '서울 목동중' })), '목동중1');
+  assert.equal(formatSchoolLabelFromText('서울 염경중 1학년'), '염경중1');
+});
