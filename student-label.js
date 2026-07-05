@@ -124,3 +124,22 @@ export function studentSearchTerms(student) {
   if (!school) return [full];
   return Array.from(new Set([school, schoolPlusLevel, full]));
 }
+
+// 학교명(자유텍스트)만으로 학부(초/중/고)를 파생. 학생 마스터의 level이 없는 도메인(내신자료 등)의
+// 목록 그룹핑·필터용. ① 정식 접미(초등학교/중학교/고등학교)면 확정 ② 없으면 정규화한 축약형의
+// 마지막 글자(초/중/고) ③ 단 정규화 stem이 DUP_EXCEPT(안중·영중 등 학교명 자체가 초/중으로 끝남)면
+// 미상('') — bare 학교명을 학부로 오분류하지 않게 한다. schoolLevelGradeLabel과 같은 예외집합을 공유.
+export function schoolLevelFromName(name) {
+  const s = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!s) return '';
+  if (s.endsWith('초등학교')) return '초등';
+  if (s.endsWith('중학교')) return '중등';
+  if (s.endsWith('고등학교')) return '고등';
+  const stem = normalizeSchoolForLabel(s);
+  if (DUP_EXCEPT.has(stem)) return '';
+  const last = stem.slice(-1);
+  if (last === '초') return '초등';
+  if (last === '중') return '중등';
+  if (last === '고') return '고등';
+  return '';
+}

@@ -136,6 +136,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `studentFullLabel` | fn | `(student) → string` — 예: `'봉영여중1'` |
 | `formatSchoolLabelFromText` | fn | `(raw) → string` — OCR·비원생용, className 텍스트 정규화 |
 | `studentSearchTerms` | fn | `(student) → string[]` — 검색어 후보 [학교, 학교+학부글자, 풀라벨] |
+| `schoolLevelFromName` | fn | `(name) → '초등'\|'중등'\|'고등'\|''` — 학교명 자유텍스트만으로 학부 파생. 정식 접미(초등학교/중학교/고등학교) 확정 → 없으면 정규화 축약형 마지막 글자 → DUP_EXCEPT(안중·영중 등) bare stem은 미상(`''`). 학생 level 없는 도메인(내신자료) 목록 그룹핑·필터용 |
 
 ### `./staff-label` — `staff-label.js`
 

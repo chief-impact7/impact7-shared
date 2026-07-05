@@ -5,6 +5,7 @@ import {
   formatSchoolLabelFromText,
   normalizeRealLevelGrade,
   schoolLevelGradeLabel,
+  schoolLevelFromName,
   studentFullLabel,
   studentSearchTerms,
   LEVEL_SHORT,
@@ -205,4 +206,52 @@ test("normalizeRealLevelGrade 멱등 — 자기 출력(level '졸업') 재입력
 
 test('졸업 분기도 전각 학년(１)을 인식 (분기별 파싱 규칙 통일)', () => {
   assert.deepEqual(normalizeRealLevelGrade({ level: '졸업', grade: '１' }), { level: '졸업', grade: 1, graduated: true });
+});
+
+// ─── schoolLevelFromName: 학교명 → 학부(초/중/고) 파생 ───
+test('정식 접미: 초등학교/중학교/고등학교 확정', () => {
+  assert.equal(schoolLevelFromName('금옥중학교'), '중등');
+  assert.equal(schoolLevelFromName('강서고등학교'), '고등');
+  assert.equal(schoolLevelFromName('금옥여자고등학교'), '고등');
+  assert.equal(schoolLevelFromName('신가초등학교'), '초등');
+});
+test('축약형: 마지막 글자로 파생', () => {
+  assert.equal(schoolLevelFromName('금옥중'), '중등');
+  assert.equal(schoolLevelFromName('강서고'), '고등');
+  assert.equal(schoolLevelFromName('양명초'), '초등');
+});
+test('지역명 prefix 있어도 파생 (정규화 재사용)', () => {
+  assert.equal(schoolLevelFromName('서울염경중학교'), '중등');
+  assert.equal(schoolLevelFromName('서울목동중'), '중등');
+  assert.equal(schoolLevelFromName('부산영도초등학교'), '초등');
+});
+test('DUP_EXCEPT bare 학교명 → 미상(공백)', () => {
+  assert.equal(schoolLevelFromName('안중'), '');
+  assert.equal(schoolLevelFromName('서초'), '');
+  assert.equal(schoolLevelFromName('윤중'), '');
+});
+test('DUP_EXCEPT라도 정식 접미가 있으면 확정', () => {
+  assert.equal(schoolLevelFromName('안중중학교'), '중등');
+  assert.equal(schoolLevelFromName('안중고등학교'), '고등');
+  assert.equal(schoolLevelFromName('안중중'), '중등');
+});
+test('학교유형(과학·국제·외 등)도 축약형 마지막 글자로 파생', () => {
+  assert.equal(schoolLevelFromName('부산국제고'), '고등');
+  assert.equal(schoolLevelFromName('경기과학고'), '고등');
+  assert.equal(schoolLevelFromName('경기외고'), '고등');
+});
+test('불명/빈값 → 미상(공백)', () => {
+  assert.equal(schoolLevelFromName(''), '');
+  assert.equal(schoolLevelFromName(null), '');
+  assert.equal(schoolLevelFromName('A반'), '');
+  assert.equal(schoolLevelFromName('금옥학교'), '');
+});
+test('앞뒤·중간 공백 정규화 후 판정 (정식 접미가 trim에 의존)', () => {
+  assert.equal(schoolLevelFromName('  강서고  '), '고등');
+  assert.equal(schoolLevelFromName('금옥중학교 '), '중등');
+  assert.equal(schoolLevelFromName('금옥 중학교'), '중등');
+});
+test('지역명이 정식명 일부라 1글자 남는 학교(서울고·서울중) — 원복 후 판정', () => {
+  assert.equal(schoolLevelFromName('서울고'), '고등');
+  assert.equal(schoolLevelFromName('서울중'), '중등');
 });
