@@ -6,6 +6,7 @@ import {
   normalizeRealLevelGrade,
   schoolLevelGradeLabel,
   schoolLevelFromName,
+  canonicalSchoolLabel,
   studentFullLabel,
   studentSearchTerms,
   LEVEL_SHORT,
@@ -245,6 +246,58 @@ test('불명/빈값 → 미상(공백)', () => {
   assert.equal(schoolLevelFromName(null), '');
   assert.equal(schoolLevelFromName('A반'), '');
   assert.equal(schoolLevelFromName('금옥학교'), '');
+});
+test('학교급 접미(초등/중등/고등)도 인식', () => {
+  assert.equal(schoolLevelFromName('금옥중등'), '중등');
+  assert.equal(schoolLevelFromName('강서고등'), '고등');
+  assert.equal(schoolLevelFromName('양명초등'), '초등');
+  assert.equal(schoolLevelFromName('안중고등'), '고등');
+});
+
+// ─── canonicalSchoolLabel: 학교명 표기 통일 ───
+test('canonical: 표기 편차를 한 라벨로 통일', () => {
+  assert.equal(canonicalSchoolLabel('금옥중학교'), '금옥중');
+  assert.equal(canonicalSchoolLabel('금옥중'), '금옥중');
+  assert.equal(canonicalSchoolLabel('금옥중등'), '금옥중');
+});
+test('canonical: 고등·여자·지역명 정규화', () => {
+  assert.equal(canonicalSchoolLabel('강서고등학교'), '강서고');
+  assert.equal(canonicalSchoolLabel('강서고'), '강서고');
+  assert.equal(canonicalSchoolLabel('금옥여자고등학교'), '금옥여고');
+  assert.equal(canonicalSchoolLabel('서울염경중학교'), '염경중');
+  assert.equal(canonicalSchoolLabel('염경중'), '염경중');
+});
+test('canonical: DUP_EXCEPT는 학부약어 유지, bare 미상은 정규화만', () => {
+  assert.equal(canonicalSchoolLabel('안중중학교'), '안중중');
+  assert.equal(canonicalSchoolLabel('안중중'), '안중중');
+  assert.equal(canonicalSchoolLabel('안중'), '안중');
+});
+test('canonical: 초등 표기 통일 + DUP_EXCEPT(서초) 유지', () => {
+  assert.equal(canonicalSchoolLabel('양명초등학교'), '양명초');
+  assert.equal(canonicalSchoolLabel('양명초'), '양명초');
+  assert.equal(canonicalSchoolLabel('양명초등'), '양명초');
+  assert.equal(canonicalSchoolLabel('서초'), '서초');
+  assert.equal(canonicalSchoolLabel('서초등학교'), '서초');
+});
+// 지역명유지 학교유형(과학·국제·사대부·외 등)은 bare 축약형도 정식형과 같은 라벨로 통일돼야 한다.
+// stem에 학부 글자(고)가 남으면 지역명 접미 판정이 어긋나 지역명이 잘못 제거되는 회귀를 막는다.
+test('canonical: 지역명유지 학교유형은 축약형·정식형이 같은 라벨', () => {
+  assert.equal(canonicalSchoolLabel('경기과학고등학교'), '경기과학고');
+  assert.equal(canonicalSchoolLabel('경기과학고'), '경기과학고');
+  assert.equal(canonicalSchoolLabel('부산국제고'), '부산국제고');
+  assert.equal(canonicalSchoolLabel('서울사대부고'), '서울사대부고');
+  assert.equal(canonicalSchoolLabel('서울외국어고등학교'), '서울외고');
+  assert.equal(canonicalSchoolLabel('서울외고'), '서울외고');
+  assert.equal(canonicalSchoolLabel('인천하늘고'), '인천하늘고');
+});
+test('canonical: 앞뒤·중간 공백 정규화', () => {
+  assert.equal(canonicalSchoolLabel('  금옥중학교  '), '금옥중');
+  assert.equal(canonicalSchoolLabel('금옥 중학교'), '금옥중');
+});
+test('canonical: 빈/불명값', () => {
+  assert.equal(canonicalSchoolLabel(''), '');
+  assert.equal(canonicalSchoolLabel(null), '');
+  assert.equal(canonicalSchoolLabel('A반'), 'A반');
 });
 test('앞뒤·중간 공백 정규화 후 판정 (정식 접미가 trim에 의존)', () => {
   assert.equal(schoolLevelFromName('  강서고  '), '고등');

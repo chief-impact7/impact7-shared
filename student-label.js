@@ -126,15 +126,15 @@ export function studentSearchTerms(student) {
 }
 
 // 학교명(자유텍스트)만으로 학부(초/중/고)를 파생. 학생 마스터의 level이 없는 도메인(내신자료 등)의
-// 목록 그룹핑·필터용. ① 정식 접미(초등학교/중학교/고등학교)면 확정 ② 없으면 정규화한 축약형의
-// 마지막 글자(초/중/고) ③ 단 정규화 stem이 DUP_EXCEPT(안중·영중 등 학교명 자체가 초/중으로 끝남)면
-// 미상('') — bare 학교명을 학부로 오분류하지 않게 한다. schoolLevelGradeLabel과 같은 예외집합을 공유.
+// 목록 그룹핑·필터용. ① 학교급 접미(초등학교/중학교/고등학교·초등/중등/고등)면 확정 ② 없으면 정규화한
+// 축약형의 마지막 글자(초/중/고) ③ 단 정규화 stem이 DUP_EXCEPT(안중·영중 등 학교명 자체가 초/중으로
+// 끝남)면 미상('') — bare 학교명을 학부로 오분류하지 않게 한다. schoolLevelGradeLabel과 예외집합 공유.
 export function schoolLevelFromName(name) {
   const s = String(name || '').trim().replace(/\s+/g, ' ');
   if (!s) return '';
-  if (s.endsWith('초등학교')) return '초등';
-  if (s.endsWith('중학교')) return '중등';
-  if (s.endsWith('고등학교')) return '고등';
+  if (s.endsWith('초등학교') || s.endsWith('초등')) return '초등';
+  if (s.endsWith('중학교') || s.endsWith('중등')) return '중등';
+  if (s.endsWith('고등학교') || s.endsWith('고등')) return '고등';
   const stem = normalizeSchoolForLabel(s);
   if (DUP_EXCEPT.has(stem)) return '';
   const last = stem.slice(-1);
@@ -142,4 +142,19 @@ export function schoolLevelFromName(name) {
   if (last === '중') return '중등';
   if (last === '고') return '고등';
   return '';
+}
+
+// 학교명 자유텍스트를 canonical 라벨로 통일 — 표기 편차(금옥중학교·금옥중·금옥중등)를 한 옵션(금옥중)으로
+// 합친다. 학교급 표현(초등학교/중학교/고등학교·초등/중등/고등·마지막 글자 초/중/고)을 모두 떼어 순수 학교명
+// stem을 만든 뒤 schoolLevelGradeLabel이 학부약어 재부착·중복 제거(금옥중→금옥중)·DUP_EXCEPT(안중→안중중)·
+// 지역명 유지(경기과학고→경기과학고)를 처리하게 한다. 학부 미상이면 정규화(지역명 제거·약어)만 적용.
+// stem에 학부 글자를 남기면 지역명유지 접미(과학·국제·외 등) 판정이 어긋나므로 반드시 순수명까지 벗긴다.
+// 목록의 학교 옵션·필터·표시 SSoT.
+export function canonicalSchoolLabel(name) {
+  const s = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!s) return '';
+  const level = schoolLevelFromName(s);
+  if (!level) return normalizeSchoolForLabel(s);
+  const stem = s.replace(/(초등학교|중학교|고등학교|초등|중등|고등|초|중|고)$/, '');
+  return schoolLevelGradeLabel({ school: stem, level, grade: '' });
 }
