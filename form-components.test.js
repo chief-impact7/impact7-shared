@@ -24,3 +24,15 @@ test("cap을 주입하면 trim·길이 제한을 적용한다", () => {
   const result = normalizeComponentSettings({ footer: { text: "  " + "가".repeat(200) + "  " } }, cap);
   assert.equal(result.footer.text, "가".repeat(120));
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C13) ───
+test("공백만 있는 값은 기본값으로 대체 (클리어 불가 계약)", () => {
+  const result = normalizeComponentSettings({ footer: { text: "   " } });
+  assert.equal(result.footer.text, COMPONENT_SETTINGS_DEFAULTS.footer.text);
+});
+
+test("비문자열(객체·숫자) 값은 기본값으로 — '[object Object]' 노출 방지", () => {
+  const result = normalizeComponentSettings({ footer: { text: { evil: true }, linkLabel: 42 } });
+  assert.equal(result.footer.text, COMPONENT_SETTINGS_DEFAULTS.footer.text);
+  assert.equal(result.footer.linkLabel, COMPONENT_SETTINGS_DEFAULTS.footer.linkLabel);
+});

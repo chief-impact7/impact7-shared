@@ -41,3 +41,28 @@ test('groupByState — day_state 그룹, daily 없으면 미등원', () => {
   assert.deepEqual(g.원내.map(s => s.student_id), ['b']);
   assert.deepEqual(g.미등원.map(s => s.student_id), ['c']);
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C15·C16) ───
+test("구 라벨 '귀가'도 하원으로 정규화되어 귀가순에 포함", () => {
+  const got = departureOrder([
+    { id: 'new', type: '하원', occurred_at: '2026-07-01T10:00:00Z' },
+    { id: 'old', type: '귀가', occurred_at: '2026-07-01T09:00:00Z' },
+  ]);
+  assert.deepEqual(got.map(e => e.id), ['old', 'new']);
+});
+
+test("오프셋 표기('Z' vs '+09:00')가 섞여도 절대시각순 정렬", () => {
+  const got = arrivalOrder([
+    { id: 'late', type: '등원', occurred_at: '2026-07-01T06:05:00Z' },       // KST 15:05
+    { id: 'early', type: '등원', occurred_at: '2026-07-01T09:00:00+09:00' }, // KST 09:00
+  ]);
+  assert.deepEqual(got.map(e => e.id), ['early', 'late']);
+});
+
+test('파싱 불가 occurred_at은 뒤로 (파싱 가능한 것 우선)', () => {
+  const got = sortByProcessed([
+    { id: 'bad', occurred_at: '시각미상' },
+    { id: 'ok', occurred_at: '2026-07-01T10:00:00Z' },
+  ], { desc: false });
+  assert.deepEqual(got.map(e => e.id), ['ok', 'bad']);
+});

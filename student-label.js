@@ -19,10 +19,21 @@ export function currentSchool(student) {
   return student?.[SCHOOL_FIELD[student?.level]] || student?.school || '';
 }
 
+// grade에서 학년 숫자 추출 — '중2' 같은 학부글자 혼입(진단평가)·전각 숫자(２)까지 인식.
+function gradeNumOf(grade) {
+  const m = String(grade ?? '')
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .match(/\d+/);
+  return m ? parseInt(m[0], 10) : NaN;
+}
+
 export function normalizeRealLevelGrade(s) {
-  // grade가 '중2'처럼 학부글자 섞인 비정상 입력(진단평가)이어도 첫 숫자그룹만 추출 → 학년 인식.
-  const _gm = String(s?.grade ?? '').match(/\d+/);
-  const gradeNum = _gm ? parseInt(_gm[0], 10) : NaN;
+  // 자기 출력(level '졸업')이 다시 들어와도 멱등 — 졸업생이 초등생으로 둔갑하지 않게.
+  if (s?.level === '졸업') {
+    const g = gradeNumOf(s?.grade);
+    return { level: '졸업', grade: isNaN(g) ? 0 : g, graduated: true };
+  }
+  const gradeNum = gradeNumOf(s?.grade);
   if (isNaN(gradeNum) || gradeNum <= 0) return { level: s?.level || '초등', grade: 0, graduated: false };
   const base = LEVEL_CUMULATIVE_START[s.level] ?? 0;
   const cumulative = base + gradeNum;

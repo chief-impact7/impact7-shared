@@ -38,8 +38,9 @@ export function normalizeComponentSettings(value, cap) {
     : (text) => String(text === null || text === undefined ? "" : text);
   const source = value && typeof value === "object" ? value : {};
   const pick = (group, key) => {
-    const groupSource = source[group];
-    const chosen = (groupSource && groupSource[key]) || COMPONENT_SETTINGS_DEFAULTS[group][key];
+    // 문자열이면서 공백 아닌 값만 채택 — 공백만 입력하거나 비문자열(객체 등)이 오면 기본값 유지.
+    const raw = source[group] && source[group][key];
+    const chosen = typeof raw === "string" && raw.trim() !== "" ? raw : COMPONENT_SETTINGS_DEFAULTS[group][key];
     return clamp(chosen, SETTINGS_LIMITS[group][key]);
   };
   return {

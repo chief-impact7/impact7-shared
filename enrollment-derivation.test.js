@@ -181,3 +181,68 @@ test('isNaesinActiveAt가 applyNaesinFreeDerivation 내신 파생과 항상 일�
   const derived = applyNaesinFreeDerivation([reg('2단지선유고2B')], deps(cs));
   assert.equal(active, derived[0].class_type === '내신');
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C4) — deriveLevelPeriod 신설 테스트 ───
+import { deriveLevelPeriod } from './enrollment-derivation.js';
+
+test('deriveLevelPeriod: 시작 일(day) 미도달 달은 미완료 — 1일 경과는 1개월이 아님', () => {
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2026-01-31' }], '2026-02-01'), { start: '2026-01-31', label: '1일' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2026-06-20' }], '2026-07-05'), { start: '2026-06-20', label: '15일' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2025-07-31' }], '2026-07-01'), { start: '2025-07-31', label: '11개월' });
+});
+
+test('deriveLevelPeriod: 개월·년 라벨 경계', () => {
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2026-01-15' }], '2026-02-15'), { start: '2026-01-15', label: '1개월' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2025-07-05' }], '2026-07-05'), { start: '2025-07-05', label: '1년' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2025-05-05' }], '2026-07-05'), { start: '2025-05-05', label: '1년 2개월' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2024-02-29' }], '2026-02-28'), { start: '2024-02-29', label: '1년 11개월' }); // 윤년 말일
+});
+
+test('deriveLevelPeriod: 등원예정·무효 입력', () => {
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2026-08-01' }], '2026-07-05'), { start: '2026-08-01', label: '등원예정' });
+  assert.deepEqual(deriveLevelPeriod([], '2026-07-05'), { start: null, label: '—' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '?' }], '2026-07-05'), { start: null, label: '—' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2026-01-01' }], ''), { start: '2026-01-01', label: '—' });
+  assert.deepEqual(deriveLevelPeriod([{ start_date: '2026-01-01' }], undefined), { start: '2026-01-01', label: '—' });
+});
+
+test('deriveLevelPeriod: 가장 이른 유효 start_date 기준, 2020 이전·형식 불량 제외', () => {
+  assert.deepEqual(
+    deriveLevelPeriod([{ start_date: '2026-03-01' }, { start_date: '2026-01-15' }, { start_date: '2019-01-01' }, null], '2026-07-05'),
+    { start: '2026-01-15', label: '5개월' }
+  );
+});
+
+// ─── 2026-07-05 리뷰 P3·P4 회귀 ───
+test('소문자 반코드 enrollment도 내신·자유학기 파생 성공 (표기 차이 흡수)', () => {
+  const cs = { HX104: { free_start: '2026-05-01', free_end: '2026-12-31', free_schedule: { 월: [] } } };
+  const current = [{ class_type: '정규', level_symbol: 'hx', class_number: '104' }];
+  const out = applyNaesinFreeDerivation(current, {
+    classSettings: cs, dateStr: '2026-05-28', resolveNaesinCsKey: () => null,
+  });
+  assert.equal(out[0].class_type, '자유학기');
+});
+
+test('명시적 자유학기의 반코드가 정규와 달라도 정규를 숨김 (헤더 계약)', () => {
+  const current = [
+    { class_type: '정규', level_symbol: 'HA', class_number: '101' },
+    { class_type: '자유학기', level_symbol: 'FR', class_number: '901', start_date: '2026-01-01' },
+    { class_type: '특강', class_number: '112' },
+  ];
+  const out = applyNaesinFreeDerivation(current, {
+    classSettings: {}, dateStr: '2026-07-01', resolveNaesinCsKey: () => null,
+  });
+  assert.deepEqual(out.map(e => e.class_type), ['자유학기', '특강']);
+});
+
+test('정규 2개 보유 학생도 자유학기 활성이면 둘 다 숨김 (전량 숨김 계약 고정)', () => {
+  const cs = { HX104: { free_start: '2026-05-01', free_end: '2026-12-31', free_schedule: { 월: [] } } };
+  const current = [
+    { class_type: '정규', level_symbol: 'HX', class_number: '104' },
+    { class_type: '정규', level_symbol: 'KS', class_number: '132' },
+  ];
+  const out = applyNaesinFreeDerivation(current, {
+    classSettings: cs, dateStr: '2026-07-01', resolveNaesinCsKey: () => null,
+  });
+  assert.deepEqual(out.map(e => `${e.class_type}:${e.level_symbol}${e.class_number}`), ['자유학기:HX104']);
+});

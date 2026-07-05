@@ -1,7 +1,7 @@
 // impact7 공유 — KST 날짜·시간 표시 포맷 (SSoT)
 //
 // 타임존은 항상 대한민국 서울(Asia/Seoul), 시간은 12시간제(오전/오후) 고정.
-// 입력은 Date·Firestore Timestamp(toDate)·epoch ms·ISO 문자열을 받는다.
+// 입력은 Date·Firestore Timestamp(toDate)·직렬화 POJO({seconds}/{_seconds})·epoch ms·ISO 문자열.
 // 값이 없거나 잘못되면 빈 문자열.
 const TZ = 'Asia/Seoul';
 
@@ -11,6 +11,18 @@ function toDate(value) {
     const d = value.toDate();
     return d instanceof Date && !isNaN(d.getTime()) ? d : null;
   }
+  // JSON 직렬화 경유(캐시·API 응답) Timestamp POJO — client는 seconds/nanoseconds,
+  // admin은 _seconds/_nanoseconds. 쌍이 모두 있어야 인정 — {seconds}만 있는 duration류 객체 오분류 방지.
+  if (value) {
+    const sec = typeof value.seconds === 'number' && typeof value.nanoseconds === 'number' ? value.seconds
+      : typeof value._seconds === 'number' && typeof value._nanoseconds === 'number' ? value._seconds
+      : null;
+    if (sec != null) {
+      const ns = value.nanoseconds ?? value._nanoseconds;
+      const d = new Date(sec * 1000 + Math.floor(ns / 1e6));
+      return isNaN(d.getTime()) ? null : d;
+    }
+  }
   if (typeof value === 'number' || typeof value === 'string') {
     const d = new Date(value);
     return isNaN(d.getTime()) ? null : d;
@@ -18,13 +30,28 @@ function toDate(value) {
   return null;
 }
 
+// Intl.DateTimeFormat 생성은 비싸다(실측 ~180µs) — 렌더 루프 대량 호출 대비 모듈 레벨 캐시.
+const _timeFmt = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: TZ, hour12: true, hour: 'numeric', minute: '2-digit',
+});
+const _dateTimeFmt = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: TZ, hour12: true, month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+});
+const _dateTimeYearFmt = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: TZ, hour12: true, year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
+});
+const _dateFmt = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+});
+const _hourFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: TZ, hour12: false, hour: '2-digit',
+});
+
 // 시간만: "오후 3:05"
 export function formatTimeKST(value) {
   const d = toDate(value);
   if (!d) return '';
-  return d.toLocaleTimeString('ko-KR', {
-    timeZone: TZ, hour12: true, hour: 'numeric', minute: '2-digit',
-  });
+  return _timeFmt.format(d);
 }
 
 // 월·일 + 시간: "6월 7일 오후 3:05" (withYear=true면 연도 포함)
@@ -32,20 +59,14 @@ export function formatDateTimeKST(value, options) {
   const { withYear = false } = options ?? {};
   const d = toDate(value);
   if (!d) return '';
-  return d.toLocaleString('ko-KR', {
-    timeZone: TZ, hour12: true,
-    ...(withYear ? { year: 'numeric' } : {}),
-    month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit',
-  });
+  return (withYear ? _dateTimeYearFmt : _dateTimeFmt).format(d);
 }
 
 // 날짜만: "2026-06-07" (en-CA가 YYYY-MM-DD를 보장)
 export function formatDateKST(value) {
   const d = toDate(value);
   if (!d) return '';
-  return d.toLocaleDateString('en-CA', {
-    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit',
-  });
+  return _dateFmt.format(d);
 }
 
 // KST 기준 오늘 날짜: "YYYY-MM-DD"
@@ -60,7 +81,7 @@ export function businessDayKST(value = new Date(), cutoffHour = 6) {
   const d = toDate(value);
   if (!d) return '';
   const dateStr = formatDateKST(d); // KST 벽시계 날짜
-  const hour = parseInt(d.toLocaleString('en-US', { timeZone: TZ, hour12: false, hour: '2-digit' }), 10) % 24;
+  const hour = parseInt(_hourFmt.format(d), 10) % 24;
   if (hour >= cutoffHour) return dateStr;
   // cutoff 이전 → 전날(UTC 산술로 날짜만 -1, 타임존 혼란 없음)
   const [y, m, day] = dateStr.split('-').map(Number);

@@ -19,8 +19,9 @@ test('oncompositionend는 this._c=0 후 handlerCall 호출', () => {
   assert.ok(imeInputAttrs(H).includes(`oncompositionend="this._c=0;${H}"`));
 });
 
-test('oninput은 if(!this._c) 가드 뒤 handlerCall 호출', () => {
-  assert.ok(imeInputAttrs(H).includes(`oninput="if(!this._c)${H}"`));
+test('oninput은 if(!this._c){...} 블록 가드 안에서 handlerCall 호출', () => {
+  // 블록({}) — 다중 문장 handlerCall도 전체가 조합 가드를 받는다
+  assert.ok(imeInputAttrs(H).includes(`oninput="if(!this._c){${H}}"`));
 });
 
 test('handlerCall은 추가 escape 없이 그대로 삽입된다', () => {
@@ -28,7 +29,7 @@ test('handlerCall은 추가 escape 없이 그대로 삽입된다', () => {
   const escaped = 'save(&quot;id&quot;,this.value)';
   const out = imeInputAttrs(escaped);
   assert.ok(out.includes(`oncompositionend="this._c=0;${escaped}"`));
-  assert.ok(out.includes(`oninput="if(!this._c)${escaped}"`));
+  assert.ok(out.includes(`oninput="if(!this._c){${escaped}}"`));
   assert.ok(!out.includes('&amp;quot;'));
 });
 
@@ -41,6 +42,6 @@ test('반환값은 개행 없는 한 줄이며 어트리뷰트 사이는 공백'
 test('예시 입력 전체 반환값 스냅샷', () => {
   assert.equal(
     imeInputAttrs("saveExtraVisit('abc','reason',this.value)"),
-    `oncompositionstart="this._c=1" oncompositionend="this._c=0;saveExtraVisit('abc','reason',this.value)" oninput="if(!this._c)saveExtraVisit('abc','reason',this.value)"`
+    `oncompositionstart="this._c=1" oncompositionend="this._c=0;saveExtraVisit('abc','reason',this.value)" oninput="if(!this._c){saveExtraVisit('abc','reason',this.value)}"`
   );
 });

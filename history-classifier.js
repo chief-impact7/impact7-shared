@@ -7,10 +7,13 @@
 // 두 앱은 같은 Firebase 프로젝트(impact7db)의 같은 history_logs 컬렉션을 공유하므로
 // before/after 데이터 형태가 동일하다.
 
+import { formatDateKST } from './datetime.js';
+
 // 의도적 분리: enrollment-status.js를 import하지 않는다.
-// 이유: history-classifier는 로그 텍스트 파싱 전용이며 STATUSES가 다르다(종강 미포함 — 로그에 종강 상태가 기록되지 않음).
-// enrollment-status.js의 ENROLLABLE_STATUSES 집합과 drift 위험 있음 — 상태 추가 시 두 파일 동시 확인.
-const STATUSES = ['상담', '등원예정', '재원', '실휴원', '가휴원', '퇴원'];
+// 이유: history-classifier는 로그 텍스트 파싱 전용 — 집합의 목적이 다르다(파싱 인식용).
+// '종강'은 WITHDRAW 로그의 before 텍스트에 나타날 수 있어 파싱 인식만 한다(JSON 경로와 동일 결과 보장).
+// enrollment-status.js의 상태 집합과 drift 위험 있음 — 상태 추가 시 두 파일 동시 확인.
+const STATUSES = ['상담', '등원예정', '재원', '실휴원', '가휴원', '퇴원', '종강'];
 const LEAVE = ['실휴원', '가휴원'];
 
 // 종류별 뱃지 색 (초록=긍정/등록, 파랑=중립 변경, 빨강=퇴원)
@@ -44,8 +47,10 @@ export function parseStatusClass(text) {
             return { status: o.status || '', classes: '', pauseStart: o.pause_start_date || '' };
         } catch { /* JSON 아니면 아래 파싱 */ }
     }
-    // "상태:.." (편집 저장 포맷) 또는 "status:.." (일괄 import 포맷) 둘 다 인식
-    const mStatus = t.match(/상태[:\s]*([^,]+)/) || t.match(/(?:^|,\s*)status:\s*([^,]+)/);
+    // "상태:.." (편집 저장 포맷) 또는 "status:.." (일괄 import 포맷) 둘 다 인식.
+    // '상태'는 낱말 시작에서만 — '건강상태:양호' 같은 합성어 오파싱 방지.
+    // 값은 콤마·괄호 전까지 — 일괄퇴원 로그 "학생: 이름 (상태:실휴원)" 포맷 지원.
+    const mStatus = t.match(/(?<![가-힣A-Za-z0-9])상태[:\s]*([^,)]+)/) || t.match(/(?:^|,\s*)status:\s*([^,]+)/);
     if (mStatus) {
         const cls = (t.match(/반[:\s]*([^,]*?)(?:,\s*요일|$)/)?.[1] || '').trim();
         const pause = (t.match(/pause_start_date:\s*([^,]*)/)?.[1] || '').trim();
@@ -81,7 +86,8 @@ export function classifyHistory(log) {
     // 상태 전이 기반
     if (aS) {
         if (bS === '퇴원' && (aS === '재원' || aS === '등원예정')) return { label: '재등원', from: '퇴원', to: aS };
-        if (LEAVE.includes(bS) && aS === '재원') return { label: '복귀', from: bS, to: '재원' };
+        // 복귀는 '재원' 직행과 '등원예정'(복귀 예약) 둘 다 — pause 기반 복귀 경로와 대칭.
+        if (LEAVE.includes(bS) && (aS === '재원' || aS === '등원예정')) return { label: '복귀', from: bS, to: aS };
         if (LEAVE.includes(aS) && !LEAVE.includes(bS)) return { label: '휴원', from: bS || '재원', to: aS };
         if (aS === '퇴원' && bS !== '퇴원') return { label: '퇴원', from: bS || '재원', to: '퇴원' };
         if ((bS === '' || bS === '상담') && (aS === '등원예정' || aS === '재원')) return { label: '신규', from: '', to: newClassCode(aC, afterText) || '등록' };
@@ -113,12 +119,8 @@ export function isAttendedStatus(status) {
   return status === '출석' || status === '지각' || status === '조퇴';
 }
 
-// Date → KST 'YYYY-MM-DD' (en-CA 로케일이 YYYY-MM-DD 형식을 보장)
-function ymdSeoul(date) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(date);
-}
+// Date → KST 'YYYY-MM-DD'는 datetime.js SSoT를 재사용 (구현·캐시 중복 방지).
+// 의도적 분리 정책은 enrollment-status.js에 한정 — datetime import는 허용.
 
 // 재원기간 파생. logs로 현재 재원 구간의 시작 이벤트(startEvent)·종료(end)를 잡고,
 // attendances(그 학생의 daily_records {date,status})에서 startEvent 이후 첫 출석일을 start로.
@@ -138,7 +140,7 @@ export function deriveTenure(logs, getDate, attendances, isCurrentlyEnrolled = f
   }
   let start = null;
   if (startEvent && Array.isArray(attendances)) {
-    const seStr = ymdSeoul(startEvent);
+    const seStr = formatDateKST(startEvent);
     const firstAttended = attendances
       .filter(a => a && isAttendedStatus(a.status) && typeof a.date === 'string' && a.date >= seStr)
       .map(a => a.date)

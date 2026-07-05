@@ -99,3 +99,65 @@ test('computeExpectedArrival — 미래 시작 enrollment는 제외', () => {
   });
   assert.equal(got, ''); // start_date(08-01) > date(07-01) → 제외
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C1·C7) ───
+test('earliestExpectedTime — 한 자리 시각이 섞여도 시각순 최솟값 (사전순 아님)', () => {
+  const args = (schedules) => ({
+    enrollments: schedules.map((t, i) => ({ schedule: { 월: t }, level_symbol: 'H', class_number: String(100 + i) })),
+    dayName: '월', classSettings: {}, date: '2026-07-06',
+  });
+  assert.equal(earliestExpectedTime(args(['9:30', '10:00'])), '9:30');
+  assert.equal(earliestExpectedTime(args(['10:00', '9:30'])), '9:30');
+  assert.equal(earliestExpectedTime(args(['09:30', '10:00'])), '09:30');
+  assert.equal(earliestExpectedTime(args(['16:00', '9:00'])), '9:00');
+});
+
+test('earliestExpectedTime — task·보충 소스 혼합에서도 시각순', () => {
+  const got = earliestExpectedTime({
+    enrollments: [{ schedule: { 월: '16:00' }, level_symbol: 'H', class_number: '101' }],
+    dayName: '월', classSettings: {},
+    rec: {}, hwTasks: [{ type: '등원', scheduled_date: '2026-07-06', scheduled_time: '9:30' }],
+    testTasks: [], absences: [], date: '2026-07-06',
+  });
+  assert.equal(got, '9:30');
+});
+
+test('earliestExpectedTime — 시각 형식이 하나도 없으면 사전식 폴백 유지', () => {
+  const got = earliestExpectedTime({
+    enrollments: [{ schedule: { 월: '미정' }, level_symbol: 'H', class_number: '101' }],
+    dayName: '월', classSettings: {}, date: '2026-07-06',
+  });
+  assert.equal(got, '미정');
+});
+
+test('computeExpectedArrival — enrollments의 null 원소를 무시 (Firestore 원본 경계)', () => {
+  const got = computeExpectedArrival({
+    enrollments: [null, { class_type: '정규', level_symbol: 'HA', class_number: '101', day: '수', start_date: '2026-01-01', schedule: { 수: '15:00' } }],
+    classSettings: {}, rec: {}, hwTasks: [], testTasks: [], absences: [], date: '2026-07-01',
+  });
+  assert.equal(got, '15:00');
+});
+
+// ─── 2026-07-05 리뷰 P5·P8·P3 회귀 ───
+test('isLate — 같은 날 비교 계약: 자정 넘김 보정은 하지 않는다', () => {
+  assert.equal(isLate('23:00', '22:00'), true);   // 같은 날 지각
+  assert.equal(isLate('21:50', '22:00'), false);  // 정시
+  assert.equal(isLate('08:00', '09:00'), false);  // 이른 등원
+  assert.equal(isLate('13:05', '13:00'), false);  // 유예 5분 이내
+  // 자정 넘김(익일 00:30 vs 예정 22:00)은 시각만으로 방향 구분이 불가능해 판정하지 않는다.
+  // DSC 대시보드가 isLate(현재시각, 예정)로 호출하므로 내부 보정 시 아침에 저녁수업
+  // 학생 전원이 '미도착'으로 오분류된다 (2026-07-05 적대적 검증에서 확인된 회귀 방지).
+  assert.equal(isLate('00:30', '22:00'), false);
+  assert.equal(isLate('09:30', '22:00'), false);  // 오전에 본 저녁수업 예정 — 지각 아님
+});
+
+test('getDayName — 실존하지 않는 날짜는 rollover 없이 빈 문자열', () => {
+  assert.equal(getDayName('2026-02-30'), '');
+  assert.equal(getDayName('2026-13-01'), '');
+  assert.equal(getDayName('2024-02-29'), '목'); // 윤년 실존 날짜는 정상
+});
+
+test('startTime — 소문자 반코드도 classSettings 조회 성공 (표기 차이 흡수)', () => {
+  const e = { class_type: '정규', level_symbol: 'ha', class_number: '101' };
+  assert.equal(startTime(e, '수', { HA101: { schedule: { 수: '15:00' } } }), '15:00');
+});

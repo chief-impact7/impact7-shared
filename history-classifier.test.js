@@ -231,3 +231,42 @@ test('isAttendedStatus: 출석/지각/조퇴만 true', () => {
   assert.strictEqual(isAttendedStatus('미확인'), false);
   assert.strictEqual(isAttendedStatus(undefined), false);
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C9·C10·C17) ───
+test('복귀: 실휴원/가휴원→등원예정(복귀 예약)도 복귀로 분류 — pause 경로와 대칭', () => {
+  assert.deepEqual(
+    classifyHistory({ change_type: 'UPDATE', before: '상태:실휴원', after: '상태:등원예정' }),
+    { label: '복귀', from: '실휴원', to: '등원예정' }
+  );
+  assert.deepEqual(
+    classifyHistory({ change_type: 'UPDATE', before: '상태:가휴원', after: '상태:재원' }),
+    { label: '복귀', from: '가휴원', to: '재원' }
+  );
+});
+
+test("단독 상태문자열 '종강' 파싱 — JSON 경로와 동일 결과", () => {
+  assert.equal(parseStatusClass('종강').status, '종강');
+  assert.equal(parseStatusClass('{"status":"종강"}').status, '종강');
+  assert.deepEqual(
+    classifyHistory({ change_type: 'WITHDRAW', before: '종강', after: '퇴원' }),
+    { label: '퇴원', from: '종강', to: '퇴원' }
+  );
+});
+
+test("'상태' 키는 앵커 매칭 — 자유 텍스트의 '건강상태:' 오파싱 방지", () => {
+  assert.equal(parseStatusClass('특이사항: 건강상태:양호, 기타').status, '');
+  assert.equal(parseStatusClass('상태:재원, 반:A101').status, '재원');
+  assert.equal(parseStatusClass('반:A101, 상태:재원').status, '재원');
+});
+
+test("일괄퇴원 로그 '학생: 이름 (상태:실휴원)' 포맷 — 괄호 안 상태를 정확히 추출", () => {
+  assert.equal(parseStatusClass('학생: 홍길동 (상태:실휴원)').status, '실휴원'); // 구 코드는 '실휴원)'로 괄호까지 캡처
+  assert.deepEqual(
+    classifyHistory({ change_type: 'WITHDRAW', before: '학생: 홍길동 (상태:실휴원)', after: '일괄 퇴원 처리' }),
+    { label: '퇴원', from: '실휴원', to: '퇴원' }
+  );
+});
+
+test("공백 구분 위치의 '상태:'도 낱말 시작이면 인식", () => {
+  assert.equal(parseStatusClass('반:A101 상태:재원').status, '재원');
+});

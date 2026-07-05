@@ -67,3 +67,18 @@ test('selectableStatuses — 재원생은 휴원 진입 가능, 상담은 불가
   assert.ok(s.includes('실휴원') && s.includes('가휴원'));
   assert.ok(!s.includes('상담'));
 });
+
+// ─── 2026-07-05 리뷰 P1 회귀 ───
+test('reconcileEnrollments: 7종 밖 status는 valid:false (오타·구 데이터·undefined 차단)', () => {
+  const enrolls = [{ level_symbol: 'HA', class_number: '101' }];
+  for (const bad of ['휴원', '재학', undefined, null, '']) {
+    const r = reconcileEnrollments(bad, enrolls);
+    assert.equal(r.valid, false);
+    assert.ok(r.reason.includes('알 수 없는 상태'));
+    assert.deepEqual(r.enrollments, enrolls); // 데이터는 훼손하지 않음
+  }
+});
+
+test('reconcileEnrollments: 빈 문자열 status의 reason은 (없음) 표기', () => {
+  assert.ok(reconcileEnrollments('', []).reason.includes('(없음)'));
+});

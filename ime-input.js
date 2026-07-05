@@ -12,15 +12,20 @@
  *
  * @param {string} handlerCall - 입력 확정 시 실행할 JS 표현식. 이미 escAttr 처리된
  *   값으로 가정하며 추가 escape 하지 않는다. 예: `"save('id',this.value)"`
+ *
+ *   보안: escAttr는 HTML 계층만 보호한다 — 어트리뷰트 값은 JS 실행 전에 HTML 디코드되므로
+ *   JS 문자열 리터럴 안에 사용자 자유 텍스트(이름·메모 등)를 삽입하면 따옴표 breakout이
+ *   가능하다. handlerCall에는 Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
  * @returns {string} 공백으로 연결된 한 줄 어트리뷰트 문자열
  *   (oncompositionstart / oncompositionend / oninput)
  */
 export function imeInputAttrs(handlerCall) {
   // compositionend가 마지막 input 뒤에 오는 브라우저가 있어 end에서도 핸들러를
   // 호출해 조합 확정값을 반영한다.
+  // oninput 가드는 블록({})으로 — 다중 문장 handlerCall도 전체가 조합 가드를 받게.
   return [
     `oncompositionstart="this._c=1"`,
     `oncompositionend="this._c=0;${handlerCall}"`,
-    `oninput="if(!this._c)${handlerCall}"`,
+    `oninput="if(!this._c){${handlerCall}}"`,
   ].join(' ');
 }

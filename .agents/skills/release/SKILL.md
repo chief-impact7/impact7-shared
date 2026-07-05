@@ -1,7 +1,7 @@
 ---
 name: release
 description: >
-  impact7-shared 릴리스를 수행할 때 사용. 버전 bump → 태그 push → GitHub Actions가 소비자 4곳 자동 업데이트까지 처리. "릴리스", "배포", "버전 올려", "태그", "소비자 업데이트", "publish"가 트리거.
+  impact7-shared 릴리스를 수행할 때 사용. 버전 bump → 태그 push → GitHub Actions가 소비자 6곳 자동 업데이트까지 처리. "릴리스", "배포", "버전 올려", "태그", "소비자 업데이트", "publish"가 트리거.
 ---
 
 # impact7-shared 릴리스 오케스트레이터
@@ -52,7 +52,7 @@ gh run watch <run-id> --repo chief-impact7/impact7-shared
 ```
 
 Actions 결과:
-- ✅ 전체 성공 → 소비자 4곳 자동 업데이트 완료
+- ✅ 전체 성공 → 소비자 6곳(impact7DB, impact7HR, exam, impact7newDSC, DashBoard, impact7forms) 자동 업데이트 완료
 - ❌ 실패 항목 → 원인 보고 후 수동 재실행 방법 안내
 
 ## 제약

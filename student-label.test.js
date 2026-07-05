@@ -190,3 +190,19 @@ test('className 텍스트: 학년 없으면 학교명만, 빈값은 빈문자', 
   assert.equal(formatSchoolLabelFromText(''), '');
   assert.equal(formatSchoolLabelFromText('A반'), 'A반');
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C18·C19) ───
+test('전각 숫자 학년(２)도 반각으로 정규화해 인식', () => {
+  assert.equal(studentFullLabel({ level: '중등', grade: '２', school_middle: '봉영여자중학교' }), '봉영여중2');
+  assert.deepEqual(normalizeRealLevelGrade({ level: '고등', grade: '１' }), { level: '고등', grade: 1, graduated: false });
+});
+
+test("normalizeRealLevelGrade 멱등 — 자기 출력(level '졸업') 재입력 시 졸업 유지", () => {
+  const once = normalizeRealLevelGrade({ level: '고등', grade: 4 });
+  assert.deepEqual(once, { level: '졸업', grade: 1, graduated: true });
+  assert.deepEqual(normalizeRealLevelGrade(once), { level: '졸업', grade: 1, graduated: true });
+});
+
+test('졸업 분기도 전각 학년(１)을 인식 (분기별 파싱 규칙 통일)', () => {
+  assert.deepEqual(normalizeRealLevelGrade({ level: '졸업', grade: '１' }), { level: '졸업', grade: 1, graduated: true });
+});

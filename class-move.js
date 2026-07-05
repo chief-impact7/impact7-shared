@@ -1,4 +1,4 @@
-// 학생 1명의 특정 학기 정규 enrollment를 다른 반으로 in-place 이동한다 (순수 함수).
+// 학생 1명의 특정 학기 정규 enrollment를 다른 반으로 이동한 새 배열을 반환한다 (순수 함수, in-place 아님).
 // override·start_date·day·semester는 보존. 대상 정규가 없으면 skipped.
 
 const codeOf = (e) => `${e.level_symbol || ''}${e.class_number || ''}`;

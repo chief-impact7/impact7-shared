@@ -53,3 +53,34 @@ test('businessDayKST: 06시 경계(당일 06:00~익일 06:00)', () => {
   // 잘못된 값 → ''
   assert.equal(businessDayKST('not-a-date'), '');
 });
+
+// ─── 2026-07-05 리뷰 P7 회귀 ───
+test('직렬화된 Timestamp POJO({seconds}·{_seconds}) 지원', () => {
+  const sec = Math.floor(D.getTime() / 1000);
+  assert.equal(formatTimeKST({ seconds: sec, nanoseconds: 0 }), '오후 3:05');
+  assert.equal(formatTimeKST({ _seconds: sec, _nanoseconds: 0 }), '오후 3:05');
+  assert.equal(formatDateKST({ seconds: sec }), ''); // 쌍(nanoseconds) 없는 객체는 Timestamp로 인정하지 않음
+});
+
+// ─── 2026-07-05 적대적 검증 회귀 방지 (P7-BROKEN) ───
+test("falsy 비-null 입력(''·NaN·false)은 POJO 경로로 오분류되지 않고 빈 문자열", () => {
+  assert.equal(formatDateKST(''), '');
+  assert.equal(formatTimeKST(''), '');
+  assert.equal(formatDateTimeKST(''), '');
+  assert.equal(businessDayKST(''), '');
+  assert.equal(formatTimeKST(NaN), '');
+  assert.equal(formatDateKST(NaN), '');
+  assert.equal(formatDateKST(false), '');
+});
+
+test('범위 밖 seconds POJO는 크래시 없이 빈 문자열', () => {
+  assert.equal(formatTimeKST({ seconds: 1e15 }), '');
+});
+
+test('epoch 0(숫자)은 유효 입력으로 유지', () => {
+  assert.equal(formatDateKST(0), '1970-01-01');
+});
+
+test('숫자 seconds 필드를 가진 비Timestamp 객체(duration류)는 오분류하지 않음', () => {
+  assert.equal(formatDateKST({ hours: 1, minutes: 30, seconds: 0 }), '');
+});

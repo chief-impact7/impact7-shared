@@ -94,3 +94,59 @@ describe('createPromoteEnrollPending', () => {
     assert.equal(classifyHistory(log), null);
   });
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C8) ───
+describe('createPromoteEnrollPending — 경계', () => {
+  const TODAY = '2026-06-01';
+
+  it('종료된 과거 enrollment만 있으면 전환하지 않음 (end_date 존중)', async () => {
+    const { firebase } = makeFirebase();
+    const fn = createPromoteEnrollPending(firebase);
+    const result = await fn([{
+      id: 'old', status: '등원예정',
+      enrollments: [{ start_date: '2026-01-01', end_date: '2026-02-28' }, { start_date: '2026-06-15' }],
+    }], TODAY);
+    assert.deepEqual(result, []);
+  });
+
+  it('오늘 활성인 enrollment가 있으면 전환 (end_date 미래·없음 모두)', async () => {
+    const { firebase } = makeFirebase();
+    const fn = createPromoteEnrollPending(firebase);
+    const result = await fn([
+      { id: 'a', status: '등원예정', enrollments: [{ start_date: '2026-05-01', end_date: '2026-12-31' }] },
+      { id: 'b', status: '등원예정', enrollments: [{ start_date: '2026-05-01' }] },
+    ], TODAY);
+    assert.deepEqual(result.map(s => s.id), ['a', 'b']);
+  });
+
+  it('enrollments의 null 원소를 무시 (크래시 없음)', async () => {
+    const { firebase } = makeFirebase();
+    const fn = createPromoteEnrollPending(firebase);
+    const result = await fn([{ id: 'n', status: '등원예정', enrollments: [null, { start_date: '2026-05-01' }] }], TODAY);
+    assert.equal(result.length, 1);
+  });
+
+  it('200명 초과 시 batch 분할 커밋 (Firestore 500 ops 한도)', async () => {
+    const batches = [];
+    const firebase = {
+      db: 'db',
+      writeBatch: () => {
+        const b = { n: 0, committed: false, update: () => { b.n++; }, set: () => { b.n++; }, commit: async () => { b.committed = true; } };
+        batches.push(b);
+        return b;
+      },
+      doc: (db, col, id) => ({ id }),
+      collection: (db, col) => ({ col }),
+      serverTimestamp: () => 'TS',
+    };
+    const fn = createPromoteEnrollPending(firebase);
+    const students = Array.from({ length: 401 }, (_, i) => ({
+      id: `s${i}`, status: '등원예정', enrollments: [{ start_date: '2026-01-01' }],
+    }));
+    const result = await fn(students, TODAY);
+    assert.equal(result.length, 401);
+    assert.equal(batches.length, 3); // 200 + 200 + 1
+    assert.ok(batches.every(b => b.committed));
+    assert.ok(batches.every(b => b.n <= 500));
+  });
+});

@@ -12,6 +12,8 @@
 //   - enrollmentCode(enrollment): level_symbol+class_number 등 반코드 문자열
 //
 // 우선순위: 내신(기간 활성) > 자유학기(기간 활성) > 그대로. 내신/자유학기가 활성이면 정규를 숨긴다.
+import { classSettingsGet } from './class-code.js';
+
 const _validDate = (d) => !!d && /^\d{4}-/.test(d);
 
 // 반코드 문자열: level_symbol+class_number (예: HA + 101 → 'HA101').
@@ -32,7 +34,7 @@ export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, 
   if (!regularEnroll) return null;
   const csKey = resolveNaesinCsKey(regularEnroll);
   if (!csKey) return null;
-  const c = cs[csKey];
+  const c = classSettingsGet(cs, csKey); // 대소문자 표기 차이 흡수
   if (!c?.naesin_start || !c?.naesin_end) return null;
   if (c.naesin_start > today || c.naesin_end < today) return null;
   // 학생 개별 override: naesin_days(요일)·naesin_schedule(요일별 시간)가 반 기본을 덮는다.
@@ -75,7 +77,7 @@ export function applyNaesinFreeDerivation(current, { classSettings, dateStr, res
     if (explicit) return explicit;
     if (!regularEnroll) return null;
     const csKey = code(regularEnroll);
-    const c = cs[csKey];
+    const c = classSettingsGet(cs, csKey);
     if (!c?.free_start || !c?.free_end) return null;
     if (c.free_start > today || c.free_end < today) return null;
     return {
@@ -89,11 +91,10 @@ export function applyNaesinFreeDerivation(current, { classSettings, dateStr, res
     };
   })();
   if (activeFree) {
-    const freeCode = code(activeFree);
+    // 자유학기 활성이면 정규를 모두 숨긴다(헤더 계약) — 명시적 자유학기의 코드가 정규와 달라도 대체.
     return [
       activeFree,
-      ...current.filter(e => e.class_type !== '정규' || code(e) !== freeCode)
-        .filter(e => e !== activeFree),
+      ...current.filter(e => e.class_type !== '정규' && e !== activeFree),
     ];
   }
 
@@ -121,7 +122,7 @@ export function deriveClassPeriodHistory(enrollments, classSettings, { enrollmen
     if (!hasExplicitNaesin) {
       const override = e.naesin_class_override;
       if (typeof override === 'string' && override !== '') {
-        const c = cs[override];
+        const c = classSettingsGet(cs, override);
         if (c?.naesin_start && c?.naesin_end) {
           entries.push({ class_type: '내신', code: override, start_date: c.naesin_start, end_date: c.naesin_end });
         }
@@ -131,7 +132,7 @@ export function deriveClassPeriodHistory(enrollments, classSettings, { enrollmen
     // 자유학기: 정규 반코드 → class_settings 자유학기 기간
     if (!hasExplicitFree && e.class_type === '정규') {
       const csKey = code(e);
-      const c = cs[csKey];
+      const c = classSettingsGet(cs, csKey);
       if (c?.free_start && c?.free_end) {
         entries.push({ class_type: '자유학기', code: csKey, start_date: c.free_start, end_date: c.free_end });
       }
@@ -151,12 +152,15 @@ export function deriveLevelPeriod(enrollments, todayStr) {
     .sort();
   if (!starts.length) return { start: null, label: '—' };
   const start = starts[0];
-  const startD = new Date(start + 'T00:00:00+09:00');
-  const today = new Date((todayStr || '') + 'T00:00:00+09:00');
-  if (isNaN(today.getTime())) return { start, label: '—' };
-  const diffDays = Math.floor((today - startD) / 86400000);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(todayStr || '')) return { start, label: '—' };
+  // 문자열 직접 파싱 — 실행 환경 타임존과 무관하게 KST 달력 날짜로만 계산.
+  const [sy, sm, sd] = start.split('-').map(Number);
+  const [ty, tm, td] = todayStr.split('-').map(Number);
+  const diffDays = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(sy, sm - 1, sd)) / 86400000);
   if (diffDays < 0) return { start, label: '등원예정' };
-  const totalMonths = (today.getFullYear() - startD.getFullYear()) * 12 + (today.getMonth() - startD.getMonth());
+  // 완료된 개월 수: 시작 일(day)에 못 미친 달은 미완료로 본다 (01-31 시작 → 02-01은 1일이지 1개월이 아님).
+  let totalMonths = (ty - sy) * 12 + (tm - sm);
+  if (td < sd) totalMonths -= 1;
   if (totalMonths < 1) return { start, label: `${diffDays}일` };
   const years = Math.floor(totalMonths / 12);
   const months = totalMonths % 12;

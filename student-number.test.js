@@ -43,8 +43,10 @@ test('studentNumberIdentityKey: 이름 또는 번호 없으면 빈 문자열', (
     assert.equal(studentNumberIdentityKey('홍길동', ''), '');
 });
 
-test('normalizeRegistrationNo: 11자리 010 → 앞 3자리 제거', () => {
-    assert.equal(normalizeRegistrationNo('010-1234-5678'), '12345678');
+test('normalizeRegistrationNo: 11자리 010 → 파생 규칙과 동일한 6자리 키', () => {
+    // 2026-07-05 P2: 8자리로 남기지 않고 deriveFromSource와 같은 앞 6자리로 축약 —
+    // 전화 원본과 파생 학생번호가 같은 비교 키를 갖게 한다.
+    assert.equal(normalizeRegistrationNo('010-1234-5678'), '123456');
 });
 
 test('normalizeRegistrationNo: 8자리 00 패딩 → 뒤 2자리 제거', () => {
@@ -116,4 +118,29 @@ test('detectStudentNumberUpgrade: 상위소스 번호가 현재와 같으면 nul
 
 test('STUDENT_NUMBER_SOURCES: 우선순위 순서 고정', () => {
     assert.deepEqual(STUDENT_NUMBER_SOURCES, ['student_phone', 'parent_phone_1', 'parent_phone_2']);
+});
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C14) ───
+test('같은 전화의 다른 표기(+82·앞 0 소실 숫자)도 동일 학생번호 파생', () => {
+    assert.equal(deriveFromSource({ student_phone: '010-1234-5678' }, 'student_phone'), '123456');
+    assert.equal(deriveFromSource({ student_phone: 1012345678 }, 'student_phone'), '123456');
+    assert.equal(deriveFromSource({ student_phone: '+82-10-1234-5678' }, 'student_phone'), '123456');
+    assert.equal(deriveFromSource({ student_phone: '+82 10 1234 5678' }, 'student_phone'), '123456');
+});
+
+// ─── 2026-07-05 리뷰 P2 회귀 ───
+test('normalizeRegistrationNo: 같은 전화의 모든 표기가 동일 비교 키', () => {
+    const key = normalizeRegistrationNo('010-1234-5678');
+    assert.equal(key, '123456');
+    assert.equal(normalizeRegistrationNo('01012345678'), key);
+    assert.equal(normalizeRegistrationNo('+82-10-1234-5678'), key);
+    assert.equal(normalizeRegistrationNo(1012345678), key);   // 앞 0 소실 숫자
+    assert.equal(normalizeRegistrationNo('12345678'), key);   // 8자리 잔여 표기
+    assert.equal(normalizeRegistrationNo('12345600'), '123456'); // 기존 '00' 패딩 규칙 유지
+    assert.equal(normalizeRegistrationNo('123456'), key);     // 파생 6자리
+});
+
+test("0이 유지된 13자리 '+82 010-…' 표기도 동일 번호·키", () => {
+    assert.equal(deriveFromSource({ student_phone: '+82 010-1234-5678' }, 'student_phone'), '123456');
+    assert.equal(normalizeRegistrationNo('+82 010-1234-5678'), '123456');
 });

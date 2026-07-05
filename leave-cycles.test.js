@@ -295,3 +295,25 @@ describe('groupLeaveCycles — 도메인 규칙', () => {
     assert.equal(cycles[1].startDate, '2026-01-05');
   });
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C11) ───
+describe('정렬 동률 tiebreak', () => {
+  it('같은 sortKey의 휴원요청+복귀요청은 입력 순서와 무관하게 한 사이클', () => {
+    const a = { request_type: '휴원요청', leave_start_date: '2026-03-01', status: 'approved' };
+    const b = { request_type: '복귀요청', return_date: '2026-03-01', status: 'approved' };
+    const ab = groupLeaveCycles([a, b]);
+    const ba = groupLeaveCycles([b, a]);
+    assert.equal(ab.length, 1);
+    assert.equal(ba.length, 1);
+    assert.equal(ab[0].type, 'leave');
+    assert.equal(ab[0].returnDate, '2026-03-01');
+  });
+});
+
+// ─── 2026-07-05 리뷰 P7 회귀 ───
+describe('leaveRequestSortKey — 직렬화 Timestamp POJO', () => {
+  it('{seconds}·{_seconds} 형태를 ms로 변환', () => {
+    assert.equal(leaveRequestSortKey({ created_at: { seconds: 1751000000, nanoseconds: 0 } }), 1751000000000);
+    assert.equal(leaveRequestSortKey({ created_at: { _seconds: 1751000000, _nanoseconds: 500000000 } }), 1751000000500);
+  });
+});

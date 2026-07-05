@@ -7,7 +7,8 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 193개 통과.
+- 테스트: `npm test` (`node --test`). 현재 285개 통과.
+- 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·files·디스크·이 문서 표 대조)
 
 ## 모듈 목록 및 공개 API
 
@@ -37,7 +38,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `INITIAL_STATUSES` | const | `['등원예정', '재원']` |
 | `isEnrollableStatus` | fn | `(status) → boolean` |
 | `hasRealEnrollment` | fn | `(enrollments) → boolean` — 빈 placeholder 제외 |
-| `reconcileEnrollments` | fn | `(status, enrollments) → { enrollments, valid, reason? }` |
+| `reconcileEnrollments` | fn | `(status, enrollments) → { enrollments, valid, reason? }` — 7종 밖 status(오타·undefined)는 `valid:false` |
 | `studentCategory` | fn | `(status) → '재원생' \| '비원생'` |
 | `selectableStatuses` | fn | `(current, isNew) → string[]` |
 
@@ -48,7 +49,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `enrollmentCode` | fn | `(e) → level_symbol+class_number` — 예: `'HA101'`. 아래 두 함수의 옵션 기본값 |
-| `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment` |
+| `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment[]` — 내신/자유학기 활성 시 정규를 치환한 배열 |
 | `deriveActiveNaesinEnrollment` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → enrollment\|null` — 활성 내신 enrollment(명시/파생) 또는 null. 아래 predicate와 applyNaesinFreeDerivation의 SSoT |
 | `isNaesinActiveAt` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → boolean` — 기준일 내신기간 활성 여부. 내신 active 판정은 로컬 재구현 말고 이 함수 사용(current는 호출자가 날짜 필터한 활성 enrollment 배열) |
 | `deriveClassPeriodHistory` | fn | `(enrollments, classSettings, { enrollmentCode? }?) → [{ class_type, code, start_date, end_date }]` |
@@ -68,7 +69,43 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `createPromoteEnrollPending` | fn | `(firebase, { idField?, batchUpdate? }) → async (students, today) → pending[]` |
+| `createPromoteEnrollPending` | fn | `(firebase, { idField?, batchUpdate? }) → async (students, today) → pending[]` — 오늘 활성(시작됐고 안 끝난) enrollment 필요, 200명 단위 batch 분할 |
+
+### `./expected-arrival` — `expected-arrival.js`
+
+학생 당일 등원 예정 시각 계산 SSoT. DSC(대시보드)·태블릿 서버(지각 판정)가 공유.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `getDayName` | fn | `(dateStr) → '일'~'토'` — TZ 무관(UTC 산술), 실존하지 않는 날짜('2026-02-30')는 `''` |
+| `normalizedDays` | fn | `(day) → string[]` — '요일' 접미·구분자 제거 |
+| `resolveNaesinCsKey` | fn | `(regularEnroll) → string \| null` — naesin_class_override 기반 |
+| `startTime` | fn | `(enrollment, dayName, classSettings) → 'HH:MM' \| ''` |
+| `earliestExpectedTime` | fn | `({ enrollments, dayName, classSettings, rec, hwTasks, testTasks, absences, date }) → 'HH:MM' \| ''` — 분 단위 최솟값('9:30' 한 자리 시 허용) |
+| `computeExpectedArrival` | fn | `({ enrollments, classSettings, rec, hwTasks, testTasks, absences, date }) → 'HH:MM' \| ''` — 날짜필터→내신/자유학기 파생→요일필터 후 earliest |
+| `isLate` | fn | `(arrivalHHMM, expectedHHMM, graceMin=5) → boolean` — 같은 날 비교 계약. 자정 넘김은 판정하지 않음(호출자가 businessDay 기준으로 날짜를 짝지을 것) |
+
+### `./attendance-action` — `attendance-action.js`
+
+출결 액션 표준 용어 SSoT. DB·DSC·태블릿이 import.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|--------------|
+| `ATTENDANCE_ACTIONS` | const | `{ arrival: '등원', out: '외출', return: '귀원', departure: '하원' }` |
+| `normalizeAttendanceLabel` | fn | `(label) → string` — 구 동의어('귀가'→'하원', '복귀'→'귀원') 정규화. 출결 액션 값에만 적용 |
+| `attendanceLabel` | fn | `(key) → string` |
+| `attendanceActionKey` | fn | `(label) → 'arrival'\|'out'\|'return'\|'departure'\|''` — 구·신 라벨 모두 |
+
+### `./attendance-log` — `attendance-log.js`
+
+출결 이벤트 조회용 정렬·그룹. 태블릿·DSC 공유.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `sortByProcessed` | fn | `(events, { desc? }) → events[]` — occurred_at 절대시각순 (오프셋 표기 혼용 안전) |
+| `arrivalOrder` | fn | `(events, dailyByStudent?) → events[]` — 등원만 시각 오름차순 + late 플래그 |
+| `departureOrder` | fn | `(events) → events[]` — 하원(구 라벨 '귀가' 포함)만 시각 오름차순 |
+| `groupByState` | fn | `(students, dailyByStudent?) → { 미등원, 원내, 외출중, 하원 }` |
 
 ### `./student-number` — `student-number.js`
 
@@ -76,10 +113,14 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
+| `STUDENT_NUMBER_SOURCES` | const | `['student_phone', 'parent_phone_1', 'parent_phone_2']` — 파생 우선순위 순 |
 | `deriveStudentNumber` | fn | `(student) → { studentNumber: string, source: string }` |
+| `deriveFromSource` | fn | `(student, source) → string` — 소스 필드 하나에서만 6자리 파생, 실패 시 `''`. +82·앞 0 소실 표기도 동일 번호 |
+| `isValidStudentNumber` | fn | `(raw) → boolean` — 정확히 6자리 숫자 |
+| `detectStudentNumberUpgrade` | fn | `(student, currentSource) → { studentNumber, source } \| null` — 상위 소스 번호 제안용 |
 | `studentNumberNameKey` | fn | `(name) → string` — 공백 제거 |
 | `studentNumberIdentityKey` | fn | `(name, studentNumber) → string` — `'이름|번호'` 또는 `''` |
-| `normalizeRegistrationNo` | fn | `(raw) → string` — 비교용 등록번호 정규화 (010 prefix·00 패딩 제거), 저장·표시용 아님 |
+| `normalizeRegistrationNo` | fn | `(raw) → string` — 비교용 등록번호 정규화. 전화의 모든 표기(+82·앞 0 소실·8자리·'00' 패딩)를 파생 규칙과 동일한 6자리 키로 축약. 저장·표시용 아님 |
 
 ### `./student-label` — `student-label.js`
 
@@ -110,18 +151,19 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 |------|------|---------|
 | `isActiveTeacher` | fn | `(staff) → boolean` — 부서 '교수' ∧ status 'active'만 담임 후보 |
 | `teacherDisplayName` | fn | `(englishName) → string` — 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
-| `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로 |
-| `isSameTeacher` | fn | `(a, b) → boolean` — 로컬파트 비교, 구·신 메일을 같은 사람으로 판별 |
+| `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로. 외부 도메인은 병합하지 않음 |
+| `isSameTeacher` | fn | `(a, b) → boolean` — 내부 도메인(impact7.kr·gw.impact7.kr, 도메인 없는 ID 포함)만 로컬파트 비교, 외부 도메인은 완전 일치 필요 |
 
 ### `./class-code` — `class-code.js`
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `normalizeClassCode` | fn | `(code) → string` — trim + 대문자 (`'ks132'→'KS132'`), 비교·저장 전 정규화 |
+| `classSettingsGet` | fn | `(classSettings, code) → setting \| undefined` — 표기 차이(ks132 ≡ KS132)를 양방향 흡수하는 조회. 파생 계층(enrollment-derivation·expected-arrival)이 사용 |
 
 ### `./datetime` — `datetime.js`
 
-KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제.
+KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제. 입력: Date·Timestamp(toDate)·직렬화 POJO(`{seconds}`/`{_seconds}`)·epoch·ISO.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
@@ -129,6 +171,7 @@ KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제.
 | `formatDateTimeKST` | fn | `(value, { withYear? }) → '6월 7일 오후 3:05'` |
 | `formatDateKST` | fn | `(value) → 'YYYY-MM-DD'` |
 | `todayKST` | fn | `() → 'YYYY-MM-DD'` — KST 오늘 |
+| `businessDayKST` | fn | `(value?, cutoffHour=6) → 'YYYY-MM-DD'` — 근무일 06시 경계(당일 06:00~익일 06:00), 익일 00~05시는 전날 귀속 |
 
 ### `./ime-input` — `ime-input.js`
 
@@ -137,6 +180,27 @@ HTML 템플릿 문자열 렌더링용 IME-aware inline 이벤트 어트리뷰트
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `imeInputAttrs` | fn | `(handlerCall) → string` — `oncompositionstart/end` + `oninput` 한 줄 어트리뷰트. handlerCall은 escAttr 처리된 값 가정, 추가 escape 없음 |
+
+⚠️ 보안: escAttr는 HTML 계층만 보호한다. 어트리뷰트 값은 JS 실행 전 HTML 디코드되므로,
+handlerCall의 JS 문자열 리터럴 안에 사용자 자유 텍스트(이름·메모)를 삽입하면 따옴표 breakout(XSS)이 가능하다.
+Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
+
+### `./form-slug` — `form-slug.js`
+
+공개 폼 주소(slug) 규약. firebase 라우팅·dev 프록시·검증이 공유.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|--------------|
+| `RESERVED_PUBLIC_SLUGS` | const | `Set { 'forms-admin', 'forms', 'assets', 'vendor', 'src', 'design', 'index', 'form', 'favicon' }` — slug로 쓸 수 없는 시스템 경로 |
+
+### `./form-components` — `form-components.js`
+
+공개 폼 공통 구성요소(동의·카카오·푸터) 기본 문구와 정규화. 스튜디오(클라)·Cloud Run(서버) 공유.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `COMPONENT_SETTINGS_DEFAULTS` | const | `{ privacyConsent, marketingConsent, kakaoChannel, footer }` — frozen 기본 문구 |
+| `normalizeComponentSettings` | fn | `(value, cap?) → settings` — cap(서버 길이 제한) 주입 시 저장용, 생략 시 표시용. 공백만·비문자열 값은 기본값 유지 |
 
 ### `./html-escape` — `html-escape.js`
 
@@ -169,7 +233,7 @@ HTML 템플릿 문자열 렌더링용 IME-aware inline 이벤트 어트리뷰트
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `leaveRequestSortKey` | fn | `(r) → number` — ms. created_at → requested_at → leave_start_date → withdrawal_date → return_date 폴백. Timestamp·Date·문자열 처리 |
+| `leaveRequestSortKey` | fn | `(r) → number` — ms. created_at → requested_at → leave_start_date → withdrawal_date → return_date 폴백. Timestamp·직렬화 POJO(`{seconds}`/`{_seconds}`)·Date·문자열 처리 |
 | `groupLeaveCycles` | fn | `(requests) → [{ type: 'leave'\|'leave_to_withdraw'\|'withdraw'\|'reenroll'\|'other', startDate, endDate, returnDate, withdrawalDate, note, subType, requests }]` — cancelled/rejected 제외, 최신 사이클이 앞 |
 
 ---
@@ -198,7 +262,8 @@ HTML 템플릿 문자열 렌더링용 IME-aware inline 이벤트 어트리뷰트
 ### history-classifier.js의 내부 상수 분리 정책
 
 `history-classifier.js`는 `enrollment-status.js`를 import하지 않고 독립 `STATUSES`/`LEAVE`를 유지한다.
-이유: 로그 텍스트 파싱 전용이며 `종강`이 로그에 기록되지 않아 집합이 다르다.
+이유: 로그 텍스트 파싱 전용 — 집합의 목적(파싱 인식)이 상태 정합성 집합과 다르다.
+`종강`은 WITHDRAW 로그의 before 텍스트에 나타날 수 있어 파싱 인식에 포함한다(2026-07-05 리뷰 반영).
 → 상태값 추가 시 **두 파일을 모두 확인**해야 한다.
 
 ## 소비자 패키지 버전 업

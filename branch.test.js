@@ -29,3 +29,12 @@ test('branchesFromStudent: 모든 enrollment 합집합, 비면 branch fallback',
     assert.deepEqual(branchesFromStudent({ branch: '2단지', enrollments: [] }), ['2단지']);
     assert.deepEqual(branchesFromStudent({}), []);
 });
+
+// ─── 2026-07-05 적대적 리뷰 회귀 (C6) ───
+test('숫자형 class_number 허용 (Firestore number 저장 문서)', () => {
+    assert.equal(branchFromClassNumber(101), '2단지');
+    assert.equal(branchFromClassNumber(201), '10단지');
+    assert.deepEqual(branchesFromStudent({ enrollments: [{ class_number: 101 }] }), ['2단지']);
+    assert.equal(branchFromClassNumber(null), '');
+    assert.equal(branchFromClassNumber(undefined), '');
+});

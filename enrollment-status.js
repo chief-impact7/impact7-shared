@@ -18,13 +18,21 @@ export function hasRealEnrollment(enrollments) {
 // 저장 직전 status↔enrollment 정합성 검사/정리.
 // - 비재원(상담/퇴원/종강): enrollments를 빈 배열로 강제 (valid: true)
 // - 재원 계열: 실질 enrollment ≥1 필요 (없으면 valid: false + reason)
+// - 7종 밖 status(오타·구 데이터·undefined): valid: false — 정합성 불명인 채 저장 차단
 // 반환: { enrollments, valid, reason? }
 export function reconcileEnrollments(status, enrollments) {
   const list = enrollments || [];
   if (NON_ENROLLABLE_STATUSES.has(status)) {
     return { enrollments: [], valid: true };
   }
-  if (ENROLLABLE_STATUSES.has(status) && !hasRealEnrollment(list)) {
+  if (!ENROLLABLE_STATUSES.has(status)) {
+    return {
+      enrollments: list,
+      valid: false,
+      reason: `알 수 없는 상태(${status || '없음'})입니다. 재원·등원예정·실휴원·가휴원·상담·퇴원·종강 중 하나여야 합니다.`,
+    };
+  }
+  if (!hasRealEnrollment(list)) {
     return {
       enrollments: list,
       valid: false,

@@ -4,31 +4,37 @@ export function createPromoteEnrollPending(firebase, { idField = 'id', batchUpda
   const { db, writeBatch, doc, collection, serverTimestamp } = firebase;
 
   return async function (students, today) {
+    // 시작됐고 아직 안 끝난(오늘 활성) enrollment가 있어야 전환 — 과거 종료 이력만으로 조기 전환 방지.
+    const activeToday = (e) =>
+      e && e.start_date && e.start_date <= today &&
+      !(/^\d{4}-/.test(e.end_date || '') && e.end_date < today);
     const pending = students.filter(s =>
-      s.status === '등원예정' &&
-      (s.enrollments || []).some(e => e.start_date && e.start_date <= today)
+      s.status === '등원예정' && (s.enrollments || []).some(activeToday)
     );
     if (pending.length === 0) return [];
 
-    const batch = writeBatch(db);
-    for (const s of pending) {
-      const ref = doc(db, 'students', s[idField]);
-      if (batchUpdate) {
-        batchUpdate(batch, ref, { status: '재원' });
-      } else {
-        batch.update(ref, { status: '재원', updated_at: serverTimestamp() });
+    // Firestore writeBatch 한도 500 ops — 학생당 2 ops(update+history)이므로 200명씩 분할 커밋.
+    // 청크 중간 실패 시 이미 커밋된 학생은 '재원'이라 다음 실행에서 자동 제외 — 재실행으로 자연 재개.
+    for (let i = 0; i < pending.length; i += 200) {
+      const batch = writeBatch(db);
+      for (const s of pending.slice(i, i + 200)) {
+        const ref = doc(db, 'students', s[idField]);
+        if (batchUpdate) {
+          batchUpdate(batch, ref, { status: '재원' });
+        } else {
+          batch.update(ref, { status: '재원', updated_at: serverTimestamp() });
+        }
+        batch.set(doc(collection(db, 'history_logs')), {
+          doc_id: s[idField],
+          change_type: 'UPDATE',
+          before: '등원예정',
+          after: '재원',
+          google_login_id: 'auto-transition',
+          timestamp: serverTimestamp(),
+        });
       }
-      batch.set(doc(collection(db, 'history_logs')), {
-        doc_id: s[idField],
-        change_type: 'UPDATE',
-        before: '등원예정',
-        after: '재원',
-        google_login_id: 'auto-transition',
-        timestamp: serverTimestamp(),
-      });
+      await batch.commit();
     }
-
-    await batch.commit();
     return pending;
   };
 }

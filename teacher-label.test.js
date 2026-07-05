@@ -51,3 +51,18 @@ test('공백·빈값·비문자열은 빈 문자열', () => {
   assert.equal(teacherDisplayName(null), '');
   assert.equal(teacherDisplayName(42), '');
 });
+
+// ─── 2026-07-05 리뷰 P6 회귀 ───
+test('isSameTeacher: 외부 도메인의 같은 로컬파트는 다른 사람', () => {
+  assert.equal(isSameTeacher('edward@gmail.com', 'edward@impact7.kr'), false);
+  assert.equal(isSameTeacher('edward@gmail.com', 'edward@gmail.com'), true); // 같은 외부 도메인은 동일
+  assert.equal(isSameTeacher('edward@gw.impact7.kr', 'edward@impact7.kr'), true); // 구·신 내부 유지
+  assert.equal(isSameTeacher('edward', 'edward@impact7.kr'), true); // 도메인 없는 ID 허용 유지
+});
+
+test('canonicalizeTeacherEmails: 외부 도메인은 내부와 병합하지 않음', () => {
+  assert.deepEqual(
+    canonicalizeTeacherEmails(['edward@gw.impact7.kr', 'edward@gmail.com', 'edward@impact7.kr']),
+    ['edward@impact7.kr', 'edward@gmail.com']
+  );
+});
