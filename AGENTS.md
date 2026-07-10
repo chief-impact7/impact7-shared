@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 310개 통과.
+- 테스트: `npm test` (`node --test`). 현재 316개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·files·디스크·이 문서 표 대조)
 
 ## 모듈 목록 및 공개 API
@@ -239,6 +239,16 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 |------|------|---------|
 | `leaveRequestSortKey` | fn | `(r) → number` — ms. created_at → requested_at → leave_start_date → withdrawal_date → return_date 폴백. Timestamp·직렬화 POJO(`{seconds}`/`{_seconds}`)·Date·문자열 처리 |
 | `groupLeaveCycles` | fn | `(requests) → [{ type: 'leave'\|'leave_to_withdraw'\|'withdraw'\|'reenroll'\|'other', startDate, endDate, returnDate, withdrawalDate, note, subType, requests }]` — cancelled/rejected 제외, 최신 사이클이 앞 |
+
+### `./permissions` — `permissions.js`
+
+에코시스템 전역 권한 카탈로그. HR 권한설정 화면이 렌더링 SSoT로 사용. key는 `HR_users.permissions`/`staff.permissions` 맵의 필드명. 신규 키 추가 시 firestore.rules `isSafeShortTermSelfCreate` 화이트리스트도 갱신할 것.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|--------------|
+| `PERMISSION_GROUPS` | const | `[{ key, title, items: [{ key, label, apps: string[], enforced }] }]` — 그룹 11종. `enforced`: `'rules'`(firestore.rules 서버 강제) \| `'client'`(앱 화면 제어만) \| `'none'`(카탈로그만) |
+| `ALL_PERMISSION_KEYS` | const | `PERMISSION_GROUPS.flatMap(g => g.items.map(i => i.key))` — 43종 |
+| `SENSITIVE_PERMISSION_KEYS` | const | `['canViewPopulationStats', 'canViewClassCounts']` — 오너/원장만 부여·회수 |
 
 ---
 

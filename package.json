@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.44.1",
+  "version": "1.45.0",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -24,7 +24,8 @@
     "./phone": "./phone.js",
     "./branch": "./branch.js",
     "./form-slug": "./form-slug.js",
-    "./form-components": "./form-components.js"
+    "./form-components": "./form-components.js",
+    "./permissions": "./permissions.js"
   },
   "files": [
     "history-classifier.js",
@@ -47,7 +48,8 @@
     "phone.js",
     "branch.js",
     "form-slug.js",
-    "form-components.js"
+    "form-components.js",
+    "permissions.js"
   ],
   "scripts": {
     "test": "node --test"
