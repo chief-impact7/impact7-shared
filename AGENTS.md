@@ -218,6 +218,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
+| `digitsOf` | fn | `(value) → string` — 숫자만 추출, nullish → `''`. 수신번호 정규화 등 소비자 직접 사용 |
 | `formatPhone` | fn | `(phone) → string` — 11자리만 `010-1234-5678` 하이픈 분할, 그 외 원본, nullish → `''` |
 | `isValidPhoneKR` | fn | `(value) → boolean` — 숫자만 추출 후 `/^01[016789]\d{7,8}$/`(10-11자리, 하이픈·공백 무관). HR 3종 검증 정규식 중 가장 포용적인 기준으로 통일 |
 | `formatPhoneInput` | fn | `(value) → string` — 입력 중 자동 하이픈. 숫자만 추출(최대 11자리)해 점진 3-3~4-4 분할(`'0101234'→'010-1234'`, 11자리 `010-1234-5678`), 결과 최대 13자, nullish → `''` |
@@ -229,6 +230,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `branchFromClassNumber` | fn | `(num) → '2단지' \| '10단지' \| ''` — '10단지'/'2단지' 접두 우선, 그다음 첫 숫자('1'→2단지, '2'→10단지) |
+| `branchFromClassCode` | fn | `(code) → '2단지' \| '10단지' \| ''` — 풀 반코드용. 접두 우선, 그다음 코드 내 **첫 숫자**(`'A101'`→2단지). 학년 숫자가 먼저 오는 csKey(`'목동중1A'`)에는 사용 금지 |
 | `branchFromStudent` | fn | `(s) → string` — `s.branch` 우선, 없으면 첫 enrollment에서 파생 |
 | `branchesFromStudent` | fn | `(s) → string[]` — 전체 enrollment 파생 합집합, 비면 branch fallback |
 

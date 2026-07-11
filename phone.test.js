@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { formatPhone, isValidPhoneKR, formatPhoneInput } from './phone.js';
+import { digitsOf, formatPhone, isValidPhoneKR, formatPhoneInput } from './phone.js';
 
 test('formatPhone: 11자리 하이픈 분할', () => {
     assert.equal(formatPhone('01012345678'), '010-1234-5678');
@@ -75,4 +75,12 @@ test('formatPhoneInput: nullish · 비문자열 → 항상 string', () => {
     assert.equal(formatPhoneInput(''), '');
     assert.equal(formatPhoneInput(1012345678), '101-234-5678'); // 숫자 입력도 문자열화 후 포맷
     assert.equal(typeof formatPhoneInput(1012345678), 'string');
+});
+
+test('digitsOf: 숫자만 추출, nullish → 빈 문자열', () => {
+    assert.equal(digitsOf('010-1234-5678'), '01012345678');
+    assert.equal(digitsOf(' 010 1234 5678 '), '01012345678');
+    assert.equal(digitsOf(1012345678), '1012345678');
+    assert.equal(digitsOf(null), '');
+    assert.equal(digitsOf(undefined), '');
 });

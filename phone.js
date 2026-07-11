@@ -1,5 +1,5 @@
-// nullish→'' 후 숫자만 추출. 아래 세 함수 공통.
-const digitsOf = (value) => String(value ?? '').replace(/\D/g, '');
+// nullish→'' 후 숫자만 추출. 아래 세 함수 공통 + 소비자(DSC 메시지센터 수신번호 정규화 등) 직접 사용.
+export const digitsOf = (value) => String(value ?? '').replace(/\D/g, '');
 
 // 전화번호 표시 포맷. 11자리만 하이픈 분할(010-1234-5678), 그 외는 원본 반환.
 // null/undefined는 '' 반환. 반환은 항상 string(숫자 입력도 문자열화 — 계약 '→ string').

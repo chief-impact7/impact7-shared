@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { branchFromClassNumber, branchFromStudent, branchesFromStudent } from './branch.js';
+import { branchFromClassNumber, branchFromClassCode, branchFromStudent, branchesFromStudent } from './branch.js';
 
 test('branchFromClassNumber: 정규 반번호 첫 숫자 파생', () => {
     assert.equal(branchFromClassNumber('101'), '2단지');
@@ -37,4 +37,19 @@ test('숫자형 class_number 허용 (Firestore number 저장 문서)', () => {
     assert.deepEqual(branchesFromStudent({ enrollments: [{ class_number: 101 }] }), ['2단지']);
     assert.equal(branchFromClassNumber(null), '');
     assert.equal(branchFromClassNumber(undefined), '');
+});
+
+test('branchFromClassCode: 문자 접두 반코드는 첫 숫자로 파생', () => {
+    assert.equal(branchFromClassCode('A101'), '2단지');
+    assert.equal(branchFromClassCode('A201'), '10단지');
+    assert.equal(branchFromClassCode('101'), '2단지');
+    assert.equal(branchFromClassCode(201), '10단지');
+});
+
+test('branchFromClassCode: 단지 접두 우선, 숫자 없으면 빈 문자열', () => {
+    assert.equal(branchFromClassCode('10단지목동중1A'), '10단지');
+    assert.equal(branchFromClassCode('2단지내신'), '2단지');
+    assert.equal(branchFromClassCode('ABC'), '');
+    assert.equal(branchFromClassCode(''), '');
+    assert.equal(branchFromClassCode(null), '');
 });
