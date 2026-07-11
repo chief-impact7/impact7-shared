@@ -15,6 +15,4 @@ export function esc(str) {
 }
 
 // HTML 속성용 — esc와 동일 5종 escape로 통일.
-export function escAttr(str) {
-  return esc(str);
-}
+export { esc as escAttr };

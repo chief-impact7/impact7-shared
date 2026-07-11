@@ -8,7 +8,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
 - 테스트: `npm test` (`node --test`). 현재 316개 통과.
-- 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·files·디스크·이 문서 표 대조)
+- 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
 
@@ -169,6 +169,7 @@ KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제. 입력: Date·Timesta
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
+| `toDate` | fn | `(value) → Date \| null` — 모든 입력 형태 공통 파싱. 포맷터·leave-cycles 정렬키가 재사용하는 SSoT |
 | `formatTimeKST` | fn | `(value) → '오후 3:05'` |
 | `formatDateTimeKST` | fn | `(value, { withYear? }) → '6월 7일 오후 3:05'` |
 | `formatDateKST` | fn | `(value) → 'YYYY-MM-DD'` |
@@ -256,9 +257,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 1. `{name}.js` 작성 — 순수 함수, 의존성 없음
 2. `{name}.test.js` 작성 — `node:test` + `node:assert/strict`
-3. `package.json` 두 곳 모두 추가:
-   - `"exports"`: `"./{name}": "./{name}.js"`
-   - `"files"`: `"{name}.js"`
+3. `package.json` `"exports"`에 `"./{name}": "./{name}.js"` 추가 (`"files"`는 glob `*.js`·`!*.test.js`로 자동 포함)
 4. `npm test` 전체 통과 확인
 5. 버전 bump: `package.json` `.version` 패치 단위 올림
 6. 이 파일 "모듈 목록 및 공개 API" 섹션에 새 모듈 추가

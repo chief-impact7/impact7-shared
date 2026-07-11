@@ -5,7 +5,9 @@
 // 값이 없거나 잘못되면 빈 문자열.
 const TZ = 'Asia/Seoul';
 
-function toDate(value) {
+// 모든 입력 형태(Date·Timestamp·직렬화 POJO·epoch·ISO) → Date | null.
+// 이 파일의 포맷터들과 leave-cycles 정렬키가 공유하는 파싱 SSoT.
+export function toDate(value) {
   if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
   if (value && typeof value.toDate === 'function') {
     const d = value.toDate();
@@ -85,6 +87,5 @@ export function businessDayKST(value = new Date(), cutoffHour = 6) {
   if (hour >= cutoffHour) return dateStr;
   // cutoff 이전 → 전날(UTC 산술로 날짜만 -1, 타임존 혼란 없음)
   const [y, m, day] = dateStr.split('-').map(Number);
-  const prev = new Date(Date.UTC(y, m - 1, day - 1));
-  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}-${String(prev.getUTCDate()).padStart(2, '0')}`;
+  return new Date(Date.UTC(y, m - 1, day - 1)).toISOString().slice(0, 10);
 }

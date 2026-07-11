@@ -1,9 +1,11 @@
 #!/usr/bin/env node
-// exports ↔ files ↔ 디스크(.js/.test.js) ↔ AGENTS.md 문서 표 동기화 검사 +
+// exports ↔ 디스크(.js/.test.js) ↔ AGENTS.md 문서 표 동기화 검사 +
 // 순수 패키지 경계(상대·node: 외 import 금지) 정적 검사.
+// files는 glob("*.js", "!*.test.js")이라 수동 목록 drift가 없다 — 대신 exports에 없는
+// 루트 고아 .js(배포에 실리지만 소비자가 접근 못 함)를 검출한다.
 // 사용: node scripts/check-drift.mjs [--no-test]
 //   --no-test: AGENTS.md 테스트 수 대조(node --test 실행)를 건너뛴다.
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -29,17 +31,17 @@ function main() {
     subpath: sub,
     base: target.replace(/^\.\//, '').replace(/\.js$/, ''),
   }));
-  const fileBases = pkg.files.map((f) => f.replace(/\.js$/, ''));
 
   for (const { subpath, base } of entries) {
-    if (!fileBases.includes(base)) problems.push(`exports에만 있고 files에 없음: ${base}.js`);
     if (!existsSync(join(root, `${base}.js`))) problems.push(`소스 없음: ${base}.js`);
     if (!existsSync(join(root, `${base}.test.js`))) problems.push(`테스트 없음: ${base}.test.js`);
     if (!agents.includes(`### \`${subpath}\``)) problems.push(`AGENTS.md 모듈 표에 없음: ${subpath}`);
   }
   const exportBases = new Set(entries.map((e) => e.base));
-  for (const base of fileBases) {
-    if (!exportBases.has(base)) problems.push(`files에만 있고 exports에 없음: ${base}.js`);
+  for (const f of readdirSync(root)) {
+    if (f.endsWith('.js') && !f.endsWith('.test.js') && !exportBases.has(f.slice(0, -3))) {
+      problems.push(`exports에 없는 고아 소스(배포에 포함됨): ${f}`);
+    }
   }
 
   // 순수 패키지 경계 — 의존성 0 정책의 공식 게이트 (lockfile이 없어 npm audit이 불가한 것을 대신한다).
@@ -68,7 +70,7 @@ function main() {
     for (const p of problems) console.error(`  - ${p}`);
     process.exit(1);
   }
-  console.log(`✓ drift 없음 (모듈 ${entries.length}개, exports·files·디스크·AGENTS.md·패키지 경계 일치)`);
+  console.log(`✓ drift 없음 (모듈 ${entries.length}개, exports·디스크·AGENTS.md·패키지 경계 일치)`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

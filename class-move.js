@@ -1,7 +1,8 @@
 // 학생 1명의 특정 학기 정규 enrollment를 다른 반으로 이동한 새 배열을 반환한다 (순수 함수, in-place 아님).
 // override·start_date·day·semester는 보존. 대상 정규가 없으면 skipped.
 
-const codeOf = (e) => `${e.level_symbol || ''}${e.class_number || ''}`;
+import { enrollmentCode } from './enrollment-derivation.js';
+
 const isRegular = (e) => (e.class_type || '정규') === '정규';
 const lastDigit = (n) => {
   const m = String(n ?? '').match(/(\d)\D*$/);
@@ -15,7 +16,7 @@ export function moveClass(student, { semester, targetLevelSymbol, targetClassNum
     return { updatedEnrollments: enrollments, before: null, after: null, skipped: true, warning: null };
   }
   const target = enrollments[idx];
-  const before = codeOf(target);
+  const before = enrollmentCode(target);
   const after = `${targetLevelSymbol || ''}${targetClassNumber || ''}`;
   const updatedEnrollments = enrollments.map((e, i) =>
     i === idx ? { ...e, level_symbol: targetLevelSymbol, class_number: targetClassNumber } : e

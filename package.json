@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.45.0",
+  "version": "1.45.1",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -28,28 +28,8 @@
     "./permissions": "./permissions.js"
   },
   "files": [
-    "history-classifier.js",
-    "enrollment-status.js",
-    "attendance-action.js",
-    "expected-arrival.js",
-    "attendance-log.js",
-    "enrollment-derivation.js",
-    "class-move.js",
-    "promote-enroll.js",
-    "student-number.js",
-    "student-label.js",
-    "staff-label.js",
-    "teacher-label.js",
-    "class-code.js",
-    "datetime.js",
-    "leave-cycles.js",
-    "ime-input.js",
-    "html-escape.js",
-    "phone.js",
-    "branch.js",
-    "form-slug.js",
-    "form-components.js",
-    "permissions.js"
+    "*.js",
+    "!*.test.js"
   ],
   "scripts": {
     "test": "node --test"

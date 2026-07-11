@@ -24,6 +24,7 @@ export const COMPONENT_SETTINGS_DEFAULTS = Object.freeze({
 });
 
 // 서버 저장 시 적용하는 필드별 최대 길이. 클라는 cap 없이 표시용으로만 정규화한다.
+// normalizeComponentSettings 반환 구조(그룹·키)도 이 표에서 파생된다.
 const SETTINGS_LIMITS = Object.freeze({
   privacyConsent: { title: 120, notice: 3000, label: 300, description: 200, optionLabel: 80 },
   marketingConsent: { label: 300, description: 200, optionLabel: 80 },
@@ -37,33 +38,13 @@ export function normalizeComponentSettings(value, cap) {
     ? cap
     : (text) => String(text === null || text === undefined ? "" : text);
   const source = value && typeof value === "object" ? value : {};
-  const pick = (group, key) => {
-    // 문자열이면서 공백 아닌 값만 채택 — 공백만 입력하거나 비문자열(객체 등)이 오면 기본값 유지.
-    const raw = source[group] && source[group][key];
-    const chosen = typeof raw === "string" && raw.trim() !== "" ? raw : COMPONENT_SETTINGS_DEFAULTS[group][key];
-    return clamp(chosen, SETTINGS_LIMITS[group][key]);
-  };
-  return {
-    privacyConsent: {
-      title: pick("privacyConsent", "title"),
-      notice: pick("privacyConsent", "notice"),
-      label: pick("privacyConsent", "label"),
-      description: pick("privacyConsent", "description"),
-      optionLabel: pick("privacyConsent", "optionLabel")
-    },
-    marketingConsent: {
-      label: pick("marketingConsent", "label"),
-      description: pick("marketingConsent", "description"),
-      optionLabel: pick("marketingConsent", "optionLabel")
-    },
-    kakaoChannel: {
-      label: pick("kakaoChannel", "label"),
-      url: pick("kakaoChannel", "url")
-    },
-    footer: {
-      text: pick("footer", "text"),
-      linkLabel: pick("footer", "linkLabel"),
-      linkUrl: pick("footer", "linkUrl")
-    }
-  };
+  return Object.fromEntries(Object.entries(SETTINGS_LIMITS).map(([group, limits]) => [
+    group,
+    Object.fromEntries(Object.keys(limits).map((key) => {
+      // 문자열이면서 공백 아닌 값만 채택 — 공백만 입력하거나 비문자열(객체 등)이 오면 기본값 유지.
+      const raw = source[group] && source[group][key];
+      const chosen = typeof raw === "string" && raw.trim() !== "" ? raw : COMPONENT_SETTINGS_DEFAULTS[group][key];
+      return [key, clamp(chosen, limits[key])];
+    })),
+  ]));
 }

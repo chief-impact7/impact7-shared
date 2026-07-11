@@ -15,28 +15,16 @@
 // 정렬 동률(같은 sortKey) 시 요청 타입 순서(휴원시작 → 연장 → 복귀 → 퇴원)로 tiebreak —
 // 입력(쿼리) 순서에 따라 사이클 묶음이 달라지는 비결정성을 막는다.
 
+import { toDate } from './datetime.js';
+
+// 정렬키 ms 변환 — 입력 파싱은 datetime.js toDate(SSoT)를 재사용.
+// 날짜 전용 문자열('YYYY-MM-DD')만 KST 자정으로 별도 처리 — created_at ISO(KST)와 동률·순서 왜곡 방지.
 function toMs(value) {
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.toDate === 'function') {
-    const d = value.toDate();
-    return d instanceof Date && !isNaN(d.getTime()) ? d.getTime() : 0;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00+09:00`).getTime() || 0;
   }
-  if (value instanceof Date) return isNaN(value.getTime()) ? 0 : value.getTime();
-  // JSON 직렬화 경유 Timestamp POJO — 쌍이 모두 있어야 인정(datetime.js toDate와 동일 규칙).
-  if (typeof value.seconds === 'number' && typeof value.nanoseconds === 'number') {
-    return value.seconds * 1000 + Math.floor(value.nanoseconds / 1e6);
-  }
-  if (typeof value._seconds === 'number' && typeof value._nanoseconds === 'number') {
-    return value._seconds * 1000 + Math.floor(value._nanoseconds / 1e6);
-  }
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') {
-    // 날짜 전용 문자열은 KST 자정으로 — created_at ISO(KST)와 동률·순서 왜곡 방지
-    const s = /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00+09:00` : value;
-    return new Date(s).getTime() || 0;
-  }
-  return 0;
+  const d = toDate(value);
+  return d ? d.getTime() : 0;
 }
 
 export function leaveRequestSortKey(r) {
