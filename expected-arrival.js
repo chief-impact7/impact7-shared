@@ -33,17 +33,17 @@ const _validDate = (v) => !!v && /^\d{4}-/.test(v);
 // enrollment 하나의 오늘(dayName) 시작 시각. 반코드 표기 차이는 classSettingsGet이 흡수.
 export function startTime(enrollment, dayName, classSettings) {
   const c = classSettingsGet(classSettings, enrollmentCode(enrollment));
+  const scheduledTime = enrollment?.schedule?.[dayName];
   const classTime = enrollment?.class_type === '자유학기'
     ? c?.free_schedule?.[dayName]
     : c?.schedule?.[dayName];
-  const scheduledTime = enrollment?.schedule?.[dayName];
-  const classScheduleFirst = enrollment?.class_type === '정규' || enrollment?.class_type === '자유학기';
-  return (classScheduleFirst ? classTime : scheduledTime)
-    || (classScheduleFirst ? scheduledTime : classTime)
-    || enrollment?.start_time
-    || enrollment?.time
-    || c?.default_time
-    || '';
+  if (enrollment?.class_type === '자유학기') {
+    return classTime || scheduledTime || enrollment?.start_time || enrollment?.time || c?.default_time || '';
+  }
+  if (enrollment?.class_type === '정규') {
+    return scheduledTime || enrollment?.start_time || enrollment?.time || c?.default_time || classTime || '';
+  }
+  return scheduledTime || classTime || enrollment?.start_time || enrollment?.time || c?.default_time || '';
 }
 
 // 여러 소스(정규 시간표·재시/보충 task·daily action·추가방문·결석보충) 중 가장 이른 'HH:MM'.

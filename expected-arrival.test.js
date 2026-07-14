@@ -95,10 +95,10 @@ test('computeExpectedArrival — 정규 → 내신 → 정규 복귀 시 반 유
   const args = {
     enrollments: [{
       class_type: '정규', level_symbol: 'HA', class_number: '104', day: ['월'],
-      start_date: '2026-01-01', schedule: { 월: '19:00' }, naesin_class_override: 'NAESIN1',
+      start_date: '2026-01-01', start_time: '16:00', naesin_class_override: 'NAESIN1',
     }],
     classSettings: {
-      HA104: { schedule: { 월: '16:00' } },
+      HA104: { schedule: { 월: '19:00' } },
       NAESIN1: { naesin_start: '2026-07-20', naesin_end: '2026-07-26', schedule: { 월: '17:00' } },
     },
     rec: {}, hwTasks: [], testTasks: [], absences: [],
@@ -113,11 +113,11 @@ test('computeExpectedArrival — 정규 → 자유학기 → 정규 복귀 시 �
   const args = {
     enrollments: [{
       class_type: '정규', level_symbol: 'HA', class_number: '104', day: ['월'],
-      start_date: '2026-01-01', schedule: { 월: '19:00' },
+      start_date: '2026-01-01', start_time: '16:00',
     }],
     classSettings: {
       HA104: {
-        schedule: { 월: '16:00' },
+        schedule: { 월: '19:00' },
         free_start: '2026-08-10', free_end: '2026-08-16', free_schedule: { 월: '18:00' },
       },
     },
