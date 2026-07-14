@@ -33,9 +33,13 @@ const _validDate = (v) => !!v && /^\d{4}-/.test(v);
 // enrollment 하나의 오늘(dayName) 시작 시각. 반코드 표기 차이는 classSettingsGet이 흡수.
 export function startTime(enrollment, dayName, classSettings) {
   const c = classSettingsGet(classSettings, enrollmentCode(enrollment));
-  return enrollment?.schedule?.[dayName]
-    || (enrollment?.class_type === '자유학기' ? c?.free_schedule?.[dayName] : '')
-    || c?.schedule?.[dayName]
+  const classTime = enrollment?.class_type === '자유학기'
+    ? c?.free_schedule?.[dayName]
+    : c?.schedule?.[dayName];
+  const scheduledTime = enrollment?.schedule?.[dayName];
+  const classScheduleFirst = enrollment?.class_type === '정규' || enrollment?.class_type === '자유학기';
+  return (classScheduleFirst ? classTime : scheduledTime)
+    || (classScheduleFirst ? scheduledTime : classTime)
     || enrollment?.start_time
     || enrollment?.time
     || c?.default_time
