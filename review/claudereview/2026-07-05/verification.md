@@ -1,6 +1,6 @@
 # Verification — 재현 명령과 실제 출력
 
-모든 명령은 저장소 루트(`/Users/jongsooyi/projects/impact7-shared`)에서 실행. 기준: v1.40.0, `npm test` 233/233 통과 상태.
+모든 명령은 저장소 루트(`/Users/jongsooyi/IMPACT7/impact7-shared`)에서 실행. 기준: v1.40.0, `npm test` 233/233 통과 상태.
 
 ## V-C1. earliestExpectedTime 사전순 정렬 (C1)
 
