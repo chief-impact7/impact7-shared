@@ -1,6 +1,6 @@
 # impact7-shared 적대적 감사 요약
 
-- 대상: `/Users/jongsooyi/projects/impact7-shared`
+- 대상: `/Users/jongsooyi/IMPACT7/impact7-shared`
 - 날짜: 2026-07-05
 - 방식: codegraph 우선 탐색, 로컬 검증, 독립 `code-reviewer`/`architect` 레인 병렬 검토
 - 결론: `REQUEST CHANGES` / Architectural Status `BLOCK`
