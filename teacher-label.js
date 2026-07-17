@@ -1,12 +1,16 @@
 // impact7 공유 — 담임(교수) 규약 (SSoT)
 //
-// 담임 데이터의 원본은 impact7db의 HR 직원현황(staff)이다: 부서 '교수' + 재직('active')만
-// 담임 후보. 표시는 영어이름 첫 토큰에 첫 글자만 대문자 — 'Edward Lee' → 'Edward',
+// 담임 데이터의 원본은 impact7db의 HR 직원현황(staff)이다: 부서 '교수' + 재직만
+// 담임 후보. 재직 여부는 저장 status가 아닌 staff-status 파생(effectiveStaffStatus)으로
+// 판정한다 — 저장 필드는 실체화 시점에 따라 stale할 수 있다(2026-07-17 태블릿 장애 계열).
+// 표시는 영어이름 첫 토큰에 첫 글자만 대문자 — 'Edward Lee' → 'Edward',
 // 'KEN' → 'Ken'. 이메일 로컬파트(edward@…)와 소문자 비교로 매칭한다.
-// 소비처: impact7db(반 설정), impact7HR(직원현황), payments(미러 동기화 — CJS라 로직 사본 유지).
+// 소비처: impact7db(반 설정), impact7HR(직원현황), payments(미러 동기화 — CJS라
+// raw status 사본 유지, 알려진 drift).
+import { effectiveStaffStatus } from './staff-status.js';
 
-export function isActiveTeacher(staff) {
-  return staff?.department === '교수' && staff?.status === 'active';
+export function isActiveTeacher(staff, today) {
+  return staff?.department === '교수' && effectiveStaffStatus(staff, today) === 'active';
 }
 
 export function teacherDisplayName(englishName) {

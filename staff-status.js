@@ -69,6 +69,10 @@ export function mergePersonnelDates(staff) {
 }
 
 export function autoStatusFromPersonnelDates(records, current, today) {
+  // today 생략·비문자열은 조용한 오판(미래 가드 무력화) 대신 시끄럽게 실패시킨다
+  if (typeof today !== 'string' || !ISO_DATE.test(today)) {
+    throw new TypeError('today는 YYYY-MM-DD 문자열이어야 합니다');
+  }
   if (CANCELLED_STATUSES.has(current)) return current;
   const changes = [];
   for (const record of records) {

@@ -168,3 +168,9 @@ test('형식 불일치 입사예정일은 join_pending 파생에도 쓰이지 �
     'onboarding'
   );
 });
+
+test('today 생략·비문자열·비ISO는 throw — 조용한 오판 금지', () => {
+  assert.throws(() => autoStatusFromPersonnelDates([], 'active'), TypeError);
+  assert.throws(() => effectiveStaffStatus({ status: 'active' }), TypeError);
+  assert.throws(() => effectiveStaffStatus({ status: 'active' }, new Date()), TypeError);
+});

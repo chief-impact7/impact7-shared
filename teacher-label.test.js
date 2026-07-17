@@ -2,12 +2,44 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { canonicalizeTeacherEmails, isActiveTeacher, isSameTeacher, teacherDisplayName } from './teacher-label.js';
 
+const T = '2026-07-17';
+
 test('교수부 재직자만 담임 후보', () => {
-  assert.equal(isActiveTeacher({ department: '교수', status: 'active' }), true);
-  assert.equal(isActiveTeacher({ department: '행정', status: 'active' }), false);
-  assert.equal(isActiveTeacher({ department: '교수', status: 'terminated' }), false);
-  assert.equal(isActiveTeacher(null), false);
-  assert.equal(isActiveTeacher(undefined), false);
+  assert.equal(isActiveTeacher({ department: '교수', status: 'active' }, T), true);
+  assert.equal(isActiveTeacher({ department: '행정', status: 'active' }, T), false);
+  assert.equal(isActiveTeacher({ department: '교수', status: 'terminated' }, T), false);
+  assert.equal(isActiveTeacher(null, T), false);
+  assert.equal(isActiveTeacher(undefined, T), false);
+});
+
+test('재직은 저장 status가 아닌 파생으로 판정한다', () => {
+  // 저장 active + 지난 퇴사일 → 담임 후보 제외
+  assert.equal(
+    isActiveTeacher({ department: '교수', status: 'active', resignationDate: '2026-01-01' }, T),
+    false
+  );
+  // 저장 inactive + 복직일 경과 → 담임 후보 포함
+  assert.equal(
+    isActiveTeacher(
+      { department: '교수', status: 'inactive', leaveDate: '2026-01-01', returnDate: '2026-03-01' },
+      T
+    ),
+    true
+  );
+  // 종무일 당일까지는 재직
+  assert.equal(
+    isActiveTeacher({ department: '교수', status: 'active', lastWorkDate: T }, T),
+    true
+  );
+});
+
+test('폐기 용어 leave_pending(휴직 날짜 없음)은 재직으로 정규화되어 담임 후보', () => {
+  assert.equal(isActiveTeacher({ department: '교수', status: 'leave_pending' }, T), true);
+  // leaveDate가 있으면 파생이 휴직으로 전이되어 제외
+  assert.equal(
+    isActiveTeacher({ department: '교수', status: 'leave_pending', leaveDate: '2026-01-01' }, T),
+    false
+  );
 });
 
 test('영어이름 첫 토큰, 첫 글자만 대문자', () => {

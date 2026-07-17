@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 348개 통과.
+- 테스트: `npm test` (`node --test`). 현재 351개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
@@ -152,7 +152,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `mergePersonnelDates` | fn | `(staff) → {type,date}[]` — personnelDates 배열 우선 + legacy 최상위 필드 병합, known 타입 dedupe, 미지 타입 보존, 정렬 없음(UI는 별도 정렬) |
-| `autoStatusFromPersonnelDates` | fn | `(records, current, today) → status` — 날짜순 상태 전이, YYYY-MM-DD 아닌 날짜는 무시 |
+| `autoStatusFromPersonnelDates` | fn | `(records, current, today) → status` — 날짜순 상태 전이, YYYY-MM-DD 아닌 날짜는 무시, today 누락·비ISO는 throw |
 | `effectiveStaffStatus` | fn | `(staff, today) → status` — 병합+파생, leave_pending·빈 status는 active 기준 |
 
 ### `./teacher-label` — `teacher-label.js`
@@ -161,7 +161,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `isActiveTeacher` | fn | `(staff) → boolean` — 부서 '교수' ∧ status 'active'만 담임 후보 |
+| `isActiveTeacher` | fn | `(staff, today) → boolean` — 부서 '교수' ∧ staff-status 파생 재직만 담임 후보 (저장 status 아님) |
 | `teacherDisplayName` | fn | `(englishName) → string` — 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
 | `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로. 외부 도메인은 병합하지 않음 |
 | `isSameTeacher` | fn | `(a, b) → boolean` — 내부 도메인(impact7.kr·gw.impact7.kr, 도메인 없는 ID 포함)만 로컬파트 비교, 외부 도메인은 완전 일치 필요 |
