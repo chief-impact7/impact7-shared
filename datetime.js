@@ -76,6 +76,15 @@ export function todayKST() {
   return formatDateKST(new Date());
 }
 
+// "YYYY-MM-DD" 날짜를 ±days 이동: addDays('2026-08-01', -1) → '2026-07-31'.
+// 월·년 경계는 UTC 산술로 처리(타임존·DST 무관). 형식이 잘못되면 "".
+export function addDays(dateStr, days) {
+  if (typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const shifted = new Date(Date.UTC(y, m - 1, d + days));
+  return isNaN(shifted.getTime()) ? '' : shifted.toISOString().slice(0, 10);
+}
+
 // KST 근무일(영업일) 날짜: 하루 경계를 06:00으로 본다(당일 06:00 ~ 익일 06:00).
 // 익일 00:00~05:59(KST)는 전날 근무일로 귀속한다. 반환 "YYYY-MM-DD", 잘못된 값이면 "".
 // 오후 늦게 시작해 자정을 넘겨 근무하는 운영에서 하루가 자정에 쪼개지지 않게 한다.
@@ -85,7 +94,5 @@ export function businessDayKST(value = new Date(), cutoffHour = 6) {
   const dateStr = formatDateKST(d); // KST 벽시계 날짜
   const hour = parseInt(_hourFmt.format(d), 10) % 24;
   if (hour >= cutoffHour) return dateStr;
-  // cutoff 이전 → 전날(UTC 산술로 날짜만 -1, 타임존 혼란 없음)
-  const [y, m, day] = dateStr.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, day - 1)).toISOString().slice(0, 10);
+  return addDays(dateStr, -1); // cutoff 이전 → 전날
 }

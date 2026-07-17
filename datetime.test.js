@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatTimeKST, formatDateTimeKST, formatDateKST, todayKST, businessDayKST } from './datetime.js';
+import { addDays, formatTimeKST, formatDateTimeKST, formatDateKST, todayKST, businessDayKST } from './datetime.js';
 
 // 2026-06-07T06:05:00Z = KST 15:05 (오후 3:05)
 const D = new Date('2026-06-07T06:05:00Z');
@@ -83,4 +83,34 @@ test('epoch 0(숫자)은 유효 입력으로 유지', () => {
 
 test('숫자 seconds 필드를 가진 비Timestamp 객체(duration류)는 오분류하지 않음', () => {
   assert.equal(formatDateKST({ hours: 1, minutes: 30, seconds: 0 }), '');
+});
+
+// ─── addDays ───
+test('addDays: 기본 ± 이동', () => {
+  assert.equal(addDays('2026-07-17', 1), '2026-07-18');
+  assert.equal(addDays('2026-07-17', -1), '2026-07-16');
+  assert.equal(addDays('2026-07-17', 0), '2026-07-17');
+});
+
+test('addDays: 월·년·윤년 경계', () => {
+  assert.equal(addDays('2026-08-01', -1), '2026-07-31');
+  assert.equal(addDays('2026-01-01', -1), '2025-12-31');
+  assert.equal(addDays('2026-12-31', 1), '2027-01-01');
+  assert.equal(addDays('2024-02-28', 1), '2024-02-29'); // 윤년
+  assert.equal(addDays('2025-02-28', 1), '2025-03-01');
+});
+
+test('addDays: 잘못된 형식은 빈 문자열', () => {
+  assert.equal(addDays('', -1), '');
+  assert.equal(addDays('2026/07/17', -1), '');
+  assert.equal(addDays('2026-7-5', -1), '');
+  assert.equal(addDays(null, -1), '');
+  assert.equal(addDays(undefined, 1), '');
+});
+
+test('businessDayKST: cutoff 이전 전날 귀속이 addDays 경유 후에도 유지', () => {
+  // 2026-07-18 01:00 KST = 2026-07-17T16:00:00Z → 근무일은 07-17
+  assert.equal(businessDayKST(new Date('2026-07-17T16:00:00Z')), '2026-07-17');
+  // 월 경계: 2026-08-01 01:00 KST → 근무일 07-31
+  assert.equal(businessDayKST(new Date('2026-07-31T16:00:00Z')), '2026-07-31');
 });

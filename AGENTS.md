@@ -174,6 +174,7 @@ KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제. 입력: Date·Timesta
 | `formatDateTimeKST` | fn | `(value, { withYear? }) → '6월 7일 오후 3:05'` |
 | `formatDateKST` | fn | `(value) → 'YYYY-MM-DD'` |
 | `todayKST` | fn | `() → 'YYYY-MM-DD'` — KST 오늘 |
+| `addDays` | fn | `(dateStr, days) → 'YYYY-MM-DD'` — 날짜 문자열 ±일 이동, UTC 산술(타임존 무관). 형식이 잘못되면 `''` |
 | `businessDayKST` | fn | `(value?, cutoffHour=6) → 'YYYY-MM-DD'` — 근무일 06시 경계(당일 06:00~익일 06:00), 익일 00~05시는 전날 귀속 |
 
 ### `./ime-input` — `ime-input.js`
