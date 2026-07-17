@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.46.3",
+  "version": "1.46.4",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -25,7 +25,8 @@
     "./branch": "./branch.js",
     "./form-slug": "./form-slug.js",
     "./form-components": "./form-components.js",
-    "./permissions": "./permissions.js"
+    "./permissions": "./permissions.js",
+    "./staff-status": "./staff-status.js"
   },
   "files": [
     "*.js",

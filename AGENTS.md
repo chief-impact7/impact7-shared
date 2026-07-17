@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 321개 통과.
+- 테스트: `npm test` (`node --test`). 현재 348개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
@@ -144,6 +144,16 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `staffLabel` | fn | `(emailOrId) → string` — `@` 앞만, 이미 ID면 통과 |
+
+### `./staff-status` — `staff-status.js`
+
+직원 인사 날짜 → 유효 상태 파생 SSoT. 소비자: impact7HR(직원 현황), impact7DB functions(태블릿 staffCheckin·bulkMessage). 종무일은 당일까지 재직·익일 퇴직, 퇴사일·퇴사예정일은 당일부터 퇴직, 날짜순 상태 전이(from은 직전 파생 상태), 퇴사 이후 입사 계열 날짜는 재입사. `today`는 필수 — 달력일(todayKST) vs 영업일(businessDayKST 06시 경계) 선택은 호출자 도메인 결정.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `mergePersonnelDates` | fn | `(staff) → {type,date}[]` — personnelDates 배열 우선 + legacy 최상위 필드 병합, known 타입 dedupe, 미지 타입 보존, 정렬 없음(UI는 별도 정렬) |
+| `autoStatusFromPersonnelDates` | fn | `(records, current, today) → status` — 날짜순 상태 전이, YYYY-MM-DD 아닌 날짜는 무시 |
+| `effectiveStaffStatus` | fn | `(staff, today) → status` — 병합+파생, leave_pending·빈 status는 active 기준 |
 
 ### `./teacher-label` — `teacher-label.js`
 
