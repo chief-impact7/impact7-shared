@@ -28,6 +28,14 @@ test('arrivalOrder — 등원만 시각순 + 지각 플래그', () => {
   assert.equal(r[1].late, true);
 });
 
+test('arrivalOrder — 재등원도 도착 이벤트로 포함', () => {
+  const r = arrivalOrder([
+    { id: 'returning', type: '재등원', occurred_at: '2026-07-01T06:04:00Z' },
+    { id: 'arrival', type: '등원', occurred_at: '2026-07-01T06:05:00Z' },
+  ]);
+  assert.deepEqual(r.map(e => e.id), ['returning', 'arrival']);
+});
+
 test('departureOrder — 하원만 시각순', () => {
   const r = departureOrder(evs);
   assert.equal(r.length, 1);
