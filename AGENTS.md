@@ -104,7 +104,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `sortByProcessed` | fn | `(events, { desc? }) → events[]` — occurred_at 절대시각순 (오프셋 표기 혼용 안전) |
-| `arrivalOrder` | fn | `(events, dailyByStudent?) → events[]` — 등원·재등원만 시각 오름차순 + late 플래그 |
+| `arrivalOrder` | fn | `(events, dailyByStudent?) → events[]` — 등원·재등원만 시각 오름차순. `late`는 등원에만 적용(재등원은 false) |
 | `departureOrder` | fn | `(events) → events[]` — 하원(구 라벨 '귀가' 포함)만 시각 오름차순 |
 | `groupByState` | fn | `(students, dailyByStudent?) → { 미등원, 원내, 외출중, 하원 }` |
 

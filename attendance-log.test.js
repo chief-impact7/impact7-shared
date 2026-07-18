@@ -30,10 +30,14 @@ test('arrivalOrder — 등원만 시각순 + 지각 플래그', () => {
 
 test('arrivalOrder — 재등원도 도착 이벤트로 포함', () => {
   const r = arrivalOrder([
-    { id: 'returning', type: '재등원', occurred_at: '2026-07-01T06:04:00Z' },
-    { id: 'arrival', type: '등원', occurred_at: '2026-07-01T06:05:00Z' },
-  ]);
+    { id: 'returning', student_id: 'returning', type: '재등원', occurred_at: '2026-07-01T06:04:00Z' },
+    { id: 'arrival', student_id: 'arrival', type: '등원', occurred_at: '2026-07-01T06:05:00Z' },
+  ], {
+    returning: { attendance: { status: '지각' } },
+    arrival: { attendance: { status: '지각' } },
+  });
   assert.deepEqual(r.map(e => e.id), ['returning', 'arrival']);
+  assert.deepEqual(r.map(e => e.late), [false, true]);
 });
 
 test('departureOrder — 하원만 시각순', () => {

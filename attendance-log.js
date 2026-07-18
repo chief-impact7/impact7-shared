@@ -27,10 +27,10 @@ export function sortByProcessed(events, { desc = true } = {}) {
   return desc ? s.reverse() : s;
 }
 
-// 등원순: 등원·재등원 이벤트만 시각 오름차순 + 해당 학생 지각 여부.
+// 등원순: 등원·재등원 이벤트만 시각 오름차순. 지각은 등원 이벤트에만 표시.
 export function arrivalOrder(events, dailyByStudent = {}) {
   return sortByOccurredAt((events || []).filter(e => e.type === '재등원' || normalizeAttendanceLabel(e.type) === '등원'))
-    .map(e => ({ ...e, late: dailyByStudent[e.student_id]?.attendance?.status === '지각' }));
+    .map(e => ({ ...e, late: e.type === '등원' && dailyByStudent[e.student_id]?.attendance?.status === '지각' }));
 }
 
 // 귀가순: 하원 이벤트만 시각 오름차순. 구 라벨('귀가')도 표준 정규화로 포함.
