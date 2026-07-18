@@ -5,6 +5,10 @@
 export const ENROLLABLE_STATUSES = new Set(['재원', '등원예정', '실휴원', '가휴원']);
 export const NON_ENROLLABLE_STATUSES = new Set(['상담', '퇴원', '종강']);
 
+// 휴원(일시정지) 상태 집합 — 재원 유지(ENROLLABLE) 중 '멈춤' 표시·현인원 산식 등에서
+// 반복되던 부분집합. status==='실휴원'||status==='가휴원' 인라인 대체용 SSoT.
+export const LEAVE_STATUSES = new Set(['실휴원', '가휴원']);
+
 // 반배정(enrollment)을 가질 수 있는 status인가 (재원 계열).
 export function isEnrollableStatus(status) {
   return ENROLLABLE_STATUSES.has(status);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addDays, formatTimeKST, formatDateTimeKST, formatDateKST, todayKST, businessDayKST } from './datetime.js';
+import { addDays, formatTimeKST, formatDateTimeKST, formatDateKST, todayKST, businessDayKST, formatTime24KST, formatTime12h, formatTime12hNoAmPm, addMonths, isoWeekKST } from './datetime.js';
 
 // 2026-06-07T06:05:00Z = KST 15:05 (오후 3:05)
 const D = new Date('2026-06-07T06:05:00Z');
@@ -113,4 +113,63 @@ test('businessDayKST: cutoff 이전 전날 귀속이 addDays 경유 후에도 �
   assert.equal(businessDayKST(new Date('2026-07-17T16:00:00Z')), '2026-07-17');
   // 월 경계: 2026-08-01 01:00 KST → 근무일 07-31
   assert.equal(businessDayKST(new Date('2026-07-31T16:00:00Z')), '2026-07-31');
+});
+
+// ── formatTime24KST: 24시간제 시각 (tablet fmtLogTime / HR fmtTime SSoT) ──
+test('formatTime24KST: KST 24시간제 HH:MM', () => {
+  assert.equal(formatTime24KST(D), '15:05'); // KST 15:05
+});
+test('formatTime24KST: 자정 경계', () => {
+  // 2026-06-07T15:00:00Z = KST 익일 00:00
+  assert.equal(formatTime24KST(new Date('2026-06-07T15:00:00Z')), '00:00');
+});
+test('formatTime24KST: 잘못된 값은 빈 문자열', () => {
+  assert.equal(formatTime24KST(null), '');
+  assert.equal(formatTime24KST('nope'), '');
+});
+
+// ── formatTime12h / formatTime12hNoAmPm: "HH:MM" 문자열 입력 ──
+test('formatTime12h: 오후 표기', () => {
+  assert.equal(formatTime12h('15:05'), '오후 3:05');
+});
+test('formatTime12h: 자정/정오 경계', () => {
+  assert.equal(formatTime12h('00:30'), '오전 12:30');
+  assert.equal(formatTime12h('12:00'), '오후 12:00');
+  assert.equal(formatTime12h('09:07'), '오전 9:07');
+});
+test('formatTime12h: 빈/잘못된 입력은 빈 문자열', () => {
+  assert.equal(formatTime12h(''), '');
+  assert.equal(formatTime12h('x'), '');
+  assert.equal(formatTime12h('12'), '');
+});
+test('formatTime12hNoAmPm: 오전/오후 없이 콜론 표기', () => {
+  assert.equal(formatTime12hNoAmPm('15:05'), '3:05');
+  assert.equal(formatTime12hNoAmPm('05:30'), '5:30');
+  assert.equal(formatTime12hNoAmPm(''), '');
+  assert.equal(formatTime12hNoAmPm('x'), '');
+});
+
+// ── addMonths: "YYYY-MM" 월 산술 (HR SSoT) ──
+test('addMonths: 연 경계 이동', () => {
+  assert.equal(addMonths('2026-01', -1), '2025-12');
+  assert.equal(addMonths('2026-11', 3), '2027-02');
+  assert.equal(addMonths('2026-07', 0), '2026-07');
+});
+test('addMonths: 잘못된 형식은 빈 문자열', () => {
+  assert.equal(addMonths('2026-1', 1), '');
+  assert.equal(addMonths('2026-07-01', 1), '');
+  assert.equal(addMonths(null, 1), '');
+  // 형식은 맞아도 월 범위 밖(00·13~)은 조용히 롤오버하지 않고 '' (계약)
+  assert.equal(addMonths('2026-13', 1), '');
+  assert.equal(addMonths('2026-00', 1), '');
+});
+
+// ── isoWeekKST: ISO 8601 주차 키 (board·DB SSoT) ──
+test('isoWeekKST: 주차 키 계산', () => {
+  assert.equal(isoWeekKST('2026-01-01'), '2026-W01');
+  assert.equal(isoWeekKST('2026-07-18'), '2026-W29');
+});
+test('isoWeekKST: 잘못된 형식은 빈 문자열', () => {
+  assert.equal(isoWeekKST('bad'), '');
+  assert.equal(isoWeekKST('2026-7-18'), '');
 });

@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import {
   isEnrollableStatus, hasRealEnrollment, reconcileEnrollments,
   studentCategory, selectableStatuses, STUDENT_STATUS_GROUPS,
+  LEAVE_STATUSES, ENROLLABLE_STATUSES,
 } from './enrollment-status.js';
 
 test('isEnrollableStatus — 재원 계열만 true', () => {
@@ -81,4 +82,14 @@ test('reconcileEnrollments: 7종 밖 status는 valid:false (오타·구 데이�
 
 test('reconcileEnrollments: 빈 문자열 status의 reason은 (없음) 표기', () => {
   assert.ok(reconcileEnrollments('', []).reason.includes('(없음)'));
+});
+
+test("LEAVE_STATUSES: 실휴원·가휴원만 포함", () => {
+  assert.ok(LEAVE_STATUSES.has("실휴원"));
+  assert.ok(LEAVE_STATUSES.has("가휴원"));
+  assert.equal(LEAVE_STATUSES.size, 2);
+  assert.equal(LEAVE_STATUSES.has("재원"), false);
+});
+test("LEAVE_STATUSES ⊂ ENROLLABLE_STATUSES (휴원도 재원 유지)", () => {
+  for (const s of LEAVE_STATUSES) assert.ok(ENROLLABLE_STATUSES.has(s));
 });

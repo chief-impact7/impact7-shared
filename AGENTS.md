@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 351개 통과.
+- 테스트: `npm test` (`node --test`). 현재 373개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
@@ -33,6 +33,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 |------|------|--------------|
 | `ENROLLABLE_STATUSES` | const | `Set { '재원', '등원예정', '실휴원', '가휴원' }` |
 | `NON_ENROLLABLE_STATUSES` | const | `Set { '상담', '퇴원', '종강' }` |
+| `LEAVE_STATUSES` | const | `Set { '실휴원', '가휴원' }` — 휴원(일시정지) 부분집합(⊂ ENROLLABLE). `status==='실휴원'||'가휴원'` 인라인 대체 |
 | `STUDENT_STATUS_GROUPS` | const | `[{ category: '재원생'\|'비원생', statuses: [...] }]` |
 | `STATUS_TONE` | const | `{ status: 'active'\|'scheduled'\|'paused'\|'consult'\|'ended-hard'\|'ended-soft' }` |
 | `INITIAL_STATUSES` | const | `['등원예정', '재원']` |
@@ -107,6 +108,21 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `departureOrder` | fn | `(events) → events[]` — 하원(구 라벨 '귀가' 포함)만 시각 오름차순 |
 | `groupByState` | fn | `(students, dailyByStudent?) → { 미등원, 원내, 외출중, 하원 }` |
 
+### `./attendance-status` — `attendance-status.js`
+
+출결 **결과 상태**(출석·지각·조퇴·결석) 집합 SSoT. 출결 **액션**(등원·외출·귀원·하원, `./attendance-action`)과는 다른 축. 소비자: 태블릿 서버 checkinHandler.
+
+| 심볼 | 종류 | 값 |
+|------|------|-----|
+| `ATTENDANCE_STATUSES` | const | `Set { '출석', '지각', '조퇴', '결석' }` |
+| `ARRIVAL_STATUSES` | const | `Set { '출석', '지각' }` — 도착 시각 기록 상태(⊂ ATTENDANCE_STATUSES) |
+
+### `./email` — `email.js`
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `isValidEmail` | fn | `(email) → boolean` — `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`, 비문자열 → false. HR 여러 화면이 복제하던 정규식 통일 |
+
 ### `./student-number` — `student-number.js`
 
 전화번호 기반 6자리 학생번호 파생 + identity key.
@@ -175,16 +191,21 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 ### `./datetime` — `datetime.js`
 
-KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제. 입력: Date·Timestamp(toDate)·직렬화 POJO(`{seconds}`/`{_seconds}`)·epoch·ISO.
+KST 날짜·시간 포맷. 항상 Asia/Seoul, 12시간제 기본(24h 변형 포함). 입력: Date·Timestamp(toDate)·직렬화 POJO(`{seconds}`/`{_seconds}`)·epoch·ISO.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `toDate` | fn | `(value) → Date \| null` — 모든 입력 형태 공통 파싱. 포맷터·leave-cycles 정렬키가 재사용하는 SSoT |
 | `formatTimeKST` | fn | `(value) → '오후 3:05'` |
+| `formatTime24KST` | fn | `(value) → '15:05'` — 24시간제 시각. toDate가 받는 모든 입력. 잘못된 값 `''` |
 | `formatDateTimeKST` | fn | `(value, { withYear? }) → '6월 7일 오후 3:05'` |
 | `formatDateKST` | fn | `(value) → 'YYYY-MM-DD'` |
+| `formatTime12h` | fn | `(hhmm) → '오후 3:05'` — `'HH:MM'` **문자열** 입력용(Date 아님, formatTimeKST와 구분). 형식 아니면 `''` |
+| `formatTime12hNoAmPm` | fn | `(hhmm) → '3:05'` — 오전/오후 없는 콜론 표기. 형식 아니면 `''` |
 | `todayKST` | fn | `() → 'YYYY-MM-DD'` — KST 오늘 |
 | `addDays` | fn | `(dateStr, days) → 'YYYY-MM-DD'` — 날짜 문자열 ±일 이동, UTC 산술(타임존 무관). 형식이 잘못되면 `''` |
+| `addMonths` | fn | `(monthStr, months) → 'YYYY-MM'` — `'YYYY-MM'` 월 ±이동, UTC 산술. 형식이 잘못되면 `''` |
+| `isoWeekKST` | fn | `(dateStr) → 'YYYY-Www'` — `'YYYY-MM-DD'`(KST 벽시계) → ISO 8601 주차 키. UTC 산술(서버 TZ 무관). board·DB 주차 SSoT. 형식이 잘못되면 `''` |
 | `businessDayKST` | fn | `(value?, cutoffHour=6) → 'YYYY-MM-DD'` — 근무일 06시 경계(당일 06:00~익일 06:00), 익일 00~05시는 전날 귀속 |
 
 ### `./ime-input` — `ime-input.js`
@@ -206,6 +227,8 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
 | `RESERVED_PUBLIC_SLUGS` | const | `Set { 'forms-admin', 'forms', 'assets', 'vendor', 'src', 'design', 'index', 'form', 'favicon' }` — slug로 쓸 수 없는 시스템 경로 |
+| `RESERVED_RESPONSE_SLUGS` | const | `Set { 'uploads' }` — 응답 주소로 쓸 수 없는 예약 경로(`/{slug}/uploads`는 파일 업로드) |
+| `slugify` | fn | `(value) → string` — 자유 텍스트 → slug: trim·소문자·영숫자 외 `-`·양끝 `-` 제거·최대 60자. 클라(스튜디오)·서버(Cloud Run) 주소 생성 SSoT |
 
 ### `./form-components` — `form-components.js`
 
