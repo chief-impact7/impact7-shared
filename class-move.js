@@ -2,16 +2,21 @@
 // override·start_date·day·semester는 보존. 대상 정규가 없으면 skipped.
 
 import { enrollmentCode } from './enrollment-derivation.js';
+import { accountTypeOf } from './enrollment-status.js';
 
-const isRegular = (e) => (e.class_type || '정규') === '정규';
+const isRegular = (e) =>
+  accountTypeOf(e) === '정규' && (e.class_type || '정규') === '정규';
 const lastDigit = (n) => {
   const m = String(n ?? '').match(/(\d)\D*$/);
   return m ? Number(m[1]) : null;
 };
 
-export function moveClass(student, { semester, targetLevelSymbol, targetClassNumber }) {
+export function moveClass(student, { semester, targetLevelSymbol, targetClassNumber, accountId }) {
   const enrollments = student.enrollments || [];
-  const idx = enrollments.findIndex((e) => isRegular(e) && e.semester === semester);
+  const idx = enrollments.findIndex((e) =>
+    isRegular(e)
+    && e.semester === semester
+    && (accountId === undefined || e.account_id === accountId));
   if (idx < 0) {
     return { updatedEnrollments: enrollments, before: null, after: null, skipped: true, warning: null };
   }

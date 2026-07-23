@@ -138,6 +138,24 @@ test('computeExpectedArrival — 미래 시작 enrollment는 제외', () => {
   assert.equal(got, ''); // start_date(08-01) > date(07-01) → 제외
 });
 
+test('computeExpectedArrival — 활성 기타 계정 포함, 휴원 계정 제외', () => {
+  const got = computeExpectedArrival({
+    enrollments: [
+      {
+        account_id: 'regular-a', account_type: '정규', class_type: '정규',
+        class_number: '101', day: '수', schedule: { 수: '14:00' }, start_date: '2026-01-01',
+        pause_start_date: '2026-06-01', pause_end_date: '2026-07-31',
+      },
+      {
+        account_id: 'other-a', account_type: '기타', class_type: '기타',
+        class_number: '201', day: '수', schedule: { 수: '15:00' }, start_date: '2026-01-01',
+      },
+    ],
+    classSettings: {}, rec: {}, hwTasks: [], testTasks: [], absences: [], date: '2026-07-01',
+  });
+  assert.equal(got, '15:00');
+});
+
 // ─── 2026-07-05 적대적 리뷰 회귀 (C1·C7) ───
 test('earliestExpectedTime — 한 자리 시각이 섞여도 시각순 최솟값 (사전순 아님)', () => {
   const args = (schedules) => ({

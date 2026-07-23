@@ -7,18 +7,18 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 374개 통과.
+- 테스트: `npm test` (`node --test`). 현재 407개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
 
 ### `./history` — `history-classifier.js`
 
-수업이력 로그를 교사용 7종 이벤트로 분류. DB·DSC가 동일 컬렉션 공유.
+수업이력 로그를 교사용 10종 이벤트로 분류. DB·DSC가 동일 컬렉션 공유.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
-| `HISTORY_BADGE` | const | `{ '신규'|'복귀'|'재등원'|'수업추가': 'badge-enroll', '전반'|'휴원': 'badge-update', '퇴원': 'badge-withdraw' }` |
+| `HISTORY_BADGE` | const | `{ '신규'|'복귀'|'재등원'|'수업추가'|'계정재개': 'badge-enroll', '전반'|'휴원'|'계정휴원': 'badge-update', '퇴원'|'계정종료': 'badge-withdraw' }` |
 | `classifyHistory` | fn | `(log) → { label, from, to } \| null` |
 | `parseStatusClass` | fn | `(text) → { status, classes, pauseStart }` |
 | `shortAuthor` | fn | `(emailOrId) → string` — `@` 앞만, 비문자열→`'system'` |
@@ -33,13 +33,24 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 |------|------|--------------|
 | `ENROLLABLE_STATUSES` | const | `Set { '재원', '등원예정', '실휴원', '가휴원' }` |
 | `NON_ENROLLABLE_STATUSES` | const | `Set { '상담', '퇴원', '종강' }` |
+| `ACCOUNT_TYPES` | const | `['정규', '특강', '기타']` — 수강계정 유형 |
 | `LEAVE_STATUSES` | const | `Set { '실휴원', '가휴원' }` — 휴원(일시정지) 부분집합(⊂ ENROLLABLE). `status==='실휴원'||'가휴원'` 인라인 대체 |
 | `STUDENT_STATUS_GROUPS` | const | `[{ category: '재원생'\|'비원생', statuses: [...] }]` |
 | `STATUS_TONE` | const | `{ status: 'active'\|'scheduled'\|'paused'\|'consult'\|'ended-hard'\|'ended-soft' }` |
 | `INITIAL_STATUSES` | const | `['등원예정', '재원']` |
 | `isEnrollableStatus` | fn | `(status) → boolean` |
 | `hasRealEnrollment` | fn | `(enrollments) → boolean` — 빈 placeholder 제외 |
-| `reconcileEnrollments` | fn | `(status, enrollments) → { enrollments, valid, reason? }` — 7종 밖 status(오타·undefined)는 `valid:false` |
+| `accountTypeOf` | fn | `(enrollment) → '정규'\|'특강'\|'기타'` — 명시 `account_type` 우선, 레거시는 `class_type`으로 파생 |
+| `groupEnrollmentAccounts` | fn | `(enrollments) → [{ key, accountId, accountType, items, typeConflict }]` — placeholder 제외. `key`는 ID 또는 `legacy:{유형}:{대표 반코드}` |
+| `accountStateAt` | fn | `(account, dateStr) → '활성'\|'예정'\|'휴원'\|'종료'` — 날짜 양끝 포함, 종료일 없는 pause는 열린 구간. `YYYY-` 관례 밖 기준일은 계정을 활성 판정에서 제외하지 않음 |
+| `openAccounts` | fn | `(enrollments, dateStr) → account[]` — 종료되지 않은 계정 |
+| `openAccountIds` | fn | `(enrollments, dateStr) → string[]` — 열린 명시 계정 ID만 |
+| `activeEnrollmentsAt` | fn | `(enrollments, dateStr) → enrollment[]` — 활성 계정 중 항목 자체도 기준일에 활성인 것만 |
+| `pauseAccount` | fn | `(enrollments, accountIdOrKey, { pauseStart, pauseEnd?, leaveSubType }) → { updatedEnrollments, skipped }` |
+| `resumeAccount` | fn | `(enrollments, accountIdOrKey) → { updatedEnrollments, skipped }` |
+| `closeAccount` | fn | `(enrollments, accountIdOrKey, { endDate, endReason }) → { updatedEnrollments, removed, skipped }` |
+| `deriveStudentStatusAfterAccountChange` | fn | `(enrollments, dateStr, { fallbackReason?, currentStatus? }?) → status` — 활성 계정은 재원계열 currentStatus 보존, 그 외 활성→재원·휴원→예정→종료 우선순위 |
+| `reconcileEnrollments` | fn | `(status, enrollments, { dateStr? }?) → { enrollments, valid, reason? }` — 기존 2인자 호환. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
 | `studentCategory` | fn | `(status) → '재원생' \| '비원생'` |
 | `selectableStatuses` | fn | `(current, isNew) → string[]` |
 
@@ -53,7 +64,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment[]` — 내신/자유학기 활성 시 정규를 치환한 배열 |
 | `deriveActiveNaesinEnrollment` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → enrollment\|null` — 활성 내신 enrollment(명시/파생) 또는 null. 아래 predicate와 applyNaesinFreeDerivation의 SSoT |
 | `isNaesinActiveAt` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → boolean` — 기준일 내신기간 활성 여부. 내신 active 판정은 로컬 재구현 말고 이 함수 사용(current는 호출자가 날짜 필터한 활성 enrollment 배열) |
-| `deriveClassPeriodHistory` | fn | `(enrollments, classSettings, { enrollmentCode? }?) → [{ class_type, code, start_date, end_date }]` |
+| `deriveClassPeriodHistory` | fn | `(enrollments, classSettings, { enrollmentCode? }?) → [{ class_type, code, start_date, end_date, account_id?, account_type? }]` — 명시 기간 존재를 계정별 판정 |
 | `deriveLevelPeriod` | fn | `(enrollments, todayStr) → { start: string\|null, label: string }` |
 
 ### `./class-move` — `class-move.js`
@@ -62,7 +73,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `moveClass` | fn | `(student, { semester, targetLevelSymbol, targetClassNumber }) → { updatedEnrollments, before, after, skipped, warning }` |
+| `moveClass` | fn | `(student, { semester, targetLevelSymbol, targetClassNumber, accountId? }) → { updatedEnrollments, before, after, skipped, warning }` — accountId 생략 시 기존 첫 정규 계정 동작 |
 
 ### `./promote-enroll` — `promote-enroll.js`
 
@@ -188,6 +199,11 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 |------|------|---------|
 | `normalizeClassCode` | fn | `(code) → string` — trim + 대문자 (`'ks132'→'KS132'`), 비교·저장 전 정규화 |
 | `classSettingsGet` | fn | `(classSettings, code) → setting \| undefined` — 표기 차이(ks132 ≡ KS132)를 양방향 흡수하는 조회. 파생 계층(enrollment-derivation·expected-arrival)이 사용 |
+| `classSettingsAccountType` | fn | `(settings) → '정규'\|'특강'\|'기타'\|null` — 명시 `account_type` 우선, 레거시 `class_type` 파생 |
+| `isSelectableAccountClass` | fn | `(accountType, settings) → boolean` — 계정 유형과 반 설정 유형 일치 |
+| `selectableAccountClassCodes` | fn | `(classSettings, accountType) → string[]` — 해당 계정 유형의 반코드 정렬 |
+| `accountClassParts` | fn | `(accountType, classCode) → { levelSymbol, classNumber }` — 정규화 후 정규는 문자/숫자 분해, 특강·기타는 전체 코드 사용 |
+| `validateExistingAccountClass` | fn | `(classSettings, accountType, classCode) → string\|null` — 기존 반 선택·유형·변환 검증 |
 
 ### `./datetime` — `datetime.js`
 
@@ -304,7 +320,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 - `ENROLLABLE_STATUSES`, `NON_ENROLLABLE_STATUSES` — 상태 집합 변경 시 소비자 전체 영향
 - `reconcileEnrollments()` 반환 형태 `{ enrollments, valid, reason? }` — 필드명 변경 금지
-- `HISTORY_BADGE` 키 집합 7종 — DB 렌더러가 CSS 클래스로 매핑
+- `HISTORY_BADGE` 키 집합 10종 — DB 렌더러가 CSS 클래스로 매핑
 - `currentSchool(student)` 시그니처 — DSC·DB 다수 사이트에서 호출
 - `SCHOOL_FIELD` 값 (`school_elementary` 등) — Firestore 필드명과 동기화
 

@@ -310,6 +310,68 @@ describe('정렬 동률 tiebreak', () => {
   });
 });
 
+describe('groupLeaveCycles — 계정 scope', () => {
+  it('account_target 요청은 account_id별 독립 사이클로 묶고 계정 정보를 보존', () => {
+    const cycles = groupLeaveCycles([
+      {
+        request_type: '휴원요청', created_at: '2026-01-01',
+        leave_start_date: '2026-01-05',
+        account_target: { account_id: 'regular-a', account_type: '정규' },
+      },
+      {
+        request_type: '휴원요청', created_at: '2026-01-02',
+        leave_start_date: '2026-01-06',
+        account_target: { account_id: 'special-a', account_type: '특강' },
+      },
+      {
+        request_type: '복귀요청', created_at: '2026-02-01', return_date: '2026-02-05',
+        account_target: { account_id: 'regular-a', account_type: '정규' },
+      },
+      {
+        request_type: '휴원연장', created_at: '2026-03-01', leave_end_date: '2026-04-01',
+        account_target: { account_id: 'special-a', account_type: '특강' },
+      },
+    ]);
+
+    assert.equal(cycles.length, 2);
+    assert.deepEqual(
+      cycles.map(c => [c.account_id, c.account_type, c.requests.length]),
+      [['special-a', '특강', 2], ['regular-a', '정규', 2]],
+    );
+    assert.equal(cycles[0].endDate, '2026-04-01');
+    assert.equal(cycles[1].returnDate, '2026-02-05');
+  });
+
+  it('학생 scope와 계정 scope의 열린 사이클은 서로 닫지 않음', () => {
+    const cycles = groupLeaveCycles([
+      { request_type: '휴원요청', created_at: '2026-01-01', leave_start_date: '2026-01-05' },
+      {
+        request_type: '휴원요청', created_at: '2026-01-02', leave_start_date: '2026-01-06',
+        account_target: { account_id: 'regular-a', account_type: '정규' },
+      },
+      { request_type: '복귀요청', created_at: '2026-02-01', return_date: '2026-02-05' },
+    ]);
+
+    assert.equal(cycles.length, 2);
+    assert.equal(cycles.find(c => c.account_id === 'regular-a').requests.length, 1);
+    assert.equal(cycles.find(c => !('account_id' in c)).requests.length, 2);
+  });
+
+  it('서로 다른 scope의 미종결 사이클도 마지막 요청일 최신순', () => {
+    const cycles = groupLeaveCycles([
+      {
+        request_type: '휴원요청', created_at: '2026-01-01', leave_start_date: '2026-01-05',
+        account_target: { account_id: 'regular-a', account_type: '정규' },
+      },
+      {
+        request_type: '휴원요청', created_at: '2026-02-01', leave_start_date: '2026-02-05',
+        account_target: { account_id: 'special-a', account_type: '특강' },
+      },
+    ]);
+    assert.deepEqual(cycles.map(c => c.account_id), ['special-a', 'regular-a']);
+  });
+});
+
 // ─── 2026-07-05 리뷰 P7 회귀 ───
 describe('leaveRequestSortKey — 직렬화 Timestamp POJO', () => {
   it('{seconds}·{_seconds} 형태를 ms로 변환', () => {

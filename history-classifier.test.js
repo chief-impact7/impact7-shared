@@ -13,6 +13,12 @@ test('상태 전이 분류', () => {
     assert.equal(line({ change_type: 'UPDATE', before: '상태:재원, 반:A101, 요일:월, 금', after: '상태:재원, 반:A103, 요일:월, 금' }), '전반:A101>A103');
 });
 
+test('수강계정 이력은 학생 상태 이력과 별도 라벨로 분류', () => {
+    assert.equal(line({ change_type: 'ACCOUNT_PAUSE', before: '{}', after: '{}' }), '계정휴원:활성>휴원');
+    assert.equal(line({ change_type: 'ACCOUNT_RESUME', before: '{}', after: '{}' }), '계정재개:휴원>활성');
+    assert.equal(line({ change_type: 'ACCOUNT_END', before: '{}', after: '{}' }), '계정종료:활성>종료');
+});
+
 test('신규 — 정규반코드 표시 (없으면 등록)', () => {
     // 반:코드 있으면 그 반코드 ('등원예정' 대신)
     assert.equal(line({ change_type: 'UPDATE', before: '상태:상담, 반:—, 요일:N/A', after: '상태:등원예정, 반:A103, 요일:월, 금' }), '신규:>A103');
@@ -68,7 +74,10 @@ test('shortAuthor', () => {
 });
 
 test('HISTORY_BADGE 모든 라벨 매핑 존재', () => {
-    for (const lab of ['신규', '휴원', '복귀', '퇴원', '재등원', '전반', '수업추가']) {
+    for (const lab of [
+        '신규', '휴원', '복귀', '퇴원', '재등원', '전반', '수업추가',
+        '계정휴원', '계정재개', '계정종료',
+    ]) {
         assert.ok(HISTORY_BADGE[lab], `${lab} 뱃지 누락`);
     }
 });
@@ -127,6 +136,16 @@ test('deriveTenure: 퇴원이면 end=퇴원일', () => {
   const { start, end } = deriveTenure(logs, gd, attendances);
   assert.strictEqual(start.getTime(), new Date('2025-01-05T00:00:00+09:00').getTime());
   assert.strictEqual(end.getTime(), new Date('2025-12-01T00:00:00+09:00').getTime());
+});
+
+test('deriveTenure: ACCOUNT_END는 일부 계정 종료이므로 재원기간을 끝내지 않음', () => {
+  const logs = [
+    mkLog('2025-01-01', '상담', '재원', 'UPDATE'),
+    mkLog('2025-06-01', '{"account_id":"regular-a"}', '{"end_reason":"종강"}', 'ACCOUNT_END'),
+  ];
+  const { start, end } = deriveTenure(logs, gd, [att('2025-01-05', '출석')]);
+  assert.strictEqual(start.getTime(), new Date('2025-01-05T00:00:00+09:00').getTime());
+  assert.strictEqual(end, null);
 });
 
 test('deriveTenure: 무로그 재등원(현재 재원계열) → end 무효, 신규 후 첫 출석부터', () => {

@@ -53,3 +53,21 @@ test('branchFromClassCode: 단지 접두 우선, 숫자 없으면 빈 문자열'
     assert.equal(branchFromClassCode(''), '');
     assert.equal(branchFromClassCode(null), '');
 });
+
+test('기준일 지점 파생은 활성 기타 계정을 포함하고 휴원 계정을 제외', () => {
+    const student = {
+        enrollments: [
+            {
+                account_id: 'regular-a', account_type: '정규', class_type: '정규',
+                class_number: '101', start_date: '2026-01-01',
+                pause_start_date: '2026-06-01', pause_end_date: '2026-07-31',
+            },
+            {
+                account_id: 'other-a', account_type: '기타', class_type: '기타',
+                class_number: '201', start_date: '2026-01-01',
+            },
+        ],
+    };
+    assert.equal(branchFromStudent(student, '2026-07-01'), '10단지');
+    assert.deepEqual(branchesFromStudent(student, '2026-07-01'), ['10단지']);
+});

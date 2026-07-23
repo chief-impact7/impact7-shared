@@ -56,3 +56,44 @@ test('특강 enrollment는 대상 아님 (정규만 이동)', () => {
   assert.equal(r.updatedEnrollments[0].class_number, '900');
   assert.equal(r.updatedEnrollments[1].class_number, '108');
 });
+
+test('명시 account_type이 class_type보다 우선해 정규 계정만 이동', () => {
+  const s = student([
+    {
+      account_id: 'special', account_type: '특강', class_type: '정규',
+      level_symbol: 'SP', class_number: '900', semester: '2026-Spring',
+    },
+    {
+      account_id: 'regular', account_type: '정규', class_type: '정규',
+      level_symbol: 'HX', class_number: '106', semester: '2026-Spring',
+    },
+  ]);
+  const r = moveClass(s, {
+    semester: '2026-Spring', targetLevelSymbol: 'HX', targetClassNumber: '108',
+  });
+  assert.equal(r.updatedEnrollments[0].class_number, '900');
+  assert.equal(r.updatedEnrollments[1].class_number, '108');
+});
+
+test('accountId 지정 시 해당 계정 정규만 이동하고 계정·휴원 필드를 보존', () => {
+  const s = student([
+    {
+      class_type: '정규', level_symbol: 'HX', class_number: '106', semester: '2026-Spring',
+      account_id: 'regular-a', account_type: '정규',
+    },
+    {
+      class_type: '정규', level_symbol: 'KS', class_number: '132', semester: '2026-Spring',
+      account_id: 'regular-b', account_type: '정규',
+      pause_start_date: '2026-07-01', pause_end_date: '2026-07-31', leave_sub_type: '가휴원',
+    },
+  ]);
+  const r = moveClass(s, {
+    semester: '2026-Spring', targetLevelSymbol: 'KS', targetClassNumber: '134', accountId: 'regular-b',
+  });
+  assert.equal(r.updatedEnrollments[0].class_number, '106');
+  assert.deepEqual(r.updatedEnrollments[1], {
+    class_type: '정규', level_symbol: 'KS', class_number: '134', semester: '2026-Spring',
+    account_id: 'regular-b', account_type: '정규',
+    pause_start_date: '2026-07-01', pause_end_date: '2026-07-31', leave_sub_type: '가휴원',
+  });
+});

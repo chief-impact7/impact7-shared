@@ -50,6 +50,15 @@ function appendNote(note, prefix, added) {
   return note ? `${note}\n${tagged}` : tagged;
 }
 
+function accountMeta(r) {
+  const target = r?.account_target;
+  if (!target?.account_id) return {};
+  return {
+    account_id: target.account_id,
+    ...(target.account_type !== undefined ? { account_type: target.account_type } : {}),
+  };
+}
+
 function newLeaveCycle(r) {
   return {
     type: 'leave',
@@ -60,6 +69,7 @@ function newLeaveCycle(r) {
     note: r.consultation_note || '',
     subType: r.leave_sub_type || '',
     requests: [r],
+    ...accountMeta(r),
   };
 }
 
@@ -78,35 +88,42 @@ export function groupLeaveCycles(requests) {
     .map((x) => x.r);
 
   const cycles = [];
-  let open = null;
+  const studentScope = Symbol('student');
+  const opens = new Map();
+  const scopeOf = (r) => r.account_target?.account_id || studentScope;
 
-  const close = () => {
+  const close = (scope) => {
+    const open = opens.get(scope);
     if (open) {
       cycles.push(open);
-      open = null;
+      opens.delete(scope);
     }
   };
 
   for (const r of sorted) {
     const t = r.request_type;
+    const scope = scopeOf(r);
+    const open = opens.get(scope);
 
     if (LEAVE_START_TYPES.has(t)) {
-      close();
-      open = newLeaveCycle(r);
+      close(scope);
+      opens.set(scope, newLeaveCycle(r));
     } else if (LEAVE_EXTEND_TYPES.has(t)) {
       if (!open) {
-        open = newLeaveCycle(r);
+        opens.set(scope, newLeaveCycle(r));
       } else {
         if (r.leave_end_date) open.endDate = r.leave_end_date;
         open.note = appendNote(open.note, '연장', r.consultation_note);
         open.requests.push(r);
+        Object.assign(open, accountMeta(r));
       }
     } else if (RETURN_TYPES.has(t)) {
       if (open) {
         open.returnDate = r.return_date || null;
         open.note = appendNote(open.note, '복귀', r.consultation_note);
         open.requests.push(r);
-        close();
+        Object.assign(open, accountMeta(r));
+        close(scope);
       } else {
         cycles.push({
           type: 'reenroll',
@@ -117,6 +134,7 @@ export function groupLeaveCycles(requests) {
           note: r.consultation_note || '',
           subType: '',
           requests: [r],
+          ...accountMeta(r),
         });
       }
     } else if (WITHDRAW_TYPES.has(t)) {
@@ -126,9 +144,10 @@ export function groupLeaveCycles(requests) {
         open.withdrawalDate = r.withdrawal_date || null;
         open.note = appendNote(open.note, '퇴원전환', r.consultation_note);
         open.requests.push(r);
-        close();
+        Object.assign(open, accountMeta(r));
+        close(scope);
       } else {
-        close();
+        close(scope);
         cycles.push({
           type: 'withdraw',
           startDate: null,
@@ -138,11 +157,12 @@ export function groupLeaveCycles(requests) {
           note: r.consultation_note || '',
           subType: '',
           requests: [r],
+          ...accountMeta(r),
         });
       }
     } else {
       // 알 수 없는 타입 — 단독 카드로 그대로 노출 (DB 방식)
-      close();
+      close(scope);
       cycles.push({
         type: 'other',
         startDate: r.leave_start_date || r.withdrawal_date || r.return_date || null,
@@ -152,11 +172,18 @@ export function groupLeaveCycles(requests) {
         note: r.consultation_note || '',
         subType: r.leave_sub_type || '',
         requests: [r],
+        ...accountMeta(r),
       });
     }
   }
-  close();
+  for (const scope of opens.keys()) close(scope);
 
-  // 최신이 위로
-  return cycles.slice().reverse();
+  return cycles
+    .map((cycle, index) => ({
+      cycle,
+      index,
+      key: Math.max(0, ...cycle.requests.map(leaveRequestSortKey)),
+    }))
+    .sort((a, b) => b.key - a.key || b.index - a.index)
+    .map(({ cycle }) => cycle);
 }

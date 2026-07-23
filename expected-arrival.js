@@ -2,6 +2,7 @@
 // DSC(대시보드)와 태블릿 서버(지각 판정)가 동일 로직을 공유한다. 순수 함수 — Firestore 로드는 호출자 담당.
 import { enrollmentCode, applyNaesinFreeDerivation } from './enrollment-derivation.js';
 import { classSettingsGet } from './class-code.js';
+import { activeEnrollmentsAt } from './enrollment-status.js';
 
 // 'YYYY-MM-DD' → 한글 요일. TZ 무관(getUTCDay). 서버(UTC)·브라우저(KST) 모두 동일 결과.
 // 실존하지 않는 날짜('2026-02-30')는 rollover하지 않고 '' 반환.
@@ -27,8 +28,6 @@ export function resolveNaesinCsKey(regularEnroll) {
   if (typeof override !== 'string' || override === '') return null;
   return override;
 }
-
-const _validDate = (v) => !!v && /^\d{4}-/.test(v);
 
 // enrollment 하나의 오늘(dayName) 시작 시각. 반코드 표기 차이는 classSettingsGet이 흡수.
 export function startTime(enrollment, dayName, classSettings) {
@@ -73,12 +72,7 @@ export function earliestExpectedTime({ enrollments, dayName, classSettings, rec,
 export function computeExpectedArrival({ enrollments, classSettings, rec, hwTasks, testTasks, absences, date }) {
   const dayName = getDayName(date);
   const cs = classSettings || {};
-  const current = (enrollments || []).filter((e) => {
-    if (!e) return false; // Firestore 원본 배열을 그대로 받는 시스템 경계 — null 원소 방어
-    if (_validDate(e.start_date) && e.start_date > date) return false;
-    if (_validDate(e.end_date) && e.end_date < date) return false;
-    return true;
-  });
+  const current = activeEnrollmentsAt((enrollments || []).filter(Boolean), date);
   const derived = applyNaesinFreeDerivation(current, {
     classSettings: cs, dateStr: date, resolveNaesinCsKey, enrollmentCode,
   });

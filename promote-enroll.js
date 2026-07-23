@@ -1,15 +1,14 @@
 // 등원예정 → 재원 자동 전환 + history_log 기록. Firebase 의존성은 주입한다.
 // idField: 학생 문서 ID 필드명('id'|'docId'). batchUpdate: DSC audit 래퍼(없으면 plain update).
+import { activeEnrollmentsAt } from './enrollment-status.js';
+
 export function createPromoteEnrollPending(firebase, { idField = 'id', batchUpdate } = {}) {
   const { db, writeBatch, doc, collection, serverTimestamp } = firebase;
 
   return async function (students, today) {
-    // 시작됐고 아직 안 끝난(오늘 활성) enrollment가 있어야 전환 — 과거 종료 이력만으로 조기 전환 방지.
-    const activeToday = (e) =>
-      e && e.start_date && e.start_date <= today &&
-      !(/^\d{4}-/.test(e.end_date || '') && e.end_date < today);
     const pending = students.filter(s =>
-      s.status === '등원예정' && (s.enrollments || []).some(activeToday)
+      s.status === '등원예정'
+      && activeEnrollmentsAt((s.enrollments || []).filter(e => e?.start_date), today).length > 0
     );
     if (pending.length === 0) return [];
 

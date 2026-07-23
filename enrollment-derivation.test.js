@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyNaesinFreeDerivation, isNaesinActiveAt, enrollmentCode as sharedEnrollmentCode } from './enrollment-derivation.js';
+import {
+  applyNaesinFreeDerivation, deriveActiveNaesinEnrollment,
+  isNaesinActiveAt, enrollmentCode as sharedEnrollmentCode,
+} from './enrollment-derivation.js';
 
 test('enrollmentCode: level_symbol+class_number 결합', () => {
   assert.equal(sharedEnrollmentCode({ level_symbol: 'HA', class_number: '101' }), 'HA101');
@@ -91,6 +94,45 @@ test('자유학기 활성기간 → 자유학기로 파생, 정규 숨김', () =
   assert.equal(out[0].class_number, '104');
 });
 
+test('계정별 내신·자유학기 파생은 다른 정규 계정을 숨기지 않고 계정 필드를 복사', () => {
+  const current = [
+    {
+      ...reg('NAESIN-A'), account_id: 'regular-a', account_type: '정규',
+    },
+    {
+      class_type: '정규', level_symbol: 'KS', class_number: '132',
+      account_id: 'regular-b', account_type: '정규',
+    },
+  ];
+  const cs = {
+    'NAESIN-A': {
+      naesin_start: '2026-05-01', naesin_end: '2026-06-30', schedule: { 화: '17:00' },
+    },
+    'KS132': {
+      free_start: '2026-05-01', free_end: '2026-06-30', free_schedule: { 수: '16:00' },
+    },
+  };
+
+  const activeNaesin = deriveActiveNaesinEnrollment([current[0]], deps(cs));
+  assert.equal(activeNaesin.account_id, 'regular-a');
+  assert.equal(activeNaesin.account_type, '정규');
+
+  const out = applyNaesinFreeDerivation(current, deps(cs));
+  assert.deepEqual(
+    out.map(e => [e.class_type, e.account_id, e.account_type]),
+    [['내신', 'regular-a', '정규'], ['자유학기', 'regular-b', '정규']],
+  );
+});
+
+test('파생이 없으면 계정 그룹이 교차해도 입력 순서를 보존', () => {
+  const current = [
+    { account_id: 'a', account_type: '정규', class_type: '정규', class_number: '101' },
+    { account_id: 'b', account_type: '정규', class_type: '정규', class_number: '201' },
+    { account_id: 'a', account_type: '정규', class_type: '내신', class_number: '내신A' },
+  ];
+  assert.deepEqual(applyNaesinFreeDerivation(current, deps({})), current);
+});
+
 test('내신이 자유학기보다 우선', () => {
   const cs = {
     '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03', schedule: { '화': '17:00' } },
@@ -148,6 +190,35 @@ test('수업이력 파생: 정규 반에 자유학기 기간 → 자유학기 �
   assert.equal(out.length, 1);
   assert.equal(out[0].class_type, '자유학기');
   assert.equal(out[0].code, 'HX104');
+});
+
+test('수업이력 파생은 명시 기간을 계정별 판정하고 파생 항목에 계정 필드를 전파', () => {
+  const enrollments = [
+    {
+      account_id: 'a', account_type: '정규', class_type: '정규',
+      level_symbol: 'HA', class_number: '101', naesin_class_override: '내신A',
+    },
+    {
+      account_id: 'a', account_type: '정규', class_type: '내신',
+      class_number: '내신A', start_date: '2026-05-01',
+    },
+    {
+      account_id: 'b', account_type: '정규', class_type: '정규',
+      level_symbol: 'HB', class_number: '201', naesin_class_override: '내신B',
+    },
+  ];
+  const classSettings = {
+    내신A: { naesin_start: '2026-05-01', naesin_end: '2026-06-30' },
+    내신B: { naesin_start: '2026-07-01', naesin_end: '2026-08-31' },
+  };
+  assert.deepEqual(deriveClassPeriodHistory(enrollments, classSettings), [{
+    class_type: '내신',
+    code: '내신B',
+    start_date: '2026-07-01',
+    end_date: '2026-08-31',
+    account_id: 'b',
+    account_type: '정규',
+  }]);
 });
 
 // ─── isNaesinActiveAt (boolean predicate, applyNaesinFreeDerivation과 SSoT 공유) ───

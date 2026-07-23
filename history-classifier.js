@@ -19,7 +19,8 @@ const LEAVE = ['실휴원', '가휴원'];
 // 종류별 뱃지 색 (초록=긍정/등록, 파랑=중립 변경, 빨강=퇴원)
 export const HISTORY_BADGE = {
     '신규': 'badge-enroll', '복귀': 'badge-enroll', '재등원': 'badge-enroll', '수업추가': 'badge-enroll',
-    '전반': 'badge-update', '휴원': 'badge-update', '퇴원': 'badge-withdraw',
+    '전반': 'badge-update', '휴원': 'badge-update', '계정휴원': 'badge-update',
+    '계정재개': 'badge-enroll', '퇴원': 'badge-withdraw', '계정종료': 'badge-withdraw',
 };
 
 // 작성자 표시: 이메일은 @ 앞부분만, 자동전환·시스템·미상은 'system'.
@@ -67,6 +68,9 @@ export function parseStatusClass(text) {
 export function classifyHistory(log) {
     const t = log.change_type;
     if (t === 'STATUS_CHANGE' || t === 'DELETE' || t === 'PROMOTION') return null;
+    if (t === 'ACCOUNT_PAUSE') return { label: '계정휴원', from: '활성', to: '휴원' };
+    if (t === 'ACCOUNT_RESUME') return { label: '계정재개', from: '휴원', to: '활성' };
+    if (t === 'ACCOUNT_END') return { label: '계정종료', from: '활성', to: '종료' };
 
     const { status: bS, classes: bC, pauseStart: bP } = parseStatusClass(log.before);
     const { status: aS, classes: aC, pauseStart: aP } = parseStatusClass(log.after);

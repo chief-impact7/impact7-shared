@@ -13,8 +13,19 @@
 //
 // 우선순위: 내신(기간 활성) > 자유학기(기간 활성) > 그대로. 내신/자유학기가 활성이면 정규를 숨긴다.
 import { classSettingsGet } from './class-code.js';
+import { accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
 
 const _validDate = (d) => !!d && /^\d{4}-/.test(d);
+const accountFieldsOf = (e) => ({
+  ...(e.account_id !== undefined ? { account_id: e.account_id } : {}),
+  ...(e.account_type !== undefined ? { account_type: e.account_type } : {}),
+});
+const itemsOfAccount = (list, account) => (list || []).filter(e =>
+  e && typeof e === 'object'
+  && (account.accountId !== null
+    ? e.account_id === account.accountId
+    : !e.account_id && accountTypeOf(e) === account.accountType)
+);
 
 // 반코드 문자열: level_symbol+class_number (예: HA + 101 → 'HA101').
 export function enrollmentCode(e) {
@@ -28,9 +39,12 @@ export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, 
   const today = dateStr;
   const cs = classSettings || {};
   const explicit = current.find(e =>
-    e.class_type === '내신' && _validDate(e.start_date) && e.start_date <= today);
+    accountTypeOf(e) === '정규'
+    && e.class_type === '내신' && _validDate(e.start_date) && e.start_date <= today);
   if (explicit) return explicit;
-  const regularEnroll = current.find(e => (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number);
+  const regularEnroll = current.find(e =>
+    accountTypeOf(e) === '정규'
+    && (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number);
   if (!regularEnroll) return null;
   const csKey = resolveNaesinCsKey(regularEnroll);
   if (!csKey) return null;
@@ -45,6 +59,7 @@ export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, 
     class_type: '내신',
     level_symbol: '',
     class_number: csKey,
+    ...accountFieldsOf(regularEnroll),
     day: studentDays,
     schedule: { ...(c.schedule || {}), ...(regularEnroll.naesin_schedule || {}) },
     start_date: c.naesin_start,
@@ -61,44 +76,54 @@ export function isNaesinActiveAt(current, { classSettings, dateStr, resolveNaesi
 export function applyNaesinFreeDerivation(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode: code = enrollmentCode }) {
   const today = dateStr;
   const cs = classSettings || {};
-  const regularEnroll = current.find(e => (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number);
+  let changed = false;
+  const derived = groupEnrollmentAccounts(current).flatMap((account) => {
+    const { accountType, items } = account;
+    if (accountType !== '정규') return items;
+    const accountItems = itemsOfAccount(current, account);
+    const regularEnroll = items.find(e =>
+      (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number);
 
-  // 1) 내신: 명시적 내신 enrollment 또는 정규+override→class_settings 내신기간 파생 (SSoT 공유)
-  const activeNaesin = deriveActiveNaesinEnrollment(current, { classSettings: cs, dateStr: today, resolveNaesinCsKey });
-  if (activeNaesin) {
-    const nonRegular = current.filter(e => !['정규', '자유학기', ''].includes(e.class_type || ''));
-    return [activeNaesin, ...nonRegular.filter(e => e !== activeNaesin)];
-  }
+    const activeNaesin = deriveActiveNaesinEnrollment(accountItems, {
+      classSettings: cs, dateStr: today, resolveNaesinCsKey,
+    });
+    if (activeNaesin) {
+      changed = true;
+      const nonRegular = items.filter(e => !['정규', '자유학기', ''].includes(e.class_type || ''));
+      return [activeNaesin, ...nonRegular.filter(e => e !== activeNaesin)];
+    }
 
-  // 2) 자유학기: 명시적 자유학기 또는 정규 반코드의 class_settings 자유학기 기간 파생
-  const activeFree = (() => {
-    const explicit = current.find(e =>
-      e.class_type === '자유학기' && _validDate(e.start_date) && e.start_date <= today);
-    if (explicit) return explicit;
-    if (!regularEnroll) return null;
-    const csKey = code(regularEnroll);
-    const c = classSettingsGet(cs, csKey);
-    if (!c?.free_start || !c?.free_end) return null;
-    if (c.free_start > today || c.free_end < today) return null;
-    return {
-      class_type: '자유학기',
-      level_symbol: regularEnroll.level_symbol || '',
-      class_number: regularEnroll.class_number || '',
-      day: Object.keys(c.free_schedule || {}),
-      schedule: c.free_schedule || {},
-      start_date: c.free_start,
-      end_date: c.free_end,
-    };
-  })();
-  if (activeFree) {
-    // 자유학기 활성이면 정규를 모두 숨긴다(헤더 계약) — 명시적 자유학기의 코드가 정규와 달라도 대체.
-    return [
-      activeFree,
-      ...current.filter(e => e.class_type !== '정규' && e !== activeFree),
-    ];
-  }
+    const activeFree = (() => {
+      const explicit = accountItems.find(e =>
+        e.class_type === '자유학기' && _validDate(e.start_date) && e.start_date <= today);
+      if (explicit) return explicit;
+      if (!regularEnroll) return null;
+      const csKey = code(regularEnroll);
+      const c = classSettingsGet(cs, csKey);
+      if (!c?.free_start || !c?.free_end) return null;
+      if (c.free_start > today || c.free_end < today) return null;
+      return {
+        class_type: '자유학기',
+        level_symbol: regularEnroll.level_symbol || '',
+        class_number: regularEnroll.class_number || '',
+        ...accountFieldsOf(regularEnroll),
+        day: Object.keys(c.free_schedule || {}),
+        schedule: c.free_schedule || {},
+        start_date: c.free_start,
+        end_date: c.free_end,
+      };
+    })();
+    if (activeFree) {
+      changed = true;
+      return [
+        activeFree,
+        ...items.filter(e => e.class_type !== '정규' && e !== activeFree),
+      ];
+    }
 
-  return current;
+    return items;
+  });
+  return changed ? derived : current;
 }
 
 // 수업이력용: override 기반 내신/자유학기를 "수업이력 항목"으로 파생한다.
@@ -112,29 +137,39 @@ export function deriveClassPeriodHistory(enrollments, classSettings, { enrollmen
   const cs = classSettings || {};
   const entries = [];
 
-  const hasExplicitNaesin = list.some(e => e.class_type === '내신');
-  const hasExplicitFree = list.some(e => e.class_type === '자유학기');
+  for (const account of groupEnrollmentAccounts(list)) {
+    if (account.accountType !== '정규') continue;
+    const accountItems = itemsOfAccount(list, account);
+    const hasExplicitNaesin = accountItems.some(e => e.class_type === '내신');
+    const hasExplicitFree = accountItems.some(e => e.class_type === '자유학기');
 
-  for (const e of list) {
-    if (e.class_type !== '정규' && e.class_type !== '자유학기') continue;
+    for (const e of account.items) {
+      if (e.class_type !== '정규' && e.class_type !== '자유학기') continue;
 
-    // 내신: 정규+override(빈 문자열 제외) → class_settings 내신기간
-    if (!hasExplicitNaesin) {
-      const override = e.naesin_class_override;
-      if (typeof override === 'string' && override !== '') {
-        const c = classSettingsGet(cs, override);
-        if (c?.naesin_start && c?.naesin_end) {
-          entries.push({ class_type: '내신', code: override, start_date: c.naesin_start, end_date: c.naesin_end });
+      if (!hasExplicitNaesin) {
+        const override = e.naesin_class_override;
+        if (typeof override === 'string' && override !== '') {
+          const c = classSettingsGet(cs, override);
+          if (c?.naesin_start && c?.naesin_end) {
+            entries.push({
+              class_type: '내신', code: override,
+              start_date: c.naesin_start, end_date: c.naesin_end,
+              ...accountFieldsOf(e),
+            });
+          }
         }
       }
-    }
 
-    // 자유학기: 정규 반코드 → class_settings 자유학기 기간
-    if (!hasExplicitFree && e.class_type === '정규') {
-      const csKey = code(e);
-      const c = classSettingsGet(cs, csKey);
-      if (c?.free_start && c?.free_end) {
-        entries.push({ class_type: '자유학기', code: csKey, start_date: c.free_start, end_date: c.free_end });
+      if (!hasExplicitFree && e.class_type === '정규') {
+        const csKey = code(e);
+        const c = classSettingsGet(cs, csKey);
+        if (c?.free_start && c?.free_end) {
+          entries.push({
+            class_type: '자유학기', code: csKey,
+            start_date: c.free_start, end_date: c.free_end,
+            ...accountFieldsOf(e),
+          });
+        }
       }
     }
   }

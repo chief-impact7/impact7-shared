@@ -36,8 +36,8 @@ describe('createPromoteEnrollPending', () => {
     const { firebase, ops } = makeFirebase();
     const fn = createPromoteEnrollPending(firebase);
     const students = [
-      { id: 'a', status: '등원예정', enrollments: [{ start_date: '2026-06-01' }] },
-      { id: 'b', status: '등원예정', enrollments: [{ start_date: '2026-06-15' }] },
+      { id: 'a', status: '등원예정', enrollments: [{ class_number: '101', start_date: '2026-06-01' }] },
+      { id: 'b', status: '등원예정', enrollments: [{ class_number: '201', start_date: '2026-06-15' }] },
     ];
     const result = await fn(students, TODAY);
     assert.equal(result.length, 1);
@@ -50,7 +50,7 @@ describe('createPromoteEnrollPending', () => {
   it('history_logs set 기록 포함', async () => {
     const { firebase, ops } = makeFirebase();
     const fn = createPromoteEnrollPending(firebase);
-    await fn([{ id: 'x', status: '등원예정', enrollments: [{ start_date: '2026-05-01' }] }], TODAY);
+    await fn([{ id: 'x', status: '등원예정', enrollments: [{ class_number: '101', start_date: '2026-05-01' }] }], TODAY);
     const log = ops.find(o => o.op === 'set');
     assert.ok(log);
     assert.equal(log.data.before, '등원예정');
@@ -61,7 +61,7 @@ describe('createPromoteEnrollPending', () => {
   it('idField 옵션으로 커스텀 ID 필드 사용', async () => {
     const { firebase, ops } = makeFirebase();
     const fn = createPromoteEnrollPending(firebase, { idField: 'docId' });
-    await fn([{ docId: 'doc-1', status: '등원예정', enrollments: [{ start_date: '2026-01-01' }] }], TODAY);
+    await fn([{ docId: 'doc-1', status: '등원예정', enrollments: [{ class_number: '101', start_date: '2026-01-01' }] }], TODAY);
     const update = ops.find(o => o.op === 'update');
     assert.equal(update.ref.id, 'doc-1');
   });
@@ -71,7 +71,7 @@ describe('createPromoteEnrollPending', () => {
     const customOps = [];
     const batchUpdate = (batch, ref, data) => customOps.push({ ref, data });
     const fn = createPromoteEnrollPending(firebase, { batchUpdate });
-    await fn([{ id: 'y', status: '등원예정', enrollments: [{ start_date: '2026-01-01' }] }], TODAY);
+    await fn([{ id: 'y', status: '등원예정', enrollments: [{ class_number: '101', start_date: '2026-01-01' }] }], TODAY);
     assert.equal(customOps.length, 1);
     assert.equal(customOps[0].data.status, '재원');
   });
@@ -80,6 +80,15 @@ describe('createPromoteEnrollPending', () => {
     const { firebase } = makeFirebase();
     const fn = createPromoteEnrollPending(firebase);
     const result = await fn([{ id: 'z', status: '등원예정' }], TODAY);
+    assert.deepEqual(result, []);
+  });
+
+  it('레거시 start_date 없는 enrollment는 전환하지 않음', async () => {
+    const { firebase } = makeFirebase();
+    const fn = createPromoteEnrollPending(firebase);
+    const result = await fn([{
+      id: 'legacy', status: '등원예정', enrollments: [{ class_type: '정규', class_number: '101' }],
+    }], TODAY);
     assert.deepEqual(result, []);
   });
 
@@ -104,7 +113,10 @@ describe('createPromoteEnrollPending — 경계', () => {
     const fn = createPromoteEnrollPending(firebase);
     const result = await fn([{
       id: 'old', status: '등원예정',
-      enrollments: [{ start_date: '2026-01-01', end_date: '2026-02-28' }, { start_date: '2026-06-15' }],
+      enrollments: [
+        { class_number: '101', start_date: '2026-01-01', end_date: '2026-02-28' },
+        { class_number: '201', start_date: '2026-06-15' },
+      ],
     }], TODAY);
     assert.deepEqual(result, []);
   });
@@ -113,8 +125,8 @@ describe('createPromoteEnrollPending — 경계', () => {
     const { firebase } = makeFirebase();
     const fn = createPromoteEnrollPending(firebase);
     const result = await fn([
-      { id: 'a', status: '등원예정', enrollments: [{ start_date: '2026-05-01', end_date: '2026-12-31' }] },
-      { id: 'b', status: '등원예정', enrollments: [{ start_date: '2026-05-01' }] },
+      { id: 'a', status: '등원예정', enrollments: [{ class_number: '101', start_date: '2026-05-01', end_date: '2026-12-31' }] },
+      { id: 'b', status: '등원예정', enrollments: [{ class_number: '201', start_date: '2026-05-01' }] },
     ], TODAY);
     assert.deepEqual(result.map(s => s.id), ['a', 'b']);
   });
@@ -122,8 +134,34 @@ describe('createPromoteEnrollPending — 경계', () => {
   it('enrollments의 null 원소를 무시 (크래시 없음)', async () => {
     const { firebase } = makeFirebase();
     const fn = createPromoteEnrollPending(firebase);
-    const result = await fn([{ id: 'n', status: '등원예정', enrollments: [null, { start_date: '2026-05-01' }] }], TODAY);
+    const result = await fn([{
+      id: 'n', status: '등원예정',
+      enrollments: [null, { class_number: '101', start_date: '2026-05-01' }],
+    }], TODAY);
     assert.equal(result.length, 1);
+  });
+
+  it('활성 기타 계정은 전환하고 휴원 계정은 제외', async () => {
+    const { firebase } = makeFirebase();
+    const fn = createPromoteEnrollPending(firebase);
+    const result = await fn([
+      {
+        id: 'other', status: '등원예정',
+        enrollments: [{
+          account_id: 'other-a', account_type: '기타', class_type: '기타',
+          class_number: '기타101', start_date: '2026-05-01',
+        }],
+      },
+      {
+        id: 'paused', status: '등원예정',
+        enrollments: [{
+          account_id: 'regular-a', account_type: '정규', class_type: '정규',
+          class_number: '101', start_date: '2026-05-01',
+          pause_start_date: '2026-05-15', pause_end_date: '2026-06-15',
+        }],
+      },
+    ], TODAY);
+    assert.deepEqual(result.map(s => s.id), ['other']);
   });
 
   it('200명 초과 시 batch 분할 커밋 (Firestore 500 ops 한도)', async () => {
@@ -141,7 +179,8 @@ describe('createPromoteEnrollPending — 경계', () => {
     };
     const fn = createPromoteEnrollPending(firebase);
     const students = Array.from({ length: 401 }, (_, i) => ({
-      id: `s${i}`, status: '등원예정', enrollments: [{ start_date: '2026-01-01' }],
+      id: `s${i}`, status: '등원예정',
+      enrollments: [{ class_number: '101', start_date: '2026-01-01' }],
     }));
     const result = await fn(students, TODAY);
     assert.equal(result.length, 401);

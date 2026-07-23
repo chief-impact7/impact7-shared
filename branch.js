@@ -1,5 +1,7 @@
 // 단지(지점) 파생. 내신 csKey('10단지…'/'2단지…')는 접두로,
 // 정규 반번호는 첫 숫자('1xx'→2단지, '2xx'→10단지)로.
+import { activeEnrollmentsAt } from './enrollment-status.js';
+
 export function branchFromClassNumber(num) {
   const c = String(num ?? '').trim(); // Firestore에 숫자로 저장된 class_number 허용
   if (c.startsWith('10단지')) return '10단지'; // '2단지'·반번호 '1xx' 규칙보다 먼저
@@ -24,14 +26,20 @@ export function branchFromClassCode(code) {
 }
 
 // 학생의 소속: branch 필드 우선, 없으면 첫 enrollment의 class_number에서 파생.
-export function branchFromStudent(s) {
-  return s.branch || (s.enrollments?.[0] ? branchFromClassNumber(s.enrollments[0].class_number) : '');
+export function branchFromStudent(s, dateStr) {
+  const enrollments = dateStr
+    ? activeEnrollmentsAt((s.enrollments || []).filter(Boolean), dateStr)
+    : s.enrollments || [];
+  return s.branch || (enrollments[0] ? branchFromClassNumber(enrollments[0].class_number) : '');
 }
 
 // 학생의 모든 소속 지점 (여러 enrollment에서 파생된 지점 합집합).
-export function branchesFromStudent(s) {
+export function branchesFromStudent(s, dateStr) {
   const set = new Set();
-  (s.enrollments || []).forEach((e) => {
+  const enrollments = dateStr
+    ? activeEnrollmentsAt((s.enrollments || []).filter(Boolean), dateStr)
+    : s.enrollments || [];
+  enrollments.forEach((e) => {
     const b = branchFromClassNumber(e.class_number);
     if (b) set.add(b);
   });

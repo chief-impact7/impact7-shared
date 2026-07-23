@@ -4,6 +4,7 @@
 
 export const ENROLLABLE_STATUSES = new Set(['재원', '등원예정', '실휴원', '가휴원']);
 export const NON_ENROLLABLE_STATUSES = new Set(['상담', '퇴원', '종강']);
+export const ACCOUNT_TYPES = ['정규', '특강', '기타'];
 
 // 휴원(일시정지) 상태 집합 — 재원 유지(ENROLLABLE) 중 '멈춤' 표시·현인원 산식 등에서
 // 반복되던 부분집합. status==='실휴원'||status==='가휴원' 인라인 대체용 SSoT.
@@ -19,12 +20,181 @@ export function hasRealEnrollment(enrollments) {
   return (enrollments || []).some(e => e && (e.level_symbol || e.class_number));
 }
 
+const _validDate = (d) => !!d && /^\d{4}-/.test(d);
+const _isDateActive = (e, dateStr) =>
+  !_validDate(dateStr)
+  || ((!_validDate(e?.start_date) || e.start_date <= dateStr)
+    && (!_validDate(e?.end_date) || e.end_date >= dateStr));
+
+export function accountTypeOf(enrollment) {
+  if (ACCOUNT_TYPES.includes(enrollment?.account_type)) return enrollment.account_type;
+  if (enrollment?.class_type === '특강') return '특강';
+  if (enrollment?.class_type === '기타') return '기타';
+  return '정규';
+}
+
+function legacyAccountKey(account) {
+  const representative = account.accountType === '정규'
+    ? account.items.find(item => (item.class_type || '정규') === '정규') || account.items[0]
+    : account.items[0];
+  return `legacy:${account.accountType}:${representative.level_symbol || ''}${representative.class_number || ''}`;
+}
+
+export function groupEnrollmentAccounts(enrollments) {
+  const groups = [];
+  const byId = new Map();
+  let legacyRegular = null;
+
+  for (const item of enrollments || []) {
+    if (!item || typeof item !== 'object' || (!item.level_symbol && !item.class_number)) continue;
+    const accountId = item?.account_id || null;
+    const accountType = accountTypeOf(item);
+
+    if (accountId) {
+      let group = byId.get(accountId);
+      if (!group) {
+        group = { accountId, accountType, items: [], typeConflict: false };
+        byId.set(accountId, group);
+        groups.push(group);
+      } else if (group.accountType !== accountType) {
+        group.typeConflict = true;
+      }
+      group.items.push(item);
+    } else if (accountType === '정규') {
+      if (!legacyRegular) {
+        legacyRegular = { accountId: null, accountType, items: [], typeConflict: false };
+        groups.push(legacyRegular);
+      }
+      legacyRegular.items.push(item);
+    } else {
+      groups.push({ accountId: null, accountType, items: [item], typeConflict: false });
+    }
+  }
+  return groups.map(account => ({
+    ...account,
+    key: account.accountId || legacyAccountKey(account),
+  }));
+}
+
+export function accountStateAt(account, dateStr) {
+  const items = account?.items || [];
+  if (!items.length) return '종료';
+  // YYYY- 접두 관례 밖 dateStr는 형식 오류만으로 활성 계정을 제외하지 않는다.
+  if (!_validDate(dateStr)) return '활성';
+  if (items.every(e => _validDate(e?.end_date) && e.end_date < dateStr)) return '종료';
+  if (items.some(e =>
+    _validDate(e?.pause_start_date) && e.pause_start_date <= dateStr
+    && (!_validDate(e.pause_end_date) || e.pause_end_date >= dateStr)
+  )) return '휴원';
+  if (items.some(e => _isDateActive(e, dateStr))) return '활성';
+  if (items.some(e => _validDate(e?.start_date) && e.start_date > dateStr)) return '예정';
+  return '종료';
+}
+
+export function openAccounts(enrollments, dateStr) {
+  return groupEnrollmentAccounts(enrollments).filter(account => accountStateAt(account, dateStr) !== '종료');
+}
+
+export function openAccountIds(enrollments, dateStr) {
+  return openAccounts(enrollments, dateStr)
+    .map(account => account.accountId)
+    .filter(accountId => accountId !== null);
+}
+
+export function activeEnrollmentsAt(enrollments, dateStr) {
+  const list = enrollments || [];
+  const activeItems = new Set(
+    groupEnrollmentAccounts(list)
+      .filter(account => accountStateAt(account, dateStr) === '활성')
+      .flatMap(account => account.items.filter(item => _isDateActive(item, dateStr)))
+  );
+  return list.filter(item => activeItems.has(item));
+}
+
+function accountItemsBySelector(enrollments, selector) {
+  if (!selector) return null;
+  return groupEnrollmentAccounts(enrollments)
+    .find(account => account.accountId === selector || account.key === selector)?.items || null;
+}
+
+export function pauseAccount(enrollments, accountId, {
+  pauseStart, pauseEnd, leaveSubType,
+} = {}) {
+  const list = enrollments || [];
+  const items = accountItemsBySelector(list, accountId);
+  if (!items) return { updatedEnrollments: list, skipped: true };
+  const target = new Set(items);
+  return {
+    updatedEnrollments: list.map(item => {
+      if (!target.has(item)) return item;
+      const { pause_end_date, ...withoutPauseEnd } = item;
+      return {
+        ...withoutPauseEnd,
+        pause_start_date: pauseStart,
+        ...(pauseEnd === undefined ? {} : { pause_end_date: pauseEnd }),
+        leave_sub_type: leaveSubType,
+      };
+    }),
+    skipped: false,
+  };
+}
+
+export function resumeAccount(enrollments, accountId) {
+  const list = enrollments || [];
+  const items = accountItemsBySelector(list, accountId);
+  if (!items) return { updatedEnrollments: list, skipped: true };
+  const target = new Set(items);
+  return {
+    updatedEnrollments: list.map(item => {
+      if (!target.has(item)) return item;
+      const {
+        pause_start_date, pause_end_date, leave_sub_type, ...resumed
+      } = item;
+      return resumed;
+    }),
+    skipped: false,
+  };
+}
+
+export function closeAccount(enrollments, accountId, { endDate, endReason } = {}) {
+  const list = enrollments || [];
+  const items = accountItemsBySelector(list, accountId);
+  if (!items) return { updatedEnrollments: list, removed: [], skipped: true };
+  const target = new Set(items);
+  return {
+    updatedEnrollments: list.filter(item => !target.has(item)),
+    removed: list
+      .filter(item => target.has(item))
+      .map(item => ({ ...item, end_date: endDate, end_reason: endReason })),
+    skipped: false,
+  };
+}
+
+export function deriveStudentStatusAfterAccountChange(enrollments, dateStr, {
+  fallbackReason, currentStatus,
+} = {}) {
+  const accounts = groupEnrollmentAccounts(enrollments);
+  const states = accounts.map(account => [account, accountStateAt(account, dateStr)]);
+  if (states.some(([, state]) => state === '활성')) {
+    return ENROLLABLE_STATUSES.has(currentStatus) ? currentStatus : '재원';
+  }
+
+  const paused = states.filter(([, state]) => state === '휴원').map(([account]) => account);
+  if (paused.length) {
+    return paused.some(account => account.items.some(item => item?.leave_sub_type === '실휴원'))
+      ? '실휴원'
+      : '가휴원';
+  }
+  if (states.some(([, state]) => state === '예정')) return '등원예정';
+  return fallbackReason === '퇴원' ? '퇴원' : '종강';
+}
+
 // 저장 직전 status↔enrollment 정합성 검사/정리.
 // - 비재원(상담/퇴원/종강): enrollments를 빈 배열로 강제 (valid: true)
 // - 재원 계열: 실질 enrollment ≥1 필요 (없으면 valid: false + reason)
 // - 7종 밖 status(오타·구 데이터·undefined): valid: false — 정합성 불명인 채 저장 차단
 // 반환: { enrollments, valid, reason? }
-export function reconcileEnrollments(status, enrollments) {
+export function reconcileEnrollments(status, enrollments, opts) {
   const list = enrollments || [];
   if (NON_ENROLLABLE_STATUSES.has(status)) {
     return { enrollments: [], valid: true };
@@ -42,6 +212,23 @@ export function reconcileEnrollments(status, enrollments) {
       valid: false,
       reason: '재원·등원예정·휴원 상태로 저장하려면 정규반 또는 특강을 최소 1개 입력하세요.',
     };
+  }
+  if (opts?.dateStr) {
+    const accounts = groupEnrollmentAccounts(list);
+    if (accounts.some(account => account.typeConflict)) {
+      return {
+        enrollments: list,
+        valid: false,
+        reason: '같은 수강계정에 서로 다른 계정 유형이 섞여 있습니다.',
+      };
+    }
+    if (accounts.every(account => accountStateAt(account, opts.dateStr) === '종료')) {
+      return {
+        enrollments: list,
+        valid: false,
+        reason: '재원·등원예정·휴원 상태로 저장하려면 열린 수강계정이 최소 1개 있어야 합니다.',
+      };
+    }
   }
   return { enrollments: list, valid: true };
 }
