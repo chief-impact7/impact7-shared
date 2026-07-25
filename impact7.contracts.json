@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "2.0.0",
+  "contracts": [
+    {
+      "id": "student-lifecycle",
+      "signals": ["학생 상태", "재원", "퇴원", "휴원", "등원예정", "enrollment", "반 이동", "승격"],
+      "exports": ["./enrollment-status", "./enrollment-derivation", "./class-move", "./promote-enroll"],
+      "consumers": ["db", "dsc", "exam", "functions"]
+    },
+    {
+      "id": "student-identity",
+      "signals": ["학생 번호", "등록번호", "학생 라벨", "학교 학년", "전화번호", "branch"],
+      "exports": ["./student-number", "./student-label", "./phone", "./branch"],
+      "consumers": ["db", "dsc", "exam", "tablet", "mobile", "consultation"]
+    },
+    {
+      "id": "attendance",
+      "signals": ["출결", "등원", "하원", "외출", "복귀", "지각", "예정 시각", "attendance"],
+      "exports": ["./attendance-action", "./expected-arrival", "./attendance-log", "./attendance-status"],
+      "consumers": ["dsc", "tablet", "functions"]
+    },
+    {
+      "id": "class-and-time",
+      "signals": ["반 코드", "수업 시간", "학기", "휴원 주기", "날짜", "시간"],
+      "exports": ["./class-code", "./datetime", "./leave-cycles"],
+      "consumers": ["db", "dsc", "exam", "functions"]
+    },
+    {
+      "id": "staff-identity",
+      "signals": ["직원", "교사", "권한", "이메일", "staff", "teacher"],
+      "exports": ["./staff-label", "./teacher-label", "./permissions", "./staff-status", "./email"],
+      "consumers": ["db", "dsc", "hr"]
+    },
+    {
+      "id": "safe-input-and-rendering",
+      "signals": ["폼 slug", "IME", "HTML escape", "입력 조합", "폼 컴포넌트"],
+      "exports": ["./form-slug", "./form-components", "./ime-input", "./html-escape"],
+      "consumers": ["forms", "board", "db", "dsc"]
+    },
+    {
+      "id": "history",
+      "signals": ["이력", "history", "history_logs", "작성자 표시"],
+      "exports": ["./history"],
+      "consumers": ["db", "dsc", "consultation"]
+    }
+  ]
+}

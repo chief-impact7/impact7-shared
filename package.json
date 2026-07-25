@@ -32,6 +32,7 @@
   },
   "files": [
     "*.js",
+    "impact7.contracts.json",
     "!*.test.js"
   ],
   "scripts": {
