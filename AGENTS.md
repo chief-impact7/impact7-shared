@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 407개 통과.
+- 테스트: `npm test` (`node --test`). 현재 412개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
@@ -133,6 +133,18 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `isValidEmail` | fn | `(email) → boolean` — `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`, 비문자열 → false. HR 여러 화면이 복제하던 정규식 통일 |
+
+### `./ai-model-policy` — `ai-model-policy.js`
+
+Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase 의존성 없이 DSC·Functions·Exam이 공유.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|----------------|
+| `GEMINI_FLASH_PRIMARY` | const | `'gemini-3.6-flash'` |
+| `GEMINI_FLASH_FALLBACK` | const | `'gemini-3.5-flash'` |
+| `aiModelSequence` | fn | `(feature) → readonly string[]` — 학부모 총평·Exam 일반 텍스트는 3.5 폴백, 상담 제목은 3.6 단일 |
+| `runWithAiModelPolicy` | fn | `(feature, generate) → Promise<result>` — 모델 순서대로 실행 |
+| `geminiGenerationConfig` | fn | `(model, config?) → config` — 3.6에서 폐기된 sampling 파라미터 제거 |
 
 ### `./student-number` — `student-number.js`
 

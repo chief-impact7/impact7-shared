@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.48.0",
+  "version": "1.49.0",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -28,10 +28,12 @@
     "./permissions": "./permissions.js",
     "./staff-status": "./staff-status.js",
     "./attendance-status": "./attendance-status.js",
-    "./email": "./email.js"
+    "./email": "./email.js",
+    "./ai-model-policy": "./ai-model-policy.js"
   },
   "files": [
     "*.js",
+    "*.d.ts",
     "impact7.contracts.json",
     "!*.test.js"
   ],
