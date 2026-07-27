@@ -111,6 +111,11 @@ export function activeEnrollmentsAt(enrollments, dateStr) {
   return list.filter(item => activeItems.has(item));
 }
 
+export function hasActiveRegularAccount(enrollments, dateStr) {
+  return groupEnrollmentAccounts(enrollments)
+    .some(account => account.accountType === '정규' && accountStateAt(account, dateStr) === '활성');
+}
+
 function accountItemsBySelector(enrollments, selector) {
   if (!selector) return null;
   return groupEnrollmentAccounts(enrollments)
@@ -211,6 +216,17 @@ export function reconcileEnrollments(status, enrollments, opts) {
       enrollments: list,
       valid: false,
       reason: '재원·등원예정·휴원 상태로 저장하려면 정규반 또는 특강을 최소 1개 입력하세요.',
+    };
+  }
+  if (
+    status === '재원'
+    && (LEAVE_STATUSES.has(opts?.previousStatus) || opts?.previousStatus === '퇴원')
+    && (!opts?.dateStr || !hasActiveRegularAccount(list, opts.dateStr))
+  ) {
+    return {
+      enrollments: list,
+      valid: false,
+      reason: '휴원·퇴원 학생을 재원으로 변경하려면 활성 정규반을 먼저 배정하세요.',
     };
   }
   if (opts?.dateStr) {

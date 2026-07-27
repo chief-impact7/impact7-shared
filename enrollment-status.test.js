@@ -6,6 +6,7 @@ import {
   LEAVE_STATUSES, ENROLLABLE_STATUSES,
   ACCOUNT_TYPES, accountTypeOf, groupEnrollmentAccounts, accountStateAt,
   openAccounts, openAccountIds, activeEnrollmentsAt,
+  hasActiveRegularAccount,
   pauseAccount, resumeAccount, closeAccount, deriveStudentStatusAfterAccountChange,
 } from './enrollment-status.js';
 
@@ -42,6 +43,30 @@ test('reconcileEnrollments — 재원 계열 + 실질 반 있으면 valid', () =
   const r = reconcileEnrollments('재원', [{ class_type: '정규', class_number: '104' }]);
   assert.equal(r.valid, true);
   assert.equal(r.enrollments.length, 1);
+});
+
+test('reconcileEnrollments — 휴원·퇴원에서 재원 전환은 활성 정규반이 필수', () => {
+  const special = [{ account_type: '특강', class_type: '특강', class_number: '여름특강' }];
+  const regular = [{ account_type: '정규', class_type: '정규', class_number: '201' }];
+  for (const previousStatus of ['가휴원', '실휴원', '퇴원']) {
+    const invalid = reconcileEnrollments('재원', special, {
+      previousStatus,
+      dateStr: '2026-07-27',
+    });
+    assert.equal(invalid.valid, false);
+    assert.match(invalid.reason, /활성 정규반/);
+    assert.equal(reconcileEnrollments('재원', regular, {
+      previousStatus,
+      dateStr: '2026-07-27',
+    }).valid, true);
+  }
+  assert.equal(reconcileEnrollments('재원', special, {
+    previousStatus: '재원',
+    dateStr: '2026-07-27',
+  }).valid, true);
+  assert.equal(reconcileEnrollments('재원', regular, {
+    previousStatus: '실휴원',
+  }).valid, false);
 });
 
 test('studentCategory — 재원생/비원생 분류', () => {
@@ -157,6 +182,22 @@ test('활성 계정에서도 기준일에 활성인 과거·현재·미래 항�
   };
   assert.deepEqual(activeEnrollmentsAt([ended, current, future], '2026-07-23'), [current]);
   assert.deepEqual(activeEnrollmentsAt([current], 'invalid'), [current]);
+});
+
+test('활성 정규계정 판정은 특강과 휴원·종료 정규를 제외한다', () => {
+  assert.equal(hasActiveRegularAccount([
+    { account_type: '특강', class_type: '특강', class_number: '여름특강' },
+    {
+      account_type: '정규',
+      class_type: '정규',
+      class_number: '201',
+      pause_start_date: '2026-07-01',
+      pause_end_date: '2026-08-20',
+    },
+  ], '2026-07-27'), false);
+  assert.equal(hasActiveRegularAccount([
+    { account_type: '정규', class_type: '정규', class_number: '201' },
+  ], '2026-07-27'), true);
 });
 
 test('계정 상태는 미래 시작 예정, end_date 당일 활성, 다음 날 종료', () => {
