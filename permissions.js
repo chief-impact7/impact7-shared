@@ -91,8 +91,11 @@ export const PERMISSION_GROUPS = [
   },
   {
     key: 'hr',
-    title: '인사(HR)',
+    title: '인사',
     items: [
+      { id: 'faculty', label: '교수', children: [] },
+      { id: 'administration', label: '행정', children: [] },
+      { id: 'short-term', label: '단기', children: [] },
       { key: 'canViewEmployees', label: '직원 정보 열람', apps: ['HR'], enforced: 'none' },
       { key: 'canManageEmployees', label: '직원 관리', apps: ['HR'], enforced: 'none' },
       { key: 'canViewStaffAttendance', label: '직원 근태 열람', apps: ['HR'], enforced: 'none' },
@@ -121,7 +124,15 @@ export const PERMISSION_GROUPS = [
   },
 ];
 
-export const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => i.key));
+/**
+ * @param {Array<{ key: string } | { children: any[] }>} items
+ * @returns {string[]}
+ */
+const permissionKeys = (items) => items.flatMap((item) => (
+  'children' in item ? permissionKeys(item.children) : [item.key]
+));
+
+export const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((group) => permissionKeys(group.items));
 
 // 오너/원장만 부여·회수할 수 있는 민감 권한.
 export const SENSITIVE_PERMISSION_KEYS = ['canViewPopulationStats', 'canViewClassCounts'];
