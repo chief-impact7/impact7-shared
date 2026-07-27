@@ -17,8 +17,8 @@ test('키 중복 없음', () => {
   assert.equal(seen.size, ALL_PERMISSION_KEYS.length);
 });
 
-test('ALL_PERMISSION_KEYS 개수 43', () => {
-  assert.equal(ALL_PERMISSION_KEYS.length, 43);
+test('ALL_PERMISSION_KEYS 개수 46', () => {
+  assert.equal(ALL_PERMISSION_KEYS.length, 46);
 });
 
 test('모든 item에 key/label/apps/enforced 존재', () => {
@@ -64,16 +64,24 @@ test('enforced 값은 rules/client/none 3종만', () => {
   }
 });
 
-test('인사 그룹은 교수/행정/단기 하위 목록을 제공한다', () => {
+test('인사 그룹은 온보딩·계약서와 부서별 급여약정서 권한을 제공한다', () => {
   const hr = PERMISSION_GROUPS.find((group) => group.key === 'hr');
   assert.ok(hr);
   assert.equal(hr.title, '인사');
   assert.deepEqual(
+    hr.items.filter((item) => !('children' in item)).slice(0, 2).map((item) => [item.key, item.label]),
+    [
+      ['canManageOnboarding', '온보딩'],
+      ['canManageContracts', '계약서'],
+    ],
+  );
+  assert.deepEqual(
     hr.items.filter((item) => 'children' in item).map((item) => [item.id, item.label, item.children]),
     [
-      ['faculty', '교수', []],
-      ['administration', '행정', []],
-      ['short-term', '단기', []],
+      ['salary-agreement', '급여약정서', [
+        { key: 'canManageAdministrationSalaryAgreements', label: '행정', apps: ['HR'], enforced: 'rules' },
+        { key: 'canManageFacultySalaryAgreements', label: '교수', apps: ['HR'], enforced: 'rules' },
+      ]],
     ],
   );
 });
