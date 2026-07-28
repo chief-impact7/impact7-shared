@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 416개 통과.
+- 테스트: `npm test` (`node --test`). 현재 417개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
@@ -45,6 +45,8 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `accountStateAt` | fn | `(account, dateStr) → '활성'\|'예정'\|'휴원'\|'종료'` — 날짜 양끝 포함, 종료일 없는 pause는 열린 구간. `YYYY-` 관례 밖 기준일은 계정을 활성 판정에서 제외하지 않음 |
 | `openAccounts` | fn | `(enrollments, dateStr) → account[]` — 종료되지 않은 계정 |
 | `openAccountIds` | fn | `(enrollments, dateStr) → string[]` — 열린 명시 계정 ID만 |
+| `leaveTypeChangeSource` | fn | `(targetType) → sourceType \| ''` — 휴원종류변경 목표의 반대 원본 유형 |
+| `leaveTypeChangeAccounts` | fn | `(enrollments, targetType, dateStr) → account[]` — 기준일에 모든 휴원 항목이 원본 유형인 변경 가능 계정과 `pausedItems` |
 | `activeEnrollmentsAt` | fn | `(enrollments, dateStr) → enrollment[]` — 활성 계정 중 항목 자체도 기준일에 활성인 것만 |
 | `hasActiveRegularAccount` | fn | `(enrollments, dateStr) → boolean` — 기준일에 활성인 정규 수강계정 존재 여부 |
 | `pauseAccount` | fn | `(enrollments, accountIdOrKey, { pauseStart, pauseEnd?, leaveSubType }) → { updatedEnrollments, skipped }` |

@@ -6,7 +6,7 @@ import {
   LEAVE_STATUSES, ENROLLABLE_STATUSES,
   ACCOUNT_TYPES, accountTypeOf, groupEnrollmentAccounts, accountStateAt,
   openAccounts, openAccountIds, activeEnrollmentsAt,
-  hasActiveRegularAccount,
+  hasActiveRegularAccount, leaveTypeChangeAccounts, leaveTypeChangeSource,
   pauseAccount, resumeAccount, closeAccount, deriveStudentStatusAfterAccountChange,
 } from './enrollment-status.js';
 
@@ -232,6 +232,32 @@ test('열린 계정과 ID는 종료 계정을 제외하고 레거시 null ID를 
   ];
   assert.deepEqual(openAccounts(enrollments, '2026-07-23').map(a => a.accountId), ['open', null]);
   assert.deepEqual(openAccountIds(enrollments, '2026-07-23'), ['open']);
+});
+
+test('휴원종류변경은 현재 휴원 중인 원본 유형 계정만 반환', () => {
+  const enrollments = [
+    {
+      account_id: 'eligible', class_number: '101',
+      pause_start_date: '2026-07-01', pause_end_date: '2026-07-31', leave_sub_type: '가휴원',
+    },
+    {
+      account_id: 'mixed', class_number: '201',
+      pause_start_date: '2026-07-01', pause_end_date: '2026-07-31', leave_sub_type: '가휴원',
+    },
+    {
+      account_id: 'mixed', class_type: '내신', class_number: '내신A',
+      pause_start_date: '2026-07-01', pause_end_date: '2026-07-31', leave_sub_type: '실휴원',
+    },
+    {
+      account_id: 'expired', class_number: '301',
+      pause_start_date: '2026-06-01', pause_end_date: '2026-06-30', leave_sub_type: '가휴원',
+    },
+  ];
+
+  assert.equal(leaveTypeChangeSource('실휴원'), '가휴원');
+  const accounts = leaveTypeChangeAccounts(enrollments, '실휴원', '2026-07-28');
+  assert.deepEqual(accounts.map(account => account.key), ['eligible']);
+  assert.deepEqual(accounts[0].pausedItems, [enrollments[0]]);
 });
 
 test('한 계정만 휴원하면 다른 활성 계정 때문에 학생 status는 재원 유지', () => {
