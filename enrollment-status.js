@@ -25,6 +25,9 @@ const _isDateActive = (e, dateStr) =>
   !_validDate(dateStr)
   || ((!_validDate(e?.start_date) || e.start_date <= dateStr)
     && (!_validDate(e?.end_date) || e.end_date >= dateStr));
+const _isPauseActive = (e, dateStr) =>
+  _validDate(e?.pause_start_date) && e.pause_start_date <= dateStr
+  && (!_validDate(e.pause_end_date) || e.pause_end_date >= dateStr);
 
 export function accountTypeOf(enrollment) {
   if (ACCOUNT_TYPES.includes(enrollment?.account_type)) return enrollment.account_type;
@@ -82,10 +85,7 @@ export function accountStateAt(account, dateStr) {
   // YYYY- 접두 관례 밖 dateStr는 형식 오류만으로 활성 계정을 제외하지 않는다.
   if (!_validDate(dateStr)) return '활성';
   if (items.every(e => _validDate(e?.end_date) && e.end_date < dateStr)) return '종료';
-  if (items.some(e =>
-    _validDate(e?.pause_start_date) && e.pause_start_date <= dateStr
-    && (!_validDate(e.pause_end_date) || e.pause_end_date >= dateStr)
-  )) return '휴원';
+  if (items.some(e => _isPauseActive(e, dateStr))) return '휴원';
   if (items.some(e => _isDateActive(e, dateStr))) return '활성';
   if (items.some(e => _validDate(e?.start_date) && e.start_date > dateStr)) return '예정';
   return '종료';
@@ -99,6 +99,24 @@ export function openAccountIds(enrollments, dateStr) {
   return openAccounts(enrollments, dateStr)
     .map(account => account.accountId)
     .filter(accountId => accountId !== null);
+}
+
+const LEAVE_TYPE_CHANGE_SOURCE = { 실휴원: '가휴원', 가휴원: '실휴원' };
+
+export function leaveTypeChangeSource(targetType) {
+  return LEAVE_TYPE_CHANGE_SOURCE[targetType] || '';
+}
+
+export function leaveTypeChangeAccounts(enrollments, targetType, dateStr) {
+  const sourceType = leaveTypeChangeSource(targetType);
+  if (!sourceType) return [];
+  return groupEnrollmentAccounts(enrollments).flatMap(account => {
+    const pausedItems = account.items.filter(item => _isPauseActive(item, dateStr));
+    return pausedItems.length > 0
+      && pausedItems.every(item => (item.leave_sub_type || '실휴원') === sourceType)
+      ? [{ ...account, pausedItems }]
+      : [];
+  });
 }
 
 export function activeEnrollmentsAt(enrollments, dateStr) {
