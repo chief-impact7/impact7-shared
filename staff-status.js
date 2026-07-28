@@ -13,10 +13,18 @@
 // - HR 원본과의 의도적 편차: status가 빈 문자열인 퇴화 문서는 active 기준으로 파생한다
 //   (구 서버 의미론 — HR의 `?? 'active'`는 ''를 통과시켰음).
 
+/** @typedef {{ type?: unknown, date?: unknown }} PersonnelDateInput */
+/** @typedef {Record<string, unknown> & { status?: unknown, personnelDates?: PersonnelDateInput[] }} StaffLike */
+/** @typedef {{ status: string, priority: number, from: string[] }} StatusRule */
+/** @typedef {{ type: string, date: string }} PersonnelDate */
+/** @typedef {PersonnelDate & StatusRule} StatusChange */
+
+/** @param {unknown} v */
 const textOf = (v) => String(v ?? '').trim();
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** @type {Record<string, StatusRule>} */
 const AUTO_STATUS_BY_DATE_TYPE = {
   joinDate: { status: 'active', priority: 1, from: ['onboarding', 'join_pending', 'active'] },
   plannedJoinDate: { status: 'active', priority: 1, from: ['onboarding', 'join_pending', 'active'] },
@@ -51,6 +59,10 @@ const LEGACY_FIELD_TYPES = KNOWN_TYPES.filter((type) => type !== 'other');
 
 // personnelDates 배열 + legacy 최상위 필드 병합 — 같은 타입은 personnelDates가 우선,
 // known 타입은 하나로 dedupe, 알 수 없는 타입 항목은 그대로 보존한다. 정렬 없음(UI는 별도 정렬).
+/**
+ * @param {StaffLike} staff
+ * @returns {PersonnelDate[]}
+ */
 export function mergePersonnelDates(staff) {
   const existing = Array.isArray(staff?.personnelDates) ? staff.personnelDates : [];
   const records = existing
@@ -68,12 +80,18 @@ export function mergePersonnelDates(staff) {
   return [...known, ...preserved];
 }
 
+/**
+ * @param {PersonnelDate[]} records
+ * @param {string} current
+ * @param {string} today
+ */
 export function autoStatusFromPersonnelDates(records, current, today) {
   // today 생략·비문자열은 조용한 오판(미래 가드 무력화) 대신 시끄럽게 실패시킨다
   if (typeof today !== 'string' || !ISO_DATE.test(today)) {
     throw new TypeError('today는 YYYY-MM-DD 문자열이어야 합니다');
   }
   if (CANCELLED_STATUSES.has(current)) return current;
+  /** @type {StatusChange[]} */
   const changes = [];
   for (const record of records) {
     const date = record?.date;
@@ -111,6 +129,10 @@ export function autoStatusFromPersonnelDates(records, current, today) {
 }
 
 // staff 문서 → today 기준 유효 상태. leave_pending(폐기 용어)은 재직으로 정규화.
+/**
+ * @param {StaffLike} staff
+ * @param {string} today
+ */
 export function effectiveStaffStatus(staff, today) {
   const raw = textOf(staff?.status) || 'active';
   const base = raw === 'leave_pending' ? 'active' : raw;
