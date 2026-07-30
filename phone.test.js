@@ -1,10 +1,30 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { digitsOf, formatPhone, isValidPhoneKR, formatPhoneInput } from './phone.js';
+import {
+    digitsOf,
+    formatPhone,
+    formatPhoneInput,
+    isValidPhoneKR,
+    normalizePhoneDigitsKR,
+} from './phone.js';
 
-test('formatPhone: 11자리 하이픈 분할', () => {
+test('formatPhone: 휴대폰 번호를 국내 표준 형식으로 정규화', () => {
     assert.equal(formatPhone('01012345678'), '010-1234-5678');
     assert.equal(formatPhone('010-1234-5678'), '010-1234-5678');
+    assert.equal(formatPhone('12345678'), '010-1234-5678');
+    assert.equal(formatPhone('1012345678'), '010-1234-5678');
+    assert.equal(formatPhone('82 10 12345678'), '010-1234-5678');
+    assert.equal(formatPhone('+82 010 1234 5678'), '010-1234-5678');
+    assert.equal(formatPhone('0082 10 1234 5678'), '010-1234-5678');
+    assert.equal(formatPhone('81 10 12345678'), '010-1234-5678');
+});
+
+test('formatPhone: 지역번호를 보존해 분할', () => {
+    assert.equal(formatPhone('0212345678'), '02-1234-5678');
+    assert.equal(formatPhone('021234567'), '02-123-4567');
+    assert.equal(formatPhone('+82 2 1234 5678'), '02-1234-5678');
+    assert.equal(formatPhone('03112345678'), '031-1234-5678');
+    assert.equal(formatPhone('15881234'), '1588-1234');
 });
 
 test('formatPhone: null/undefined → 빈 문자열', () => {
@@ -12,9 +32,8 @@ test('formatPhone: null/undefined → 빈 문자열', () => {
     assert.equal(formatPhone(undefined), '');
 });
 
-test('formatPhone: 11자리 아니면 원본 반환', () => {
+test('formatPhone: 전화번호로 정규화할 수 없으면 원본 반환', () => {
     assert.equal(formatPhone('123'), '123');
-    assert.equal(formatPhone('0212345678'), '0212345678');
     assert.equal(formatPhone('010123456789'), '010123456789');
 });
 
@@ -22,8 +41,7 @@ test('formatPhone: 11자리 아니면 원본 반환', () => {
 test('formatPhone: 비문자열 입력도 항상 string 반환 (계약 → string)', () => {
     assert.equal(formatPhone(123), '123');
     assert.equal(typeof formatPhone(123), 'string');
-    assert.equal(formatPhone(1012345678), '1012345678'); // 10자리 숫자 → 문자열화 원본
-    assert.equal(formatPhone(1012345678), String(1012345678));
+    assert.equal(formatPhone(1012345678), '010-1234-5678');
     assert.equal(formatPhone(11122223333), '111-2222-3333'); // 11자리 숫자는 하이픈 분할
 });
 
@@ -38,14 +56,16 @@ test('isValidPhoneKR: 유효한 휴대폰 번호', () => {
     assert.equal(isValidPhoneKR('01812345678'), true); // 018
     assert.equal(isValidPhoneKR('01912345678'), true); // 019
     assert.equal(isValidPhoneKR('0101234567'), true); // 10자리 010도 관대하게 허용(의도)
+    assert.equal(isValidPhoneKR('12345678'), true); // 010 생략
+    assert.equal(isValidPhoneKR('82 10 12345678'), true); // 국가번호
+    assert.equal(isValidPhoneKR('81 10 12345678'), true); // 운영 데이터의 국가번호 오기
 });
 
 test('isValidPhoneKR: 무효한 번호', () => {
-    assert.equal(isValidPhoneKR('0212345678'), false); // 02 지역번호
     assert.equal(isValidPhoneKR('01212345678'), false); // 012 (2는 허용 접두 아님)
     assert.equal(isValidPhoneKR('0101234'), false); // 너무 짧음(총 7자리)
     assert.equal(isValidPhoneKR('010123456789'), false); // 너무 김(총 12자리)
-    assert.equal(isValidPhoneKR('821012345678'), false); // +82 국가코드 형태는 미허용
+    assert.equal(isValidPhoneKR('0212345678'), false); // 지역번호는 휴대폰 검증 대상 아님
     assert.equal(isValidPhoneKR(''), false);
     assert.equal(isValidPhoneKR(null), false);
     assert.equal(isValidPhoneKR(undefined), false);
@@ -61,6 +81,9 @@ test('formatPhoneInput: 점진 포맷', () => {
     assert.equal(formatPhoneInput('010123456'), '010-123-456'); // 9자리 중간
     assert.equal(formatPhoneInput('0111234567'), '011-123-4567'); // 10자리 → 3-3-4
     assert.equal(formatPhoneInput('01012345678'), '010-1234-5678'); // 11자리 → 3-4-4
+    assert.equal(formatPhoneInput('12345678'), '010-1234-5678');
+    assert.equal(formatPhoneInput('82 10 12345678'), '010-1234-5678');
+    assert.equal(formatPhoneInput('0212345678'), '02-1234-5678');
 });
 
 test('formatPhoneInput: 하이픈 idempotent · 13자 초과 절단', () => {
@@ -73,7 +96,7 @@ test('formatPhoneInput: nullish · 비문자열 → 항상 string', () => {
     assert.equal(formatPhoneInput(null), '');
     assert.equal(formatPhoneInput(undefined), '');
     assert.equal(formatPhoneInput(''), '');
-    assert.equal(formatPhoneInput(1012345678), '101-234-5678'); // 숫자 입력도 문자열화 후 포맷
+    assert.equal(formatPhoneInput(1012345678), '010-1234-5678');
     assert.equal(typeof formatPhoneInput(1012345678), 'string');
 });
 
@@ -83,4 +106,12 @@ test('digitsOf: 숫자만 추출, nullish → 빈 문자열', () => {
     assert.equal(digitsOf(1012345678), '1012345678');
     assert.equal(digitsOf(null), '');
     assert.equal(digitsOf(undefined), '');
+});
+
+test('normalizePhoneDigitsKR: 발송용 국내 번호로 정규화', () => {
+    assert.equal(normalizePhoneDigitsKR('82 10 12345678'), '01012345678');
+    assert.equal(normalizePhoneDigitsKR('81 10 12345678'), '01012345678');
+    assert.equal(normalizePhoneDigitsKR('12345678'), '01012345678');
+    assert.equal(normalizePhoneDigitsKR('0212345678'), '0212345678');
+    assert.equal(normalizePhoneDigitsKR('15881234'), '15881234');
 });
