@@ -199,11 +199,12 @@ Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase �
 
 ### `./teacher-label` — `teacher-label.js`
 
-담임(교수) 규약. 원본 데이터는 impact7db staff(HR 직원현황).
+강사(교수) 규약. 원본 데이터는 impact7db staff(HR 직원현황).
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `isActiveTeacher` | fn | `(staff, today) → boolean` — 부서 '교수' ∧ staff-status 파생 재직만 담임 후보 (저장 status 아님) |
+| `isTeacher` | fn | `(staff) → boolean` — 부서가 '교수'인 강사 |
+| `isEmployedTeacher` | fn | `(staff, today) → boolean` — 강사 ∧ staff-status 파생 재직 (저장 status 아님) |
 | `teacherDisplayName` | fn | `(englishName) → string` — 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
 | `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로. 외부 도메인은 병합하지 않음 |
 | `isSameTeacher` | fn | `(a, b) → boolean` — 내부 도메인(impact7.kr·gw.impact7.kr, 도메인 없는 ID 포함)만 로컬파트 비교, 외부 도메인은 완전 일치 필요 |
@@ -332,7 +333,6 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `attributeEvent` | fn | `(event, segments, { bufferDays?, teacherEmails? }?) → [{ teacher, weight, rule: 'form-author'\|'buffer-split'\|'current'\|'unknown', uncertain? }]` — 가중치 합 1.0. scoped event는 같은 account 세그먼트에만 귀속하며 첫 비재원일은 종료 전날 세그먼트로 연결. leave_to_withdraw formAuthor 매칭 실패는 버퍼 폴백+uncertain |
 | `periodRange` | fn | `(period, semesterSettings?) → { start, end }` — month: `[1일, 말일]`. semester: `{level}-{year}-{nameLower}` 키 start_date ~ 같은 학부 다음 학기 시작 전일(마지막 학기면 오늘). 해석 불가는 `{ start: null, end: null }` |
 | `aggregateRetention` | fn | `({ studentIds, segmentsByStudent, attributionsByStudent, range }) → { byTeacher: { [email]: { exposed, churn, retentionRate, events } } }` — 분모=기간 겹침 `(studentId, accountKey)` 노출 수, 분자=기간 내 account 이탈 귀속 가중 합, retentionRate=exposed>0 ? 1−churn/exposed : null. accountKey 없는 기존 세그먼트는 학생 단위 호환, Map·plain object 및 구·신 이메일 병합 |
-| `recentlyResignedTeachers` | fn | `(staffList, referenceDate, months=6) → staff[]` — 부서 '교수' ∧ 기준일 재직 아님 ∧ 마지막 재직일 < 기준일 ∧ 마지막 재직일 ≥ 기준월에서 N개월 뺀 월의 1일. 수동 귀책 선택지용 |
 
 ---
 

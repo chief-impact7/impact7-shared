@@ -10,7 +10,6 @@
 //   휴원시작일(anchorDate) 기준 버퍼 룰 폴백(uncertain).
 import { toDate, formatDateKST, addDays, addMonths, todayKST } from './datetime.js';
 import { isSameTeacher } from './teacher-label.js';
-import { effectiveStaffStatus, mergePersonnelDates } from './staff-status.js';
 import { accountStateAt, accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
 import { classSettingsGet, normalizeClassCode } from './class-code.js';
 import { enrollmentCode } from './enrollment-derivation.js';
@@ -487,26 +486,4 @@ export function aggregateRetention({ studentIds, segmentsByStudent, attributions
     };
   }
   return { byTeacher };
-}
-
-// 마지막 재직일 — 종무일(lastWorkDate)은 당일, 퇴사(예정)일은 첫 비고용일이라 전일
-function _lastEmployedDay(staff) {
-  const byType = new Map(mergePersonnelDates(staff).map((r) => [r.type, r.date]));
-  const lastWork = byType.get('lastWorkDate');
-  if (_valid(lastWork)) return lastWork;
-  const resign = byType.get('resignationDate') || byType.get('plannedResignationDate');
-  return _valid(resign) ? addDays(resign, -1) : '';
-}
-
-// 퇴사 N개월 이내 교수 — 수동 귀책 선택지에 재직 교수와 함께 노출하기 위함
-export function recentlyResignedTeachers(staffList, todayStr, months = 6) {
-  if (!_valid(todayStr)) return [];
-  const cutoffMonth = addMonths(todayStr.slice(0, 7), -months);
-  const cutoff = `${cutoffMonth}-01`;
-  return (staffList || []).filter((s) => {
-    if (s?.department !== '교수') return false;
-    if (effectiveStaffStatus(s, todayStr) === 'active') return false;
-    const last = _lastEmployedDay(s);
-    return !!last && last < todayStr && last >= cutoff;
-  });
 }

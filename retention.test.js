@@ -8,7 +8,6 @@ import {
   attributeEvent,
   periodRange,
   aggregateRetention,
-  recentlyResignedTeachers,
 } from './retention.js';
 import { groupLeaveCycles } from './leave-cycles.js';
 import { todayKST } from './datetime.js';
@@ -794,53 +793,4 @@ test('aggregateRetention: 방어적으로 유지율을 0 아래로 내리지 않
     range: { start: '2026-07-01', end: '2026-07-31' },
   });
   assert.equal(byTeacher[길동].retentionRate, 0);
-});
-
-// ─── recentlyResignedTeachers ───
-
-const TODAY = '2026-07-30'; // cutoff month = 2026-01
-const 교수 = (name, dates) => ({ name, department: '교수', status: 'active', personnelDates: dates });
-
-test('recentlyResignedTeachers: 선택 월 기준 6개월 전 월 전체를 포함한다', () => {
-  const 경계안 = 교수('a', [{ type: 'lastWorkDate', date: '2026-01-01' }]);
-  const 경계밖 = 교수('b', [{ type: 'lastWorkDate', date: '2025-12-31' }]);
-  const result = recentlyResignedTeachers([경계안, 경계밖], TODAY);
-  assert.deepEqual(result.map((s) => s.name), ['a']);
-});
-
-test('recentlyResignedTeachers: 같은 선택 월이면 기준일과 무관하게 경계가 같다', () => {
-  const 경계안 = 교수('a', [{ type: 'lastWorkDate', date: '2026-01-01' }]);
-  const 경계밖 = 교수('b', [{ type: 'lastWorkDate', date: '2025-12-31' }]);
-  const result = recentlyResignedTeachers([경계안, 경계밖], '2026-07-31');
-  assert.deepEqual(result.map((s) => s.name), ['a']);
-});
-
-test('recentlyResignedTeachers: 선택일 이후 퇴직 예정자는 당시 재직자이므로 제외한다', () => {
-  const future = 교수('a', [{ type: 'lastWorkDate', date: '2026-08-01' }]);
-  assert.deepEqual(recentlyResignedTeachers([future], TODAY), []);
-});
-
-test('recentlyResignedTeachers: 퇴사일은 전일이 마지막 재직일', () => {
-  const s = 교수('a', [{ type: 'resignationDate', date: '2026-01-02' }]);
-  assert.equal(recentlyResignedTeachers([s], TODAY).length, 1);
-  const 밖 = 교수('b', [{ type: 'resignationDate', date: '2026-01-01' }]);
-  assert.equal(recentlyResignedTeachers([밖], TODAY).length, 0);
-});
-
-test('recentlyResignedTeachers: 재직 교수·타 부서·날짜 없는 수동 퇴직은 제외', () => {
-  const 재직 = 교수('a', [{ type: 'joinDate', date: '2024-01-01' }]);
-  const 재입사 = 교수('d', [
-    { type: 'firstWorkDate', date: '2024-01-01' },
-    { type: 'lastWorkDate', date: '2026-05-01' },
-    { type: 'joinDate', date: '2026-06-01' },
-  ]);
-  const 데스크 = { name: 'b', department: '데스크', status: 'active', personnelDates: [{ type: 'lastWorkDate', date: '2026-05-01' }] };
-  const 수동퇴직 = { name: 'c', department: '교수', status: 'terminated', personnelDates: [] };
-  assert.deepEqual(recentlyResignedTeachers([재직, 재입사, 데스크, 수동퇴직], TODAY), []);
-});
-
-test('recentlyResignedTeachers: months 조정 가능', () => {
-  const s = 교수('a', [{ type: 'lastWorkDate', date: '2026-05-31' }]);
-  assert.equal(recentlyResignedTeachers([s], TODAY, 1).length, 0); // cutoff 6/1
-  assert.equal(recentlyResignedTeachers([s], TODAY, 2).length, 1); // cutoff 5/1
 });
