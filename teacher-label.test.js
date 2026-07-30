@@ -5,6 +5,8 @@ import {
   isEmployedTeacher,
   isSameTeacher,
   isTeacher,
+  isTeacherStaffIdentity,
+  teacherKeyOfStaff,
   teacherDisplayName,
 } from './teacher-label.js';
 
@@ -70,6 +72,24 @@ test('isSameTeacher — 구·신 메일은 같은 사람, 다른 로컬파트는
   assert.equal(isSameTeacher('edward@impact7.kr', 'iris@impact7.kr'), false);
   assert.equal(isSameTeacher('', 'edward@impact7.kr'), false);
   assert.equal(isSameTeacher(null, 'edward@impact7.kr'), false);
+});
+
+test('직원 이메일이 비어 있거나 개인 메일이어도 영어이름으로 담당 계정을 식별한다', () => {
+  assert.equal(teacherKeyOfStaff({ englishName: 'Aaron', email: '' }), 'aaron');
+  assert.equal(
+    isTeacherStaffIdentity(
+      { englishName: 'Ken', email: 'rheems22@naver.com' },
+      'ken@impact7.kr'
+    ),
+    true
+  );
+  assert.equal(
+    isTeacherStaffIdentity(
+      { englishName: 'Lena', email: 'minishell789@naver.com' },
+      'lena@impact7.kr'
+    ),
+    true
+  );
 });
 
 test('구·신 메일 중복은 신메일(@impact7.kr) 우선으로 사람당 1건', () => {

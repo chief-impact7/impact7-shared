@@ -24,6 +24,11 @@ export function teacherDisplayName(englishName) {
   return first[0].toUpperCase() + first.slice(1).toLowerCase();
 }
 
+export function teacherKeyOfStaff(staff) {
+  const englishName = teacherDisplayName(staff?.englishName);
+  return englishName ? englishName.toLowerCase() : staff?.email || '';
+}
+
 // 내부 도메인 — 구(@gw.impact7.kr)·신(@impact7.kr)만 같은 사람으로 로컬파트 병합.
 // 외부 도메인(gmail 등)의 같은 로컬파트를 오병합하지 않기 위한 경계.
 const INTERNAL_DOMAINS = new Set(['impact7.kr', 'gw.impact7.kr']);
@@ -37,6 +42,11 @@ export function isSameTeacher(a, b) {
   const [lb, db = ''] = b.toLowerCase().split('@');
   if (la !== lb) return false;
   return (_isInternal(da) && _isInternal(db)) || da === db;
+}
+
+export function isTeacherStaffIdentity(staff, teacher) {
+  return isSameTeacher(teacherKeyOfStaff(staff), teacher)
+    || isSameTeacher(staff?.email, teacher);
 }
 
 // 구(@gw.impact7.kr)·신(@impact7.kr) 메일이 공존하는 teachers 목록을 사람당 1건으로 정규화.
