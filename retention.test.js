@@ -71,6 +71,103 @@ test('buildStudentSegments: 내신 overlay가 정규를 3분할한다 (정규→
   assert.ok(segs.every((s) => s.uncertain));
 });
 
+test('buildStudentSegments: 반코드가 빈 명시 내신도 정규 override 코드로 월중 전환한다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-03-01',
+        naesin_class_override: '목동중1A',
+      },
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        class_type: '내신',
+        level_symbol: '',
+        class_number: '',
+        start_date: '2026-03-20',
+        end_date: '2026-05-06',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.start, s.end, s.classCode, s.teacher, s.kind]),
+    [
+      ['2026-03-01', '2026-03-19', 'HA101', 길동, '정규'],
+      ['2026-03-20', '2026-05-06', '목동중1A', 길순, '내신'],
+      ['2026-05-07', null, 'HA101', 길동, '정규'],
+    ]
+  );
+});
+
+test('buildStudentSegments: 자유학기 월중 전환도 같은 정규 수강계정의 구간으로 계산한다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-03-01',
+      },
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HB',
+        class_number: '201',
+        class_type: '자유학기',
+        start_date: '2026-04-01',
+        end_date: '2026-04-30',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.start, s.end, s.classCode, s.teacher, s.kind]),
+    [
+      ['2026-03-01', '2026-03-31', 'HA101', 길동, '정규'],
+      ['2026-04-01', '2026-04-30', 'HB201', 민수, '자유학기'],
+      ['2026-05-01', null, 'HA101', 길동, '정규'],
+    ]
+  );
+  assert.equal(new Set(segs.map((s) => s.accountKey)).size, 1);
+});
+
+test('buildStudentSegments: 종료일과 반코드가 없는 진행 중 자유학기도 열린 구간으로 계산한다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-03-01',
+      },
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        class_type: '자유학기',
+        start_date: '2026-04-01',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.start, s.end, s.classCode, s.teacher, s.kind]),
+    [
+      ['2026-03-01', '2026-03-31', 'HA101', 길동, '정규'],
+      ['2026-04-01', null, 'HA101', 길동, '자유학기'],
+    ]
+  );
+});
+
 test('buildStudentSegments: 복수 정규 account 중 대상 account 정규 조각만 overlay로 치환한다', () => {
   const enrollments = [
     {
@@ -701,40 +798,49 @@ test('aggregateRetention: 방어적으로 유지율을 0 아래로 내리지 않
 
 // ─── recentlyResignedTeachers ───
 
-const TODAY = '2026-07-30'; // cutoff = 2026-01-30
+const TODAY = '2026-07-30'; // cutoff month = 2026-01
 const 교수 = (name, dates) => ({ name, department: '교수', status: 'active', personnelDates: dates });
 
-test('recentlyResignedTeachers: 종무일 당일이 마지막 재직일 — 6개월 경계 포함/제외', () => {
-  const 경계안 = 교수('a', [{ type: 'lastWorkDate', date: '2026-01-30' }]);
-  const 경계밖 = 교수('b', [{ type: 'lastWorkDate', date: '2026-01-29' }]);
+test('recentlyResignedTeachers: 선택 월 기준 6개월 전 월 전체를 포함한다', () => {
+  const 경계안 = 교수('a', [{ type: 'lastWorkDate', date: '2026-01-01' }]);
+  const 경계밖 = 교수('b', [{ type: 'lastWorkDate', date: '2025-12-31' }]);
   const result = recentlyResignedTeachers([경계안, 경계밖], TODAY);
   assert.deepEqual(result.map((s) => s.name), ['a']);
 });
 
-test('recentlyResignedTeachers: 7월 31일 기준 6개월 경계는 1월 31일', () => {
-  const 경계안 = 교수('a', [{ type: 'lastWorkDate', date: '2026-01-31' }]);
-  const 경계밖 = 교수('b', [{ type: 'lastWorkDate', date: '2026-01-30' }]);
+test('recentlyResignedTeachers: 같은 선택 월이면 기준일과 무관하게 경계가 같다', () => {
+  const 경계안 = 교수('a', [{ type: 'lastWorkDate', date: '2026-01-01' }]);
+  const 경계밖 = 교수('b', [{ type: 'lastWorkDate', date: '2025-12-31' }]);
   const result = recentlyResignedTeachers([경계안, 경계밖], '2026-07-31');
   assert.deepEqual(result.map((s) => s.name), ['a']);
 });
 
+test('recentlyResignedTeachers: 선택일 이후 퇴직 예정자는 당시 재직자이므로 제외한다', () => {
+  const future = 교수('a', [{ type: 'lastWorkDate', date: '2026-08-01' }]);
+  assert.deepEqual(recentlyResignedTeachers([future], TODAY), []);
+});
+
 test('recentlyResignedTeachers: 퇴사일은 전일이 마지막 재직일', () => {
-  // 퇴사일 1/31 → 마지막 재직일 1/30 = cutoff → 포함
-  const s = 교수('a', [{ type: 'resignationDate', date: '2026-01-31' }]);
+  const s = 교수('a', [{ type: 'resignationDate', date: '2026-01-02' }]);
   assert.equal(recentlyResignedTeachers([s], TODAY).length, 1);
-  const 밖 = 교수('b', [{ type: 'resignationDate', date: '2026-01-30' }]);
+  const 밖 = 교수('b', [{ type: 'resignationDate', date: '2026-01-01' }]);
   assert.equal(recentlyResignedTeachers([밖], TODAY).length, 0);
 });
 
 test('recentlyResignedTeachers: 재직 교수·타 부서·날짜 없는 수동 퇴직은 제외', () => {
   const 재직 = 교수('a', [{ type: 'joinDate', date: '2024-01-01' }]);
+  const 재입사 = 교수('d', [
+    { type: 'firstWorkDate', date: '2024-01-01' },
+    { type: 'lastWorkDate', date: '2026-05-01' },
+    { type: 'joinDate', date: '2026-06-01' },
+  ]);
   const 데스크 = { name: 'b', department: '데스크', status: 'active', personnelDates: [{ type: 'lastWorkDate', date: '2026-05-01' }] };
   const 수동퇴직 = { name: 'c', department: '교수', status: 'terminated', personnelDates: [] };
-  assert.deepEqual(recentlyResignedTeachers([재직, 데스크, 수동퇴직], TODAY), []);
+  assert.deepEqual(recentlyResignedTeachers([재직, 재입사, 데스크, 수동퇴직], TODAY), []);
 });
 
 test('recentlyResignedTeachers: months 조정 가능', () => {
-  const s = 교수('a', [{ type: 'lastWorkDate', date: '2026-06-01' }]);
-  assert.equal(recentlyResignedTeachers([s], TODAY, 1).length, 0); // cutoff 6/30
-  assert.equal(recentlyResignedTeachers([s], TODAY, 2).length, 1); // cutoff 5/30
+  const s = 교수('a', [{ type: 'lastWorkDate', date: '2026-05-31' }]);
+  assert.equal(recentlyResignedTeachers([s], TODAY, 1).length, 0); // cutoff 6/1
+  assert.equal(recentlyResignedTeachers([s], TODAY, 2).length, 1); // cutoff 5/1
 });

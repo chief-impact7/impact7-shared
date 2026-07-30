@@ -332,7 +332,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `attributeEvent` | fn | `(event, segments, { bufferDays?, teacherEmails? }?) → [{ teacher, weight, rule: 'form-author'\|'buffer-split'\|'current'\|'unknown', uncertain? }]` — 가중치 합 1.0. scoped event는 같은 account 세그먼트에만 귀속하며 첫 비재원일은 종료 전날 세그먼트로 연결. leave_to_withdraw formAuthor 매칭 실패는 버퍼 폴백+uncertain |
 | `periodRange` | fn | `(period, semesterSettings?) → { start, end }` — month: `[1일, 말일]`. semester: `{level}-{year}-{nameLower}` 키 start_date ~ 같은 학부 다음 학기 시작 전일(마지막 학기면 오늘). 해석 불가는 `{ start: null, end: null }` |
 | `aggregateRetention` | fn | `({ studentIds, segmentsByStudent, attributionsByStudent, range }) → { byTeacher: { [email]: { exposed, churn, retentionRate, events } } }` — 분모=기간 겹침 `(studentId, accountKey)` 노출 수, 분자=기간 내 account 이탈 귀속 가중 합, retentionRate=exposed>0 ? 1−churn/exposed : null. accountKey 없는 기존 세그먼트는 학생 단위 호환, Map·plain object 및 구·신 이메일 병합 |
-| `recentlyResignedTeachers` | fn | `(staffList, todayStr, months=6) → staff[]` — 부서 '교수' ∧ effectiveStaffStatus terminated ∧ 마지막 재직일(종무일 당일, 없으면 퇴사(예정)일 전일) ≥ today−N개월. 수동 귀책 선택지용 |
+| `recentlyResignedTeachers` | fn | `(staffList, referenceDate, months=6) → staff[]` — 부서 '교수' ∧ 기준일 재직 아님 ∧ 마지막 재직일 < 기준일 ∧ 마지막 재직일 ≥ 기준월에서 N개월 뺀 월의 1일. 수동 귀책 선택지용 |
 
 ---
 

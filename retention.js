@@ -73,14 +73,17 @@ function _overlay(parts, ovStart, ovEnd, ovCode, kind) {
       continue;
     }
     const lo = p.start === null || p.start < ovStart ? ovStart : p.start;
-    const hi = p.end === null || p.end > ovEnd ? ovEnd : p.end;
-    if (lo > hi) {
+    let hi = p.end;
+    if (ovEnd !== null && (hi === null || hi > ovEnd)) hi = ovEnd;
+    if (hi !== null && lo > hi) {
       out.push(p);
       continue;
     }
     if (p.start === null || p.start < lo) out.push({ ...p, end: addDays(lo, -1) });
     out.push({ ...p, start: lo, end: hi, classCode: ovCode, kind });
-    if (p.end === null || p.end > hi) out.push({ ...p, start: addDays(hi, 1) });
+    if (hi !== null && (p.end === null || p.end > hi)) {
+      out.push({ ...p, start: addDays(hi, 1) });
+    }
   }
   return out;
 }
@@ -114,15 +117,21 @@ function _splitByTeacher(p, teacherHistory, classSettings) {
 // free_start/end)가 정규 기간을 치환한다. 퇴원생(enrollments 없음)은 fallbackClassCodes로
 // 최종 반 세그먼트를 구성한다(uncertain).
 export function buildStudentSegments(student, { classSettings, teacherHistory, fallbackClassCodes, archivedEnrollments } = {}) {
-  const accounts = groupEnrollmentAccounts(
-    _combinedEnrollments(student?.enrollments, archivedEnrollments)
-  )
+  const enrollments = _combinedEnrollments(student?.enrollments, archivedEnrollments);
+  const accounts = groupEnrollmentAccounts(enrollments);
+  const accountsById = new Map(accounts.map((account) => [account.accountId, account]));
+  for (const enrollment of enrollments) {
+    if (enrollment.account_id && ['내신', '자유학기'].includes(enrollment.class_type) && !enrollmentCode(enrollment)) {
+      accountsById.get(enrollment.account_id)?.items.push(enrollment);
+    }
+  }
+  const regularAccounts = accounts
     .filter((account) => account.accountType === '정규')
     .sort((a, b) => a.key.localeCompare(b.key));
   const firstReg = _valid(student?.first_registered) ? student.first_registered : null;
   const pieces = [];
 
-  for (const account of accounts) {
+  for (const account of regularAccounts) {
     const meta = {
       accountKey: account.key,
       accountId: account.accountId,
@@ -131,6 +140,12 @@ export function buildStudentSegments(student, { classSettings, teacherHistory, f
     const items = [...account.items].sort((a, b) => _enrollmentKey(a).localeCompare(_enrollmentKey(b)));
     const baseItems = items.filter((e) => !['내신', '자유학기'].includes(e.class_type || ''));
     const explicitOverlays = items.filter((e) => ['내신', '자유학기'].includes(e.class_type));
+    const baseOverrides = [...new Set(
+      baseItems
+        .map((base) => base.naesin_class_override)
+        .filter((code) => typeof code === 'string' && code)
+    )];
+    const baseCodes = [...new Set(baseItems.map(enrollmentCode).filter(Boolean))];
     let parts = baseItems.flatMap((e) => {
       const code = enrollmentCode(e);
       if (!code) return [];
@@ -145,12 +160,19 @@ export function buildStudentSegments(student, { classSettings, teacherHistory, f
       }];
     });
     const overlays = explicitOverlays.flatMap((e) => {
-      const code = enrollmentCode(e);
-      return code && _valid(e.start_date) && _valid(e.end_date)
-        ? [{ start: e.start_date, end: e.end_date, code, kind: e.class_type }]
+      const code = enrollmentCode(e)
+        || (e.class_type === '내신' && baseOverrides.length === 1 ? baseOverrides[0] : '')
+        || (e.class_type === '자유학기' && baseCodes.length === 1 ? baseCodes[0] : '');
+      const cs = classSettingsGet(classSettings, code);
+      let start = e.start_date;
+      let end = e.end_date;
+      if (!_valid(start)) start = e.class_type === '내신' ? cs?.naesin_start : cs?.free_start;
+      if (!_valid(end)) end = e.class_type === '내신' ? cs?.naesin_end : cs?.free_end;
+      return code && _valid(start)
+        ? [{ start, end: _valid(end) ? end : null, code, kind: e.class_type }]
         : [];
     });
-    if (!explicitOverlays.some((e) => e.class_type === '내신')) {
+    if (!overlays.some((e) => e.kind === '내신')) {
       for (const e of baseItems) {
         const code = typeof e.naesin_class_override === 'string' ? e.naesin_class_override : '';
         const cs = classSettingsGet(classSettings, code);
@@ -159,7 +181,7 @@ export function buildStudentSegments(student, { classSettings, teacherHistory, f
         }
       }
     }
-    if (!explicitOverlays.some((e) => e.class_type === '자유학기')) {
+    if (!overlays.some((e) => e.kind === '자유학기')) {
       for (const e of baseItems) {
         const code = enrollmentCode(e);
         const cs = classSettingsGet(classSettings, code);
@@ -480,13 +502,11 @@ function _lastEmployedDay(staff) {
 export function recentlyResignedTeachers(staffList, todayStr, months = 6) {
   if (!_valid(todayStr)) return [];
   const cutoffMonth = addMonths(todayStr.slice(0, 7), -months);
-  const cutoffCandidate = `${cutoffMonth}-${todayStr.slice(8)}`;
-  const cutoffMonthEnd = addDays(`${addMonths(cutoffMonth, 1)}-01`, -1);
-  const cutoff = cutoffCandidate > cutoffMonthEnd ? cutoffMonthEnd : cutoffCandidate;
+  const cutoff = `${cutoffMonth}-01`;
   return (staffList || []).filter((s) => {
     if (s?.department !== '교수') return false;
-    if (effectiveStaffStatus(s, todayStr) !== 'terminated') return false;
+    if (effectiveStaffStatus(s, todayStr) === 'active') return false;
     const last = _lastEmployedDay(s);
-    return !!last && last >= cutoff;
+    return !!last && last < todayStr && last >= cutoff;
   });
 }
