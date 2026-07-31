@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 477개 통과.
+- 테스트: `npm test` (`node --test`). 현재 478개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -333,7 +333,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 ### `./retention` — `retention.js`
 
-강사별 유지율(리텐션) 귀속 규칙 SSoT. 담당 전환 버퍼는 `[T, T+14)` 반개구간(전환일 당일 포함, 14일째 제외) — 버퍼 안 이탈은 이전·현재 담당 0.5/0.5, 밖·첫 배정·같은 teacher 재배정은 현재 담당 1.0. 휴원은 유지(세그먼트 유지·이벤트 아님), 퇴원·휴원→퇴원은 퇴원신청서 작성자(form-author) 귀책 1.0(교수 매칭 실패 시 퇴원일 기준 버퍼 폴백 + uncertain). 소비자: impact7HR 유지율 페이지.
+강사별 유지율(리텐션) 귀속 규칙 SSoT. 퇴원·휴원→퇴원 자동 귀책은 퇴원일 D와 D-N(기본 14일)의 같은 account 담당을 비교한다. 다르면 두 담당 0.5/0.5, 같거나 D-N 담당이 없으면 D 담당 1.0이다. 퇴원신청서 작성자(formAuthor)는 이벤트 메타데이터로만 보존하며 자동 귀책을 바꾸지 않는다. 휴원은 유지(세그먼트 유지·이벤트 아님). 소비자: impact7HR 유지율 페이지.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
@@ -341,7 +341,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `teacherOfClassAt` | fn | `(classCode, dateStr, teacherHistory, classSettings) → { teacher, uncertain }` — changed_at≤D 최신 레코드 → 첫 레코드 prev_teacher(uncertain) → classSettings teacher(uncertain) → `''`(uncertain). changed_at은 Timestamp·POJO·Date·ISO 모두(toDate) |
 | `buildStudentSegments` | fn | `(student, { classSettings, teacherHistory, fallbackClassCodes, archivedEnrollments? }) → [{ start, end, classCode, teacher, kind: '정규'\|'내신'\|'자유학기', uncertain, accountKey, accountId, accountType }]` — 현재·종료 스냅샷을 정규 account별로 복원하고 안정 정렬. 내신·자유학기 overlay는 같은 account의 정규 조각만 치환. 휴원은 세그먼트를 끊지 않으며 fallback 종료일은 첫 비재원일 전날 |
 | `churnEventsForStudent` | fn | `(student, cycles, { archivedEnrollments? }?) → [{ type: 'withdraw'\|'leave_to_withdraw', date, anchorDate, formAuthor?, subType?, accountKey?, accountId?, accountType? }]` — 특강·기타 종료와 다른 정규 account 유지 중 부분 종료는 제외하고 최종 정규 account 이탈만 반환. scoped cycle은 account 범위를 보존 |
-| `attributeEvent` | fn | `(event, segments, { bufferDays?, teacherEmails? }?) → [{ teacher, weight, rule: 'form-author'\|'buffer-split'\|'current'\|'unknown', uncertain? }]` — 가중치 합 1.0. scoped event는 같은 account 세그먼트에만 귀속하며 첫 비재원일은 종료 전날 세그먼트로 연결. 퇴원신청자 formAuthor 매칭 실패는 버퍼 폴백+uncertain |
+| `attributeEvent` | fn | `(event, segments, { bufferDays? }?) → [{ teacher, weight, rule: 'buffer-split'\|'current'\|'unknown', uncertain? }]` — 가중치 합 1.0. scoped event는 같은 account 세그먼트에만 귀속하며 첫 비재원일은 종료 전날 세그먼트로 연결. D와 D-bufferDays의 담당이 다르면 반반 귀책, 같거나 과거 담당이 없으면 D 담당 1.0 |
 | `periodRange` | fn | `(period, semesterSettings?) → { start, end }` — month: `[1일, 말일]`. semester: `{level}-{year}-{nameLower}` 키 start_date ~ 같은 학부 다음 학기 시작 전일(마지막 학기면 오늘). 해석 불가는 `{ start: null, end: null }` |
 | `aggregateRetention` | fn | `({ studentIds, segmentsByStudent, attributionsByStudent, range }) → { byTeacher: { [email]: { exposed, churn, retentionRate, events } } }` — 분모=기간 겹침 `(studentId, accountKey)` 노출 수, 분자=기간 내 account 이탈 귀속 가중 합, retentionRate=exposed>0 ? 1−churn/exposed : null. accountKey 없는 기존 세그먼트는 학생 단위 호환, Map·plain object 및 구·신 이메일 병합 |
 

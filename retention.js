@@ -2,12 +2,10 @@
 //
 // 이탈(퇴원·휴원→퇴원)을 강사별로 귀속하고 기간 유지율을 집계한다.
 // 핵심 도메인 규칙:
-// - 담당 전환 버퍼는 [T, T+14) 반개구간 — 전환일 당일 이탈 포함, 14일째부터 제외.
-//   버퍼 안 이탈은 이전·현재 담당 0.5/0.5, 밖은 현재 담당 1.0.
-// - 첫 배정(이전 세그먼트 없음)·같은 teacher 재배정은 전환이 아니다 → 현재 담당 1.0.
+// - 퇴원일 D와 D-N(기본 14일)의 같은 수업계정 담당이 다르면 0.5/0.5, 같으면 D 담당 1.0.
+// - D-N 담당이 없는 첫 배정은 D 담당 1.0.
 // - 휴원은 유지 — 세그먼트를 끊지 않고 이벤트도 아니다.
-// - 퇴원은 퇴원신청서 작성자(form-author) 귀책 1.0, 교수 매칭 실패 시
-//   퇴원일(anchorDate) 기준 버퍼 룰 폴백(uncertain).
+// - 퇴원신청서 작성자는 표시용 메타데이터이며 자동 귀책을 바꾸지 않는다.
 import { toDate, formatDateKST, addDays, addMonths, todayKST } from './datetime.js';
 import { isSameTeacher } from './teacher-label.js';
 import { accountStateAt, accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
@@ -328,46 +326,34 @@ export function churnEventsForStudent(student, cycles, { archivedEnrollments, to
   );
 }
 
-function _attributeByBuffer(anchorDate, segments, bufferDays) {
+function _attributeByBuffer(exitDate, segments, bufferDays) {
   const list = segments || [];
-  let i = -1;
-  if (_valid(anchorDate)) {
-    for (let j = list.length - 1; j >= 0; j--) {
-      const s = list[j];
-      if (s && (!s.start || s.start <= anchorDate) && (s.end == null || anchorDate <= s.end)) {
-        i = j;
-        break;
-      }
-    }
-    if (i < 0) {
-      const previousDay = addDays(anchorDate, -1);
-      for (let j = list.length - 1; j >= 0; j--) {
-        if (list[j]?.end === previousDay) {
-          i = j;
-          break;
-        }
-      }
-    }
-  }
-  if (i < 0) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
-  const S = list[i];
-  const prev = i > 0
-    ? [...list.slice(0, i)].reverse().find((s) => !S.accountKey || s.accountKey === S.accountKey) || null
-    : null;
-  // 버퍼 [T, T+14) 반개구간 — 전환일 당일 포함, 14일째는 밖
-  const inBuffer = !!S.start && anchorDate < addDays(S.start, bufferDays);
-  if (prev?.teacher && S.teacher && !isSameTeacher(prev.teacher, S.teacher) && inBuffer) {
-    const unc = !!(S.uncertain || prev.uncertain);
+  if (!_valid(exitDate)) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
+  const segmentAt = (date, candidates = list) => [...candidates].reverse().find((s) =>
+    s && (!s.start || s.start <= date) && (s.end == null || date <= s.end)
+  ) || null;
+  const current = segmentAt(exitDate)
+    || [...list].reverse().find((s) => s?.end === addDays(exitDate, -1))
+    || null;
+  if (!current) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
+
+  const scope = current.accountKey || current.accountId || '';
+  const sameAccount = scope
+    ? list.filter((s) => s?.accountKey === scope || s?.accountId === scope)
+    : list;
+  const baseline = segmentAt(addDays(exitDate, -bufferDays), sameAccount);
+  if (baseline?.teacher && current.teacher && !isSameTeacher(baseline.teacher, current.teacher)) {
+    const unc = !!(current.uncertain || baseline.uncertain);
     return [
-      { teacher: prev.teacher, weight: 0.5, rule: 'buffer-split', ...(unc ? { uncertain: true } : {}) },
-      { teacher: S.teacher, weight: 0.5, rule: 'buffer-split', ...(unc ? { uncertain: true } : {}) },
+      { teacher: baseline.teacher, weight: 0.5, rule: 'buffer-split', ...(unc ? { uncertain: true } : {}) },
+      { teacher: current.teacher, weight: 0.5, rule: 'buffer-split', ...(unc ? { uncertain: true } : {}) },
     ];
   }
-  return [{ teacher: S.teacher || '', weight: 1, rule: 'current', ...(S.uncertain ? { uncertain: true } : {}) }];
+  return [{ teacher: current.teacher || '', weight: 1, rule: 'current', ...(current.uncertain ? { uncertain: true } : {}) }];
 }
 
 // 이벤트 1건 귀속 — 반환 가중치 합 1.0.
-export function attributeEvent(event, segments, { bufferDays = RETENTION_BUFFER_DAYS, teacherEmails } = {}) {
+export function attributeEvent(event, segments, { bufferDays = RETENTION_BUFFER_DAYS } = {}) {
   if (!event) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
   const scopedSegments = event.accountKey
     ? (segments || []).filter((s) =>
@@ -375,15 +361,7 @@ export function attributeEvent(event, segments, { bufferDays = RETENTION_BUFFER_
         || (event.accountId && s?.accountId === event.accountId)
       )
     : segments;
-  if ((event.type === 'withdraw' || event.type === 'leave_to_withdraw') && Object.hasOwn(event, 'formAuthor')) {
-    const author = event.formAuthor || '';
-    const emails = teacherEmails instanceof Set ? [...teacherEmails] : teacherEmails || [];
-    if (author && emails.some((t) => isSameTeacher(author, t))) {
-      return [{ teacher: author, weight: 1, rule: 'form-author' }];
-    }
-    return _attributeByBuffer(event.anchorDate || event.date, scopedSegments, bufferDays).map((a) => ({ ...a, uncertain: true }));
-  }
-  return _attributeByBuffer(event.anchorDate || event.date, scopedSegments, bufferDays);
+  return _attributeByBuffer(event.date || event.anchorDate, scopedSegments, bufferDays);
 }
 
 // 기간 해석. month: 해당 월 [1일, 말일]. semester: semester_settings 시작일 ~

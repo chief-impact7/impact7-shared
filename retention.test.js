@@ -299,7 +299,7 @@ test('churnEventsForStudent: 휴원 진입·복귀는 이벤트가 아니다', (
   assert.deepEqual(churnEventsForStudent({ status: '재원' }, cycles), []);
 });
 
-test('churnEventsForStudent: 휴원→퇴원은 퇴원일과 퇴원신청자를 귀속 기준으로 사용한다', () => {
+test('churnEventsForStudent: 휴원→퇴원은 퇴원일과 퇴원신청자 메타데이터를 보존한다', () => {
   const cycles = groupLeaveCycles([
     휴원요청,
     { request_type: '휴원→퇴원', status: 'approved', withdrawal_date: '2026-05-01', created_at: '2026-04-20T10:00:00+09:00', requested_by: 길순 },
@@ -311,7 +311,7 @@ test('churnEventsForStudent: 휴원→퇴원은 퇴원일과 퇴원신청자를 
   });
 });
 
-test('churnEventsForStudent: 단독 퇴원요청은 퇴원일과 퇴원신청자를 귀속 기준으로 사용한다', () => {
+test('churnEventsForStudent: 단독 퇴원요청은 퇴원일과 퇴원신청자 메타데이터를 보존한다', () => {
   const cycles = groupLeaveCycles([
     { request_type: '퇴원요청', status: 'approved', withdrawal_date: '2026-05-01', created_at: '2026-04-20T10:00:00+09:00', requested_by: 길동 },
   ]);
@@ -545,28 +545,55 @@ test('반 이동했지만 같은 teacher(구·신 도메인 포함) → 전환 �
   assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'current']]);
 });
 
-test('퇴원신청자가 교수 집합과 매칭되면 퇴원 유형과 무관하게 form-author 1.0', () => {
-  const event = { type: 'leave_to_withdraw', date: '2026-06-10', anchorDate: '2026-05-10', formAuthor: 'gilsoon@gw.impact7.kr' };
-  const options = { teacherEmails: [길동, 길순] };
-  assert.deepEqual(attributeEvent(event, 내신전환세그, options), [
-    { teacher: 'gilsoon@gw.impact7.kr', weight: 1, rule: 'form-author' },
-  ]);
-  assert.deepEqual(attributeEvent({ ...event, type: 'withdraw' }, 내신전환세그, options), [
-    { teacher: 'gilsoon@gw.impact7.kr', weight: 1, rule: 'form-author' },
-  ]);
+test('문중영: 7/14 퇴원은 신청자와 무관하게 D-14 Nami / D Sierra 0.5씩 귀책', () => {
+  const nami = 'nami@impact7.kr';
+  const sierra = 'sierra@impact7.kr';
+  const segments = [
+    {
+      start: '2026-06-01', end: '2026-07-01', classCode: 'HA101', teacher: nami,
+      kind: '정규', uncertain: false, accountKey: 'regular-a',
+    },
+    {
+      start: '2026-07-02', end: null, classCode: 'HA101', teacher: sierra,
+      kind: '정규', uncertain: false, accountKey: 'regular-a',
+    },
+  ];
+  const result = attributeEvent({
+    type: 'withdraw', date: '2026-07-14', anchorDate: '2026-07-14',
+    formAuthor: sierra, accountKey: 'regular-a',
+  }, segments);
+
+  assert.deepEqual(
+    result.map((a) => [a.teacher, a.weight, a.rule]),
+    [[nami, 0.5, 'buffer-split'], [sierra, 0.5, 'buffer-split']]
+  );
 });
 
-test('퇴원신청자 매칭 실패 → 퇴원일 기준 버퍼 폴백 + uncertain', () => {
-  const event = { type: 'leave_to_withdraw', date: '2026-05-10', anchorDate: '2026-05-10', formAuthor: 'frontdesk@impact7.kr' };
-  const options = { teacherEmails: [길동, 길순] };
-  const result = attributeEvent(event, 내신전환세그, options);
-  // 5/10은 5/7 복귀 전환 버퍼 안 → 길순/길동 50/50, 전부 uncertain
+test('전환이 여러 번이면 즉시 직전이 아니라 D-14 담당과 D 담당을 비교한다', () => {
+  const nami = 'nami@impact7.kr';
+  const aaron = 'aaron@impact7.kr';
+  const sierra = 'sierra@impact7.kr';
+  const segments = [
+    { start: '2026-06-01', end: '2026-06-30', teacher: nami, uncertain: false, accountKey: 'regular-a' },
+    { start: '2026-07-01', end: '2026-07-05', teacher: aaron, uncertain: false, accountKey: 'regular-a' },
+    { start: '2026-07-06', end: null, teacher: sierra, uncertain: false, accountKey: 'regular-a' },
+  ];
+
+  assert.deepEqual(
+    attributeEvent(withdraw('2026-07-14'), segments).map((a) => [a.teacher, a.weight, a.rule]),
+    [[nami, 0.5, 'buffer-split'], [sierra, 0.5, 'buffer-split']]
+  );
+});
+
+test('퇴원신청자는 교수 매칭 여부와 무관하게 자동 귀책을 바꾸지 않는다', () => {
+  const event = { type: 'leave_to_withdraw', date: '2026-05-10', anchorDate: '2026-05-10', formAuthor: 'gilsoon@gw.impact7.kr' };
+  const result = attributeEvent(event, 내신전환세그);
   assert.deepEqual(
     result.map((a) => [a.teacher, a.weight, a.rule, a.uncertain]),
     [[길순, 0.5, 'buffer-split', true], [길동, 0.5, 'buffer-split', true]]
   );
   assert.deepEqual(
-    attributeEvent({ ...event, type: 'withdraw' }, 내신전환세그, options),
+    attributeEvent({ ...event, type: 'withdraw', formAuthor: 'frontdesk@impact7.kr' }, 내신전환세그),
     result
   );
 });
