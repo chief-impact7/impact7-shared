@@ -5,6 +5,7 @@ import {
     formatPhone,
     formatPhoneInput,
     isValidPhoneKR,
+    legacyStudentPhoneKeyKR,
     normalizePhoneDigitsKR,
 } from './phone.js';
 
@@ -114,4 +115,12 @@ test('normalizePhoneDigitsKR: 발송용 국내 번호로 정규화', () => {
     assert.equal(normalizePhoneDigitsKR('12345678'), '01012345678');
     assert.equal(normalizePhoneDigitsKR('0212345678'), '0212345678');
     assert.equal(normalizePhoneDigitsKR('15881234'), '15881234');
+});
+
+test('legacyStudentPhoneKeyKR: 학생 문서 ID용 선행 0 제거 규칙을 공유', () => {
+    for (const phone of ['010-1234-5678', '+82 10-1234-5678', '10-1234-5678', '1234-5678']) {
+        assert.equal(legacyStudentPhoneKeyKR(phone), '1012345678');
+    }
+    assert.equal(legacyStudentPhoneKeyKR('02-123-4567'), '021234567');
+    assert.equal(legacyStudentPhoneKeyKR(null), '');
 });

@@ -5,6 +5,7 @@
 export const ENROLLABLE_STATUSES = new Set(['재원', '등원예정', '실휴원', '가휴원']);
 export const NON_ENROLLABLE_STATUSES = new Set(['상담', '퇴원', '종강']);
 export const ACCOUNT_TYPES = ['정규', '특강', '기타'];
+export const CLASS_TYPES = ['정규', '내신', '자유학기', '특강', '기타'];
 
 // 휴원(일시정지) 상태 집합 — 재원 유지(ENROLLABLE) 중 '멈춤' 표시·현인원 산식 등에서
 // 반복되던 부분집합. status==='실휴원'||status==='가휴원' 인라인 대체용 SSoT.
@@ -13,6 +14,12 @@ export const LEAVE_STATUSES = new Set(['실휴원', '가휴원']);
 // 반배정(enrollment)을 가질 수 있는 status인가 (재원 계열).
 export function isEnrollableStatus(status) {
   return ENROLLABLE_STATUSES.has(status);
+}
+
+export function canRegisterStudentInClass(status, classType) {
+  return classType === '특강'
+    || classType === '기타'
+    || (isValidEnrollmentClassType('정규', classType) && isEnrollableStatus(status));
 }
 
 // enrollment 중 실질 반코드를 가진 것이 있는지 (빈 placeholder 제외).
@@ -146,6 +153,15 @@ export function activeEnrollmentsAt(enrollments, dateStr) {
   return list.filter(item => activeItems.has(item));
 }
 
+export function activeRegularBases(enrollments, dateStr) {
+  return activeEnrollmentsAt(enrollments, dateStr)
+    .filter(enrollment => (enrollment.class_type || '정규') === '정규' && enrollment.day?.length);
+}
+
+export function findActiveRegularBase(enrollments, dateStr) {
+  return activeRegularBases(enrollments, dateStr)[0] || null;
+}
+
 export function hasActiveRegularAccount(enrollments, dateStr) {
   return groupEnrollmentAccounts(enrollments)
     .some(account => account.accountType === '정규' && accountStateAt(account, dateStr) === '활성');
@@ -267,6 +283,19 @@ export function reconcileEnrollments(status, enrollments, opts) {
       enrollments: list,
       valid: false,
       reason: '재원·등원예정·휴원 상태로 저장하려면 정규반 또는 특강을 최소 1개 입력하세요.',
+    };
+  }
+  const regularOverrideWithoutBase = groupEnrollmentAccounts(list).find(account =>
+    account.accountType === '정규'
+    && (!opts?.dateStr || accountStateAt(account, opts.dateStr) !== '종료')
+    && account.items.some(item => ['내신', '자유학기'].includes(item.class_type))
+    && !account.items.some(item => (item.class_type || '정규') === '정규')
+  );
+  if (regularOverrideWithoutBase) {
+    return {
+      enrollments: list,
+      valid: false,
+      reason: '내신·자유학기수업은 같은 정규계정의 정규수업반을 먼저 배정해야 합니다.',
     };
   }
   if (

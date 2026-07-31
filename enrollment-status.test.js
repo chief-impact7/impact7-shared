@@ -9,6 +9,7 @@ import {
   openAccounts, openAccountIds, activeEnrollmentsAt,
   hasActiveRegularAccount, leaveTypeChangeAccounts, leaveTypeChangeSource,
   pauseAccount, resumeAccount, closeAccount, deriveStudentStatusAfterAccountChange,
+  CLASS_TYPES, canRegisterStudentInClass, activeRegularBases, findActiveRegularBase,
 } from './enrollment-status.js';
 
 test('isEnrollableStatus — 재원 계열만 true', () => {
@@ -60,6 +61,45 @@ test('reconcileEnrollments — 수업계열과 소분류가 어긋나면 저장 
     assert.equal(result.valid, false);
     assert.match(result.reason, /조합이 올바르지/);
   }
+});
+
+test('정규계열 소분류는 정규·내신·자유학기이고 특강·기타는 각 계열에만 속한다', () => {
+  assert.deepEqual(CLASS_TYPES, ['정규', '내신', '자유학기', '특강', '기타']);
+  assert.equal(canRegisterStudentInClass('종강', '특강'), true);
+  assert.equal(canRegisterStudentInClass('상담', '기타'), true);
+  assert.equal(canRegisterStudentInClass('퇴원', '정규'), false);
+  assert.equal(canRegisterStudentInClass('재원', '내신'), true);
+});
+
+test('내신·자유학기는 같은 정규계정의 정규수업반 없이는 저장할 수 없다', () => {
+  for (const classType of ['내신', '자유학기']) {
+    const override = {
+      account_id: 'regular-override', account_type: '정규', class_type: classType,
+      class_number: `${classType}반`, start_date: '2026-07-01', end_date: '2026-07-31',
+    };
+    const base = {
+      account_id: 'regular-base', account_type: '정규', class_type: '정규',
+      class_number: '201', day: ['월'],
+    };
+    const missing = reconcileEnrollments('재원', [override], { dateStr: '2026-07-23' });
+    assert.equal(missing.valid, false);
+    assert.match(missing.reason, /정규수업반/);
+    assert.equal(reconcileEnrollments('재원', [base, override], { dateStr: '2026-07-23' }).valid, false);
+    assert.equal(reconcileEnrollments('재원', [base, { ...override, account_id: 'regular-base' }], {
+      dateStr: '2026-07-23',
+    }).valid, true);
+  }
+});
+
+test('활성 정규수업반 탐색은 기간 중 정규 소분류와 수업요일이 있는 반만 반환한다', () => {
+  const base = { class_type: '정규', class_number: '201', day: ['월'] };
+  const free = {
+    class_type: '자유학기', class_number: '자유학기', day: ['화'],
+    start_date: '2026-07-01', end_date: '2026-07-31',
+  };
+  assert.deepEqual(activeRegularBases([free, base], '2026-07-23'), [base]);
+  assert.equal(findActiveRegularBase([free, { ...base, day: [] }], '2026-07-23'), null);
+  assert.equal(findActiveRegularBase([base], '2026-07-23'), base);
 });
 
 test('reconcileEnrollments — 휴원·퇴원에서 재원 전환은 활성 정규반이 필수', () => {

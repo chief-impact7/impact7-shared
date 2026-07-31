@@ -4,15 +4,15 @@
   "contracts": [
     {
       "id": "student-lifecycle",
-      "signals": ["학생 상태", "재원", "퇴원", "휴원", "등원예정", "enrollment", "반 이동", "승격"],
+      "signals": ["학생 상태", "재원", "퇴원", "휴원", "등원예정", "수업계열", "수강계열", "정규수업", "내신수업", "자유학기수업", "특강수업", "기타수업", "enrollment", "반 이동", "승격"],
       "exports": ["./enrollment-status", "./enrollment-derivation", "./class-move", "./promote-enroll"],
       "consumers": ["db", "dsc", "exam", "functions"]
     },
     {
       "id": "student-identity",
-      "signals": ["학생 번호", "등록번호", "학생 라벨", "학교 학년", "전화번호", "branch"],
+      "signals": ["학생 번호", "등록번호", "학생 라벨", "학교", "학부", "학년", "전화번호", "branch"],
       "exports": ["./student-number", "./student-label", "./phone", "./branch"],
-      "consumers": ["db", "dsc", "exam", "tablet", "mobile", "consultation"]
+      "consumers": ["db", "dsc", "exam", "tablet", "mobile", "consultation", "newtest", "payments"]
     },
     {
       "id": "attendance",
@@ -28,9 +28,9 @@
     },
     {
       "id": "staff-identity",
-      "signals": ["직원", "교사", "권한", "이메일", "staff", "teacher"],
+      "signals": ["직원", "강사", "교수", "교사", "권한", "이메일", "staff", "teacher"],
       "exports": ["./staff-label", "./teacher-label", "./permissions", "./staff-status", "./email"],
-      "consumers": ["db", "dsc", "hr"]
+      "consumers": ["db", "dsc", "hr", "payments"]
     },
     {
       "id": "safe-input-and-rendering",

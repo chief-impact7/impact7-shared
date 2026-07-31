@@ -7,8 +7,9 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 473개 통과.
+- 테스트: `npm test` (`node --test`). 현재 477개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
+- 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
 ## 모듈 목록 및 공개 API
 
@@ -35,11 +36,13 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `ENROLLABLE_STATUSES` | const | `Set { '재원', '등원예정', '실휴원', '가휴원' }` |
 | `NON_ENROLLABLE_STATUSES` | const | `Set { '상담', '퇴원', '종강' }` |
 | `ACCOUNT_TYPES` | const | `['정규', '특강', '기타']` — 기술 필드 `account_type`에 저장하는 수업계열 값 |
+| `CLASS_TYPES` | const | `['정규', '내신', '자유학기', '특강', '기타']` — 정규계열 소분류는 정규·내신·자유학기, 특강·기타는 각 계열 단일 소분류 |
 | `LEAVE_STATUSES` | const | `Set { '실휴원', '가휴원' }` — 휴원(일시정지) 부분집합(⊂ ENROLLABLE). `status==='실휴원'||'가휴원'` 인라인 대체 |
 | `STUDENT_STATUS_GROUPS` | const | `[{ category: '재원생'\|'비원생', statuses: [...] }]` |
 | `STATUS_TONE` | const | `{ status: 'active'\|'scheduled'\|'paused'\|'consult'\|'ended-hard'\|'ended-soft' }` |
 | `INITIAL_STATUSES` | const | `['등원예정', '재원']` |
 | `isEnrollableStatus` | fn | `(status) → boolean` |
+| `canRegisterStudentInClass` | fn | `(status, classType) → boolean` — 특강·기타는 status와 무관하게 등록 가능, 정규계열은 재원상태만 가능. 내신·자유학기의 정규수업반 보유 검사는 아래 base helper와 저장 정합성 검사를 함께 사용 |
 | `hasRealEnrollment` | fn | `(enrollments) → boolean` — 빈 placeholder 제외 |
 | `accountTypeOf` | fn | `(enrollment) → '정규'\|'특강'\|'기타'` — 명시 `account_type` 우선, 레거시는 `class_type`으로 파생 |
 | `isValidEnrollmentClassType` | fn | `(accountType, classType) → boolean` — 정규→정규/내신/자유학기, 특강→특강, 기타→기타 조합만 허용 |
@@ -51,12 +54,14 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `leaveTypeChangeSource` | fn | `(targetType) → sourceType \| ''` — 휴원종류변경 목표의 반대 원본 유형 |
 | `leaveTypeChangeAccounts` | fn | `(enrollments, targetType, dateStr) → account[]` — 기준일에 모든 휴원 항목이 원본 유형인 변경 가능 계정과 `pausedItems` |
 | `activeEnrollmentsAt` | fn | `(enrollments, dateStr) → enrollment[]` — 활성 계정 중 항목 자체도 기준일에 활성인 것만 |
+| `activeRegularBases` | fn | `(enrollments, dateStr) → enrollment[]` — 활성 정규 소분류 중 수업요일이 있는 정규수업반만 |
+| `findActiveRegularBase` | fn | `(enrollments, dateStr) → enrollment\|null` — 내신·자유학기 추가 전 정규수업반 확인용 |
 | `hasActiveRegularAccount` | fn | `(enrollments, dateStr) → boolean` — 기준일에 활성인 정규계열 계정 존재 여부 |
 | `pauseAccount` | fn | `(enrollments, accountIdOrKey, { pauseStart, pauseEnd?, leaveSubType }) → { updatedEnrollments, skipped }` |
 | `resumeAccount` | fn | `(enrollments, accountIdOrKey) → { updatedEnrollments, skipped }` |
 | `closeAccount` | fn | `(enrollments, accountIdOrKey, { endDate, endReason }) → { updatedEnrollments, removed, skipped }` |
 | `deriveStudentStatusAfterAccountChange` | fn | `(enrollments, dateStr, { fallbackReason?, currentStatus?, changedAccountType? }?) → status` — 기타 계정 변경은 status 불변, 정규·특강 계정은 활성→재원·휴원→예정→종료 우선순위 |
-| `reconcileEnrollments` | fn | `(status, enrollments, { dateStr?, previousStatus? }?) → { enrollments, valid, reason? }` — 비원 전환 시 기타만 보존. 휴원·퇴원→재원은 활성 정규계정 필수. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
+| `reconcileEnrollments` | fn | `(status, enrollments, { dateStr?, previousStatus? }?) → { enrollments, valid, reason? }` — 비원 전환 시 기타만 보존. 내신·자유학기는 같은 정규계정의 정규수업반 필수. 휴원·퇴원→재원은 활성 정규계정 필수. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
 | `studentCategory` | fn | `(status) → '재원생' \| '비원생'` |
 | `selectableStatuses` | fn | `(current, isNew) → string[]` |
 
@@ -209,6 +214,8 @@ Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase �
 | `isTeacher` | fn | `(staff) → boolean` — 부서가 '교수'인 강사 |
 | `isEmployedTeacher` | fn | `(staff, today) → boolean` — 강사 ∧ staff-status 파생 재직 (저장 status 아님) |
 | `teacherDisplayName` | fn | `(englishName) → string` — 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
+| `teacherKeyOfStaff` | fn | `(staff) → string` — 영어이름 첫 토큰 소문자 우선, 없으면 email |
+| `isTeacherStaffIdentity` | fn | `(staff, teacher) → boolean` — 영어이름 key 또는 이메일로 동일 강사 판정 |
 | `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로. 외부 도메인은 병합하지 않음 |
 | `isSameTeacher` | fn | `(a, b) → boolean` — 내부 도메인(impact7.kr·gw.impact7.kr, 도메인 없는 ID 포함)만 로컬파트 비교, 외부 도메인은 완전 일치 필요 |
 
@@ -290,6 +297,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `digitsOf` | fn | `(value) → string` — 숫자만 추출, nullish → `''`. 수신번호 정규화 등 소비자 직접 사용 |
 | `formatPhone` | fn | `(phone) → string` — 국내 번호·국가번호(+82)·휴대폰 앞자리 생략 표기를 표준 하이픈 형식으로 통일. 8자리 가입자 번호는 `010`, 대표번호(15xx·16xx·18xx)는 4-4, `02`는 2자리 지역번호 유지, 정규화 불가는 원본, nullish → `''` |
 | `normalizePhoneDigitsKR` | fn | `(value) → string` — `formatPhone`과 같은 규칙으로 발송·검색용 국내 번호 숫자열 반환 |
+| `legacyStudentPhoneKeyKR` | fn | `(value) → string` — 국내 번호 정규화 후 11자리 휴대폰의 선행 `0`만 제거한 기존 학생 문서 ID용 키. 지역번호는 보존. 일반 저장·표시·발송에는 사용 금지 |
 | `isValidPhoneKR` | fn | `(value) → boolean` — `formatPhone`과 같은 휴대폰 앞자리 정규화 후 `/^01[016789]\d{7,8}$/` 검증. 지역번호는 false |
 | `formatPhoneInput` | fn | `(value) → string` — 완성 번호는 `formatPhone`과 같은 표준 형식, 입력 중 번호는 숫자 최대 11자리의 점진 3-3~4-4 분할, nullish → `''` |
 

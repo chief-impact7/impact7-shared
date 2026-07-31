@@ -5,8 +5,7 @@
 // 시점에 따라 stale할 수 있으므로 재직 판정에 직접 사용하지 않는다.
 // 표시는 영어이름 첫 토큰에 첫 글자만 대문자 — 'Edward Lee' → 'Edward',
 // 'KEN' → 'Ken'. 이메일 로컬파트(edward@…)와 소문자 비교로 매칭한다.
-// 소비처: impact7db(반 설정), impact7HR(직원현황), payments(미러 동기화 — CJS라
-// raw status 사본 유지, 알려진 drift).
+// 소비처: impact7db(반 설정), impact7HR(직원현황), payments(미러 동기화).
 import { effectiveStaffStatus } from './staff-status.js';
 
 export function isTeacher(staff) {

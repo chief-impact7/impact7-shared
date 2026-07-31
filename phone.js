@@ -27,6 +27,11 @@ export function normalizePhoneDigitsKR(value) {
   return digits;
 }
 
+export function legacyStudentPhoneKeyKR(value) {
+  const normalized = normalizePhoneDigitsKR(value);
+  return normalized.length === 11 && normalized.startsWith('0') ? normalized.slice(1) : normalized;
+}
+
 /** @param {string} digits */
 function formatDomesticPhoneDigits(digits) {
   if (/^(?:15|16|18)\d{6}$/.test(digits)) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
