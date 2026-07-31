@@ -36,6 +36,16 @@ export function accountTypeOf(enrollment) {
   return '정규';
 }
 
+const ACCOUNT_CLASS_TYPES = {
+  '정규': new Set(['정규', '내신', '자유학기']),
+  '특강': new Set(['특강']),
+  '기타': new Set(['기타']),
+};
+
+export function isValidEnrollmentClassType(accountType, classType) {
+  return ACCOUNT_CLASS_TYPES[accountType]?.has(classType) || false;
+}
+
 function legacyAccountKey(account) {
   const representative = account.accountType === '정규'
     ? account.items.find(item => (item.class_type || '정규') === '정규') || account.items[0]
@@ -77,6 +87,13 @@ export function groupEnrollmentAccounts(enrollments) {
     ...account,
     key: account.accountId || legacyAccountKey(account),
   }));
+}
+
+export function deriveEnrollmentAccountTypes(enrollments) {
+  const present = new Set(
+    groupEnrollmentAccounts(enrollments).flatMap(account => account.items).map(accountTypeOf)
+  );
+  return ACCOUNT_TYPES.filter(accountType => present.has(accountType));
 }
 
 export function accountStateAt(account, dateStr) {
@@ -194,9 +211,14 @@ export function closeAccount(enrollments, accountId, { endDate, endReason } = {}
 }
 
 export function deriveStudentStatusAfterAccountChange(enrollments, dateStr, {
-  fallbackReason, currentStatus,
+  fallbackReason, currentStatus, changedAccountType,
 } = {}) {
-  const accounts = groupEnrollmentAccounts(enrollments);
+  if (changedAccountType === '기타' && currentStatus !== undefined) return currentStatus;
+
+  const accounts = groupEnrollmentAccounts(enrollments)
+    .filter(account => account.accountType !== '기타');
+  if (!accounts.length && currentStatus !== undefined && !fallbackReason) return currentStatus;
+
   const states = accounts.map(account => [account, accountStateAt(account, dateStr)]);
   if (states.some(([, state]) => state === '활성')) {
     return ENROLLABLE_STATUSES.has(currentStatus) ? currentStatus : '재원';
@@ -213,21 +235,32 @@ export function deriveStudentStatusAfterAccountChange(enrollments, dateStr, {
 }
 
 // 저장 직전 status↔enrollment 정합성 검사/정리.
-// - 비재원(상담/퇴원/종강): enrollments를 빈 배열로 강제 (valid: true)
+// - 비재원(상담/퇴원/종강): 기타 enrollment만 보존 (valid: true)
 // - 재원 계열: 실질 enrollment ≥1 필요 (없으면 valid: false + reason)
 // - 7종 밖 status(오타·구 데이터·undefined): valid: false — 정합성 불명인 채 저장 차단
 // 반환: { enrollments, valid, reason? }
 export function reconcileEnrollments(status, enrollments, opts) {
   const list = enrollments || [];
-  if (NON_ENROLLABLE_STATUSES.has(status)) {
-    return { enrollments: [], valid: true };
-  }
-  if (!ENROLLABLE_STATUSES.has(status)) {
+  if (!ENROLLABLE_STATUSES.has(status) && !NON_ENROLLABLE_STATUSES.has(status)) {
     return {
       enrollments: list,
       valid: false,
       reason: `알 수 없는 상태(${status || '없음'})입니다. 재원·등원예정·실휴원·가휴원·상담·퇴원·종강 중 하나여야 합니다.`,
     };
+  }
+  const invalidEnrollment = list.find(item => item && (
+    (item.account_type != null && !ACCOUNT_TYPES.includes(item.account_type))
+    || !isValidEnrollmentClassType(accountTypeOf(item), item.class_type || '정규')
+  ));
+  if (invalidEnrollment) {
+    return {
+      enrollments: list,
+      valid: false,
+      reason: `수업계열(${invalidEnrollment.account_type || accountTypeOf(invalidEnrollment)})과 소분류(${invalidEnrollment.class_type || '정규'}) 조합이 올바르지 않습니다.`,
+    };
+  }
+  if (NON_ENROLLABLE_STATUSES.has(status)) {
+    return { enrollments: list.filter(item => accountTypeOf(item) === '기타'), valid: true };
   }
   if (!hasRealEnrollment(list)) {
     return {

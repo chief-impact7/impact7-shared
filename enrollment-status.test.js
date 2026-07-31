@@ -4,7 +4,8 @@ import {
   isEnrollableStatus, hasRealEnrollment, reconcileEnrollments,
   studentCategory, selectableStatuses, STUDENT_STATUS_GROUPS,
   LEAVE_STATUSES, ENROLLABLE_STATUSES,
-  ACCOUNT_TYPES, accountTypeOf, groupEnrollmentAccounts, accountStateAt,
+  ACCOUNT_TYPES, accountTypeOf, deriveEnrollmentAccountTypes,
+  isValidEnrollmentClassType, groupEnrollmentAccounts, accountStateAt,
   openAccounts, openAccountIds, activeEnrollmentsAt,
   hasActiveRegularAccount, leaveTypeChangeAccounts, leaveTypeChangeSource,
   pauseAccount, resumeAccount, closeAccount, deriveStudentStatusAfterAccountChange,
@@ -23,10 +24,16 @@ test('hasRealEnrollment — 빈 placeholder 제외', () => {
   assert.equal(hasRealEnrollment([{ level_symbol: 'HA' }]), true);
 });
 
-test('reconcileEnrollments — 비재원(상담/퇴원/종강)은 enrollment 강제 비움', () => {
+test('reconcileEnrollments — 비재원은 기타 enrollment만 보존', () => {
+  const other = { account_type: '기타', class_type: '기타', class_number: '자습실' };
+  const enrollments = [
+    { class_type: '정규', class_number: '104' },
+    other,
+    { account_type: '특강', class_type: '특강', class_number: '여름특강' },
+  ];
   for (const s of ['상담', '퇴원', '종강']) {
-    const r = reconcileEnrollments(s, [{ class_type: '정규', class_number: '104' }]);
-    assert.deepEqual(r.enrollments, []);
+    const r = reconcileEnrollments(s, enrollments);
+    assert.deepEqual(r.enrollments, [other]);
     assert.equal(r.valid, true);
   }
 });
@@ -43,6 +50,16 @@ test('reconcileEnrollments — 재원 계열 + 실질 반 있으면 valid', () =
   const r = reconcileEnrollments('재원', [{ class_type: '정규', class_number: '104' }]);
   assert.equal(r.valid, true);
   assert.equal(r.enrollments.length, 1);
+});
+
+test('reconcileEnrollments — 수업계열과 소분류가 어긋나면 저장 차단', () => {
+  for (const status of ['재원', '상담']) {
+    const result = reconcileEnrollments(status, [{
+      account_type: '기타', class_type: '정규', class_number: '104',
+    }]);
+    assert.equal(result.valid, false);
+    assert.match(result.reason, /조합이 올바르지/);
+  }
 });
 
 test('reconcileEnrollments — 휴원·퇴원에서 재원 전환은 활성 정규반이 필수', () => {
@@ -129,6 +146,29 @@ test('수강계정 유형은 명시값 우선, 레거시는 class_type으로 파
   assert.equal(accountTypeOf({ class_type: '기타' }), '기타');
   assert.equal(accountTypeOf({ class_type: '내신' }), '정규');
   assert.equal(accountTypeOf({}), '정규');
+});
+
+test('조회용 수업계열은 정본 순서로 중복 제거하고 placeholder를 제외', () => {
+  assert.deepEqual(deriveEnrollmentAccountTypes([
+    { account_type: '기타', class_type: '기타', class_number: '자습실' },
+    { account_id: 'mixed', account_type: '특강', class_type: '특강', class_number: '여름특강' },
+    { account_id: 'mixed', account_type: '정규', class_type: '정규', class_number: '101' },
+    { account_id: 'mixed', account_type: '특강', class_type: '특강', class_number: '겨울특강' },
+    { account_type: '기타', class_type: '기타' },
+    null,
+  ]), ['정규', '특강', '기타']);
+});
+
+test('수업계열과 소분류의 허용 조합을 검증', () => {
+  for (const classType of ['정규', '내신', '자유학기']) {
+    assert.equal(isValidEnrollmentClassType('정규', classType), true);
+  }
+  assert.equal(isValidEnrollmentClassType('특강', '특강'), true);
+  assert.equal(isValidEnrollmentClassType('기타', '기타'), true);
+  assert.equal(isValidEnrollmentClassType('기타', '정규'), false);
+  assert.equal(isValidEnrollmentClassType('특강', '기타'), false);
+  assert.equal(isValidEnrollmentClassType('정규', ''), false);
+  assert.equal(isValidEnrollmentClassType('미상', '기타'), false);
 });
 
 test('account_id별 그룹을 첫 등장 순서로 만들고 중복 ID를 병합', () => {
@@ -308,6 +348,52 @@ test('부분 종료는 재원 계열 currentStatus를 보존하고 마지막 종
   const last = closeAccount(first.updatedEnrollments, 'b', { endDate: '2026-07-23', endReason: '종강' });
   assert.equal(deriveStudentStatusAfterAccountChange(last.updatedEnrollments, '2026-07-23', { fallbackReason: '퇴원' }), '퇴원');
   assert.equal(deriveStudentStatusAfterAccountChange(last.updatedEnrollments, '2026-07-23'), '종강');
+});
+
+test('기타계정은 status 파생에서 제외하고 기타 변경은 현재 status를 유지', () => {
+  const other = [{
+    account_id: 'other', account_type: '기타', class_type: '기타', class_number: '자습실',
+  }];
+  for (const currentStatus of ['재원', '등원예정', '실휴원', '가휴원', '상담', '퇴원', '종강']) {
+    assert.equal(
+      deriveStudentStatusAfterAccountChange(other, '2026-07-23', { currentStatus }),
+      currentStatus,
+    );
+    assert.equal(
+      deriveStudentStatusAfterAccountChange([], '2026-07-23', {
+        currentStatus,
+        fallbackReason: '퇴원',
+        changedAccountType: '기타',
+      }),
+      currentStatus,
+    );
+  }
+});
+
+test('정규·특강 마지막 종료 후 기타만 남으면 fallbackReason으로 상태 파생', () => {
+  const other = [{
+    account_id: 'other', account_type: '기타', class_type: '기타', class_number: '자습실',
+  }];
+  assert.equal(deriveStudentStatusAfterAccountChange(other, '2026-07-23', {
+    currentStatus: '재원', fallbackReason: '퇴원', changedAccountType: '정규',
+  }), '퇴원');
+  assert.equal(deriveStudentStatusAfterAccountChange(other, '2026-07-23', {
+    currentStatus: '재원', fallbackReason: '종강', changedAccountType: '특강',
+  }), '종강');
+});
+
+test('활성 기타계정은 정규·특강의 휴원·예정 상태를 덮어쓰지 않음', () => {
+  const other = { account_id: 'other', account_type: '기타', class_type: '기타', class_number: '자습실' };
+  const pausedRegular = {
+    account_id: 'regular', account_type: '정규', class_type: '정규', class_number: '101',
+    pause_start_date: '2026-07-01', leave_sub_type: '실휴원',
+  };
+  const futureSpecial = {
+    account_id: 'special', account_type: '특강', class_type: '특강', class_number: '여름특강',
+    start_date: '2026-08-01',
+  };
+  assert.equal(deriveStudentStatusAfterAccountChange([other, pausedRegular], '2026-07-23'), '실휴원');
+  assert.equal(deriveStudentStatusAfterAccountChange([other, futureSpecial], '2026-07-23'), '등원예정');
 });
 
 test('모든 계정 휴원 시 실휴원이 가휴원보다 우선', () => {
