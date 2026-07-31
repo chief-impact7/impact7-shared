@@ -6,8 +6,8 @@
 //   버퍼 안 이탈은 이전·현재 담당 0.5/0.5, 밖은 현재 담당 1.0.
 // - 첫 배정(이전 세그먼트 없음)·같은 teacher 재배정은 전환이 아니다 → 현재 담당 1.0.
 // - 휴원은 유지 — 세그먼트를 끊지 않고 이벤트도 아니다.
-// - 휴원→퇴원은 휴원신청서 작성자(form-author) 귀책 1.0, 교수 매칭 실패 시
-//   휴원시작일(anchorDate) 기준 버퍼 룰 폴백(uncertain).
+// - 퇴원은 퇴원신청서 작성자(form-author) 귀책 1.0, 교수 매칭 실패 시
+//   퇴원일(anchorDate) 기준 버퍼 룰 폴백(uncertain).
 import { toDate, formatDateKST, addDays, addMonths, todayKST } from './datetime.js';
 import { isSameTeacher } from './teacher-label.js';
 import { accountStateAt, accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
@@ -285,22 +285,15 @@ export function churnEventsForStudent(student, cycles, { archivedEnrollments, to
     if (!_valid(date) || date > today) continue;
     const scope = scopeFor(cycle.account_id, cycle.account_type, date);
     if (!scope) continue;
-    if (cycle.type === 'withdraw') {
-      addEvent({ type: 'withdraw', date, anchorDate: date, ...scope });
-    } else if (cycle.type === 'leave_to_withdraw') {
-      const firstLeave = (cycle.requests || []).find(
-        (r) => r?.request_type === '휴원요청' || r?.request_type === '퇴원→휴원'
-      );
-      addEvent({
-        type: 'leave_to_withdraw',
-        date,
-        // 귀속 기준일은 퇴원일이 아니라 휴원 시작일 — 이탈 결정은 휴원 진입 시점의 담당 소관
-        anchorDate: cycle.startDate || date,
-        formAuthor: firstLeave?.requested_by || '',
-        ...(cycle.subType ? { subType: cycle.subType } : {}),
-        ...scope,
-      });
-    }
+    const withdrawalRequest = cycle.requests?.at(-1);
+    addEvent({
+      type: cycle.type,
+      date,
+      anchorDate: date,
+      formAuthor: withdrawalRequest?.requested_by || '',
+      ...(cycle.type === 'leave_to_withdraw' && cycle.subType ? { subType: cycle.subType } : {}),
+      ...scope,
+    });
   }
 
   for (const account of accounts) {
@@ -382,14 +375,13 @@ export function attributeEvent(event, segments, { bufferDays = RETENTION_BUFFER_
         || (event.accountId && s?.accountId === event.accountId)
       )
     : segments;
-  if (event.type === 'leave_to_withdraw') {
+  if ((event.type === 'withdraw' || event.type === 'leave_to_withdraw') && Object.hasOwn(event, 'formAuthor')) {
     const author = event.formAuthor || '';
     const emails = teacherEmails instanceof Set ? [...teacherEmails] : teacherEmails || [];
     if (author && emails.some((t) => isSameTeacher(author, t))) {
       return [{ teacher: author, weight: 1, rule: 'form-author' }];
     }
-    // 작성자가 교수가 아니면 휴원시작일 담당으로 폴백 — 귀책 근거가 간접적이라 uncertain
-    return _attributeByBuffer(event.anchorDate, scopedSegments, bufferDays).map((a) => ({ ...a, uncertain: true }));
+    return _attributeByBuffer(event.anchorDate || event.date, scopedSegments, bufferDays).map((a) => ({ ...a, uncertain: true }));
   }
   return _attributeByBuffer(event.anchorDate || event.date, scopedSegments, bufferDays);
 }

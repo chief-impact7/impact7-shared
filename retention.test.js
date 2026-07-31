@@ -299,7 +299,7 @@ test('churnEventsForStudent: 휴원 진입·복귀는 이벤트가 아니다', (
   assert.deepEqual(churnEventsForStudent({ status: '재원' }, cycles), []);
 });
 
-test('churnEventsForStudent: 휴원→퇴원은 이탈 1건 — anchorDate는 휴원시작일, formAuthor는 첫 휴원요청자', () => {
+test('churnEventsForStudent: 휴원→퇴원은 퇴원일과 퇴원신청자를 귀속 기준으로 사용한다', () => {
   const cycles = groupLeaveCycles([
     휴원요청,
     { request_type: '휴원→퇴원', status: 'approved', withdrawal_date: '2026-05-01', created_at: '2026-04-20T10:00:00+09:00', requested_by: 길순 },
@@ -307,16 +307,16 @@ test('churnEventsForStudent: 휴원→퇴원은 이탈 1건 — anchorDate는 �
   const events = churnEventsForStudent({ status: '퇴원' }, cycles);
   assert.equal(events.length, 1);
   assert.deepEqual(events[0], {
-    type: 'leave_to_withdraw', date: '2026-05-01', anchorDate: '2026-04-01', formAuthor: 길동, subType: '실휴원',
+    type: 'leave_to_withdraw', date: '2026-05-01', anchorDate: '2026-05-01', formAuthor: 길순, subType: '실휴원',
   });
 });
 
-test('churnEventsForStudent: 단독 퇴원요청은 withdraw 이벤트 (date=anchorDate=퇴원일)', () => {
+test('churnEventsForStudent: 단독 퇴원요청은 퇴원일과 퇴원신청자를 귀속 기준으로 사용한다', () => {
   const cycles = groupLeaveCycles([
-    { request_type: '퇴원요청', status: 'approved', withdrawal_date: '2026-05-01', created_at: '2026-04-20T10:00:00+09:00' },
+    { request_type: '퇴원요청', status: 'approved', withdrawal_date: '2026-05-01', created_at: '2026-04-20T10:00:00+09:00', requested_by: 길동 },
   ]);
   assert.deepEqual(churnEventsForStudent({ status: '퇴원' }, cycles), [
-    { type: 'withdraw', date: '2026-05-01', anchorDate: '2026-05-01' },
+    { type: 'withdraw', date: '2026-05-01', anchorDate: '2026-05-01', formAuthor: 길동 },
   ]);
 });
 
@@ -325,7 +325,7 @@ test('churnEventsForStudent: 사이클에 퇴원일이 없으면 학생 문서 w
     { request_type: '퇴원요청', status: 'approved', created_at: '2026-04-20T10:00:00+09:00' },
   ]);
   const events = churnEventsForStudent({ status: '퇴원', withdrawal_date: '2026-05-02' }, cycles);
-  assert.deepEqual(events, [{ type: 'withdraw', date: '2026-05-02', anchorDate: '2026-05-02' }]);
+  assert.deepEqual(events, [{ type: 'withdraw', date: '2026-05-02', anchorDate: '2026-05-02', formAuthor: '' }]);
 });
 
 test('churnEventsForStudent: leave_requests 누락 퇴원생은 학생 문서만으로 1건 보강', () => {
@@ -382,6 +382,7 @@ test('churnEventsForStudent: 다른 정규 account 유지 중 종료는 제외�
       type: 'withdraw',
       date: '2026-08-01',
       anchorDate: '2026-08-01',
+      formAuthor: '',
       accountKey: 'regular-b',
       accountId: 'regular-b',
       accountType: '정규',
@@ -420,6 +421,7 @@ test('churnEventsForStudent: 같은 account 요청·history 이탈을 한 건으
       type: 'withdraw',
       date: '2026-07-10',
       anchorDate: '2026-07-10',
+      formAuthor: '',
       accountKey: 'regular-a',
       accountId: 'regular-a',
       accountType: '정규',
@@ -543,19 +545,29 @@ test('반 이동했지만 같은 teacher(구·신 도메인 포함) → 전환 �
   assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'current']]);
 });
 
-test('leave_to_withdraw: formAuthor가 교수 집합과 매칭 → form-author 1.0', () => {
+test('퇴원신청자가 교수 집합과 매칭되면 퇴원 유형과 무관하게 form-author 1.0', () => {
   const event = { type: 'leave_to_withdraw', date: '2026-06-10', anchorDate: '2026-05-10', formAuthor: 'gilsoon@gw.impact7.kr' };
-  const result = attributeEvent(event, 내신전환세그, { teacherEmails: [길동, 길순] });
-  assert.deepEqual(result, [{ teacher: 'gilsoon@gw.impact7.kr', weight: 1, rule: 'form-author' }]);
+  const options = { teacherEmails: [길동, 길순] };
+  assert.deepEqual(attributeEvent(event, 내신전환세그, options), [
+    { teacher: 'gilsoon@gw.impact7.kr', weight: 1, rule: 'form-author' },
+  ]);
+  assert.deepEqual(attributeEvent({ ...event, type: 'withdraw' }, 내신전환세그, options), [
+    { teacher: 'gilsoon@gw.impact7.kr', weight: 1, rule: 'form-author' },
+  ]);
 });
 
-test('leave_to_withdraw: formAuthor 매칭 실패 → 휴원시작일 기준 버퍼 폴백 + uncertain', () => {
-  const event = { type: 'leave_to_withdraw', date: '2026-06-10', anchorDate: '2026-05-10', formAuthor: 'frontdesk@impact7.kr' };
-  const result = attributeEvent(event, 내신전환세그, { teacherEmails: [길동, 길순] });
+test('퇴원신청자 매칭 실패 → 퇴원일 기준 버퍼 폴백 + uncertain', () => {
+  const event = { type: 'leave_to_withdraw', date: '2026-05-10', anchorDate: '2026-05-10', formAuthor: 'frontdesk@impact7.kr' };
+  const options = { teacherEmails: [길동, 길순] };
+  const result = attributeEvent(event, 내신전환세그, options);
   // 5/10은 5/7 복귀 전환 버퍼 안 → 길순/길동 50/50, 전부 uncertain
   assert.deepEqual(
     result.map((a) => [a.teacher, a.weight, a.rule, a.uncertain]),
     [[길순, 0.5, 'buffer-split', true], [길동, 0.5, 'buffer-split', true]]
+  );
+  assert.deepEqual(
+    attributeEvent({ ...event, type: 'withdraw' }, 내신전환세그, options),
+    result
   );
 });
 
