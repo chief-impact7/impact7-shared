@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 462개 통과.
+- 테스트: `npm test` (`node --test`). 현재 473개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 
 ## 모듈 목록 및 공개 API
@@ -28,12 +28,13 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 ### `./enrollment-status` — `enrollment-status.js`
 
 재원상태↔enrollment 정합성 SSoT. 가장 많이 참조되는 계약.
+수업계열과 소분류의 의미·등록·override·인원처리 계약은 루트 `AGENTS.md`와 `docs/수업계열-학생상태-출결-운영매뉴얼.md`를 따릅니다.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
 | `ENROLLABLE_STATUSES` | const | `Set { '재원', '등원예정', '실휴원', '가휴원' }` |
 | `NON_ENROLLABLE_STATUSES` | const | `Set { '상담', '퇴원', '종강' }` |
-| `ACCOUNT_TYPES` | const | `['정규', '특강', '기타']` — 수강계정 유형 |
+| `ACCOUNT_TYPES` | const | `['정규', '특강', '기타']` — 기술 필드 `account_type`에 저장하는 수업계열 값 |
 | `LEAVE_STATUSES` | const | `Set { '실휴원', '가휴원' }` — 휴원(일시정지) 부분집합(⊂ ENROLLABLE). `status==='실휴원'||'가휴원'` 인라인 대체 |
 | `STUDENT_STATUS_GROUPS` | const | `[{ category: '재원생'\|'비원생', statuses: [...] }]` |
 | `STATUS_TONE` | const | `{ status: 'active'\|'scheduled'\|'paused'\|'consult'\|'ended-hard'\|'ended-soft' }` |
@@ -41,19 +42,21 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `isEnrollableStatus` | fn | `(status) → boolean` |
 | `hasRealEnrollment` | fn | `(enrollments) → boolean` — 빈 placeholder 제외 |
 | `accountTypeOf` | fn | `(enrollment) → '정규'\|'특강'\|'기타'` — 명시 `account_type` 우선, 레거시는 `class_type`으로 파생 |
+| `isValidEnrollmentClassType` | fn | `(accountType, classType) → boolean` — 정규→정규/내신/자유학기, 특강→특강, 기타→기타 조합만 허용 |
 | `groupEnrollmentAccounts` | fn | `(enrollments) → [{ key, accountId, accountType, items, typeConflict }]` — placeholder 제외. `key`는 ID 또는 `legacy:{유형}:{대표 반코드}` |
+| `deriveEnrollmentAccountTypes` | fn | `(enrollments) → ('정규'\|'특강'\|'기타')[]` — 실제 enrollment에서 정본 순서로 중복 없이 파생 |
 | `accountStateAt` | fn | `(account, dateStr) → '활성'\|'예정'\|'휴원'\|'종료'` — 날짜 양끝 포함, 종료일 없는 pause는 열린 구간. `YYYY-` 관례 밖 기준일은 계정을 활성 판정에서 제외하지 않음 |
 | `openAccounts` | fn | `(enrollments, dateStr) → account[]` — 종료되지 않은 계정 |
 | `openAccountIds` | fn | `(enrollments, dateStr) → string[]` — 열린 명시 계정 ID만 |
 | `leaveTypeChangeSource` | fn | `(targetType) → sourceType \| ''` — 휴원종류변경 목표의 반대 원본 유형 |
 | `leaveTypeChangeAccounts` | fn | `(enrollments, targetType, dateStr) → account[]` — 기준일에 모든 휴원 항목이 원본 유형인 변경 가능 계정과 `pausedItems` |
 | `activeEnrollmentsAt` | fn | `(enrollments, dateStr) → enrollment[]` — 활성 계정 중 항목 자체도 기준일에 활성인 것만 |
-| `hasActiveRegularAccount` | fn | `(enrollments, dateStr) → boolean` — 기준일에 활성인 정규 수강계정 존재 여부 |
+| `hasActiveRegularAccount` | fn | `(enrollments, dateStr) → boolean` — 기준일에 활성인 정규계열 계정 존재 여부 |
 | `pauseAccount` | fn | `(enrollments, accountIdOrKey, { pauseStart, pauseEnd?, leaveSubType }) → { updatedEnrollments, skipped }` |
 | `resumeAccount` | fn | `(enrollments, accountIdOrKey) → { updatedEnrollments, skipped }` |
 | `closeAccount` | fn | `(enrollments, accountIdOrKey, { endDate, endReason }) → { updatedEnrollments, removed, skipped }` |
-| `deriveStudentStatusAfterAccountChange` | fn | `(enrollments, dateStr, { fallbackReason?, currentStatus? }?) → status` — 활성 계정은 재원계열 currentStatus 보존, 그 외 활성→재원·휴원→예정→종료 우선순위 |
-| `reconcileEnrollments` | fn | `(status, enrollments, { dateStr?, previousStatus? }?) → { enrollments, valid, reason? }` — 휴원·퇴원→재원은 활성 정규계정 필수. 기존 2인자 호환. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
+| `deriveStudentStatusAfterAccountChange` | fn | `(enrollments, dateStr, { fallbackReason?, currentStatus?, changedAccountType? }?) → status` — 기타 계정 변경은 status 불변, 정규·특강 계정은 활성→재원·휴원→예정→종료 우선순위 |
+| `reconcileEnrollments` | fn | `(status, enrollments, { dateStr?, previousStatus? }?) → { enrollments, valid, reason? }` — 비원 전환 시 기타만 보존. 휴원·퇴원→재원은 활성 정규계정 필수. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
 | `studentCategory` | fn | `(status) → '재원생' \| '비원생'` |
 | `selectableStatuses` | fn | `(current, isNew) → string[]` |
 
