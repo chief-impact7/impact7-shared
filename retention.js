@@ -2,10 +2,9 @@
 //
 // 이탈(퇴원·휴원→퇴원)을 강사별로 귀속하고 기간 유지율을 집계한다.
 // 핵심 도메인 규칙:
-// - 퇴원일 D와 D-N(기본 14일)의 같은 수업계정 담당이 다르면 0.5/0.5, 같으면 D 담당 1.0.
-// - D-N 담당이 없는 첫 배정은 D 담당 1.0.
+// - 요청서 작성자와 기산일 D-N(기본 14일)의 담당이 다르면 0.5/0.5, 같으면 작성자 1.0.
+// - 휴원→퇴원은 최초 휴원일과 휴원작성자를 기산 기준으로 쓴다.
 // - 휴원은 유지 — 세그먼트를 끊지 않고 이벤트도 아니다.
-// - 퇴원신청서 작성자는 표시용 메타데이터이며 자동 귀책을 바꾸지 않는다.
 import { toDate, formatDateKST, addDays, addMonths, todayKST } from './datetime.js';
 import { isSameTeacher } from './teacher-label.js';
 import { accountStateAt, accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
@@ -283,12 +282,15 @@ export function churnEventsForStudent(student, cycles, { archivedEnrollments, to
     if (!_valid(date) || date > today) continue;
     const scope = scopeFor(cycle.account_id, cycle.account_type, date);
     if (!scope) continue;
-    const withdrawalRequest = cycle.requests?.at(-1);
+    const initialLeaveRequest = cycle.type === 'leave_to_withdraw'
+      ? cycle.requests?.find((request) => ['휴원요청', '퇴원→휴원'].includes(request?.request_type))
+      : null;
+    const attributionRequest = initialLeaveRequest || cycle.requests?.at(-1);
     addEvent({
       type: cycle.type,
       date,
-      anchorDate: date,
-      formAuthor: withdrawalRequest?.requested_by || '',
+      anchorDate: initialLeaveRequest && _valid(cycle.startDate) ? cycle.startDate : date,
+      formAuthor: attributionRequest?.requested_by || '',
       ...(cycle.type === 'leave_to_withdraw' && cycle.subType ? { subType: cycle.subType } : {}),
       ...scope,
     });
@@ -326,30 +328,26 @@ export function churnEventsForStudent(student, cycles, { archivedEnrollments, to
   );
 }
 
-function _attributeByBuffer(exitDate, segments, bufferDays) {
+function _attributeByRequestAuthor(event, segments, bufferDays) {
   const list = segments || [];
-  if (!_valid(exitDate)) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
+  const anchorDate = event?.anchorDate || event?.date;
+  const formAuthor = event?.formAuthor || '';
+  if (!_valid(anchorDate)) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
   const segmentAt = (date, candidates = list) => [...candidates].reverse().find((s) =>
     s && (!s.start || s.start <= date) && (s.end == null || date <= s.end)
   ) || null;
-  const current = segmentAt(exitDate)
-    || [...list].reverse().find((s) => s?.end === addDays(exitDate, -1))
-    || null;
-  if (!current) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
-
-  const scope = current.accountKey || current.accountId || '';
-  const sameAccount = scope
-    ? list.filter((s) => s?.accountKey === scope || s?.accountId === scope)
-    : list;
-  const baseline = segmentAt(addDays(exitDate, -bufferDays), sameAccount);
-  if (baseline?.teacher && current.teacher && !isSameTeacher(baseline.teacher, current.teacher)) {
-    const unc = !!(current.uncertain || baseline.uncertain);
+  const baseline = segmentAt(addDays(anchorDate, -bufferDays));
+  if (!formAuthor || !baseline?.teacher) {
+    return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
+  }
+  if (!isSameTeacher(baseline.teacher, formAuthor)) {
+    const unc = !!baseline.uncertain;
     return [
-      { teacher: baseline.teacher, weight: 0.5, rule: 'buffer-split', ...(unc ? { uncertain: true } : {}) },
-      { teacher: current.teacher, weight: 0.5, rule: 'buffer-split', ...(unc ? { uncertain: true } : {}) },
+      { teacher: baseline.teacher, weight: 0.5, rule: 'transition', ...(unc ? { uncertain: true } : {}) },
+      { teacher: formAuthor, weight: 0.5, rule: 'transition', ...(unc ? { uncertain: true } : {}) },
     ];
   }
-  return [{ teacher: current.teacher || '', weight: 1, rule: 'current', ...(current.uncertain ? { uncertain: true } : {}) }];
+  return [{ teacher: formAuthor, weight: 1, rule: 'same', ...(baseline.uncertain ? { uncertain: true } : {}) }];
 }
 
 // 이벤트 1건 귀속 — 반환 가중치 합 1.0.
@@ -361,7 +359,7 @@ export function attributeEvent(event, segments, { bufferDays = RETENTION_BUFFER_
         || (event.accountId && s?.accountId === event.accountId)
       )
     : segments;
-  return _attributeByBuffer(event.date || event.anchorDate, scopedSegments, bufferDays);
+  return _attributeByRequestAuthor(event, scopedSegments, bufferDays);
 }
 
 // 기간 해석. month: 해당 월 [1일, 말일]. semester: semester_settings 시작일 ~

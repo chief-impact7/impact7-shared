@@ -299,7 +299,7 @@ test('churnEventsForStudent: 휴원 진입·복귀는 이벤트가 아니다', (
   assert.deepEqual(churnEventsForStudent({ status: '재원' }, cycles), []);
 });
 
-test('churnEventsForStudent: 휴원→퇴원은 퇴원일과 퇴원신청자 메타데이터를 보존한다', () => {
+test('churnEventsForStudent: 휴원→퇴원은 퇴원일을 보존하고 최초 휴원일·휴원작성자를 귀속 기준으로 쓴다', () => {
   const cycles = groupLeaveCycles([
     휴원요청,
     { request_type: '휴원→퇴원', status: 'approved', withdrawal_date: '2026-05-01', created_at: '2026-04-20T10:00:00+09:00', requested_by: 길순 },
@@ -307,7 +307,7 @@ test('churnEventsForStudent: 휴원→퇴원은 퇴원일과 퇴원신청자 메
   const events = churnEventsForStudent({ status: '퇴원' }, cycles);
   assert.equal(events.length, 1);
   assert.deepEqual(events[0], {
-    type: 'leave_to_withdraw', date: '2026-05-01', anchorDate: '2026-05-01', formAuthor: 길순, subType: '실휴원',
+    type: 'leave_to_withdraw', date: '2026-05-01', anchorDate: '2026-04-01', formAuthor: 길동, subType: '실휴원',
   });
 });
 
@@ -496,56 +496,55 @@ test('churnEventsForStudent: 종강은 이탈이 아니다', () => {
 // ─── attributeEvent ───
 
 const 내신전환세그 = buildStudentSegments(학생_내신전환, { classSettings: CS, teacherHistory: [] });
-const withdraw = (date) => ({ type: 'withdraw', date, anchorDate: date });
+const withdraw = (date, formAuthor = 길동) => ({ type: 'withdraw', date, anchorDate: date, formAuthor });
 
-test('대화 예시 a: 3/1 길동 정규 시작, 3/20 내신 전환(길순), 3/20 퇴원 → 길동 0.5 / 길순 0.5', () => {
-  const result = attributeEvent(withdraw('2026-03-20'), 내신전환세그);
+test('신청자와 D-14 담당이 다르면 길동 0.5 / 길순 0.5', () => {
+  const result = attributeEvent(withdraw('2026-03-20', 길순), 내신전환세그);
   assert.deepEqual(
     result.map((a) => [a.teacher, a.weight, a.rule]),
-    [[길동, 0.5, 'buffer-split'], [길순, 0.5, 'buffer-split']]
+    [[길동, 0.5, 'transition'], [길순, 0.5, 'transition']]
   );
   assert.equal(result.reduce((sum, a) => sum + a.weight, 0), 1);
 });
 
-test('대화 예시 b: 5/7 길동 복귀 전환, 5/17 퇴원 → 길순 0.5 / 길동 0.5', () => {
+test('D-14 담당이 길순이고 신청자가 길동이면 전환이탈', () => {
   const result = attributeEvent(withdraw('2026-05-17'), 내신전환세그);
   assert.deepEqual(
     result.map((a) => [a.teacher, a.weight, a.rule]),
-    [[길순, 0.5, 'buffer-split'], [길동, 0.5, 'buffer-split']]
+    [[길순, 0.5, 'transition'], [길동, 0.5, 'transition']]
   );
 });
 
-test('버퍼 경계: 전환일 + 14일째는 밖 ([T, T+14) 반개구간) → 현재 담당 1.0', () => {
-  // 전환일 5/7 + 14일 = 5/21
+test('D-14 담당과 신청자가 같으면 동일이탈', () => {
   const result = attributeEvent(withdraw('2026-05-21'), 내신전환세그);
-  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'current']]);
+  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'same']]);
 });
 
-test('버퍼 경계: 13일째(5/20)까지는 버퍼 안', () => {
+test('D-14 담당이 신청자와 다르면 전환이탈', () => {
   const result = attributeEvent(withdraw('2026-05-20'), 내신전환세그);
   assert.equal(result.length, 2);
-  assert.equal(result[0].rule, 'buffer-split');
+  assert.equal(result[0].rule, 'transition');
 });
 
-test('첫 배정 14일 내 퇴원 → 이전 담당 없음 → 현재 담당 1.0', () => {
+test('D-14 담당이 없으면 자동 담당 미확인', () => {
   const segs = buildStudentSegments(
     { enrollments: [{ level_symbol: 'HA', class_number: '101', class_type: '정규', start_date: '2026-03-01' }] },
     { classSettings: CS, teacherHistory: [] }
   );
   const result = attributeEvent(withdraw('2026-03-05'), segs);
-  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'current']]);
+  assert.deepEqual(result, [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }]);
 });
 
-test('반 이동했지만 같은 teacher(구·신 도메인 포함) → 전환 아님 → 1.0', () => {
+test('신청자와 D-14 담당의 구·신 도메인 차이는 동일이탈', () => {
   const segs = [
     { start: '2026-03-01', end: '2026-03-19', classCode: 'HA101', teacher: 'gildong@gw.impact7.kr', kind: '정규', uncertain: false },
     { start: '2026-03-20', end: null, classCode: 'HB201', teacher: 길동, kind: '정규', uncertain: false },
   ];
   const result = attributeEvent(withdraw('2026-03-25'), segs);
-  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'current']]);
+  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'same']]);
 });
 
-test('문중영: 7/14 퇴원은 신청자와 무관하게 D-14 Nami / D Sierra 0.5씩 귀책', () => {
+test('문중영: 7/14 퇴원은 D-14 Nami / 신청자 Sierra 0.5씩 귀속', () => {
   const nami = 'nami@impact7.kr';
   const sierra = 'sierra@impact7.kr';
   const segments = [
@@ -565,11 +564,49 @@ test('문중영: 7/14 퇴원은 신청자와 무관하게 D-14 Nami / D Sierra 0
 
   assert.deepEqual(
     result.map((a) => [a.teacher, a.weight, a.rule]),
-    [[nami, 0.5, 'buffer-split'], [sierra, 0.5, 'buffer-split']]
+    [[nami, 0.5, 'transition'], [sierra, 0.5, 'transition']]
   );
 });
 
-test('전환이 여러 번이면 즉시 직전이 아니라 D-14 담당과 D 담당을 비교한다', () => {
+test('동일이탈: 신청자와 D-14 담당이 같으면 퇴원일 담당과 무관하게 1명으로 귀속한다', () => {
+  const nami = 'nami@impact7.kr';
+  const sierra = 'sierra@impact7.kr';
+  const segments = [
+    { start: '2026-06-01', end: '2026-07-01', teacher: nami, uncertain: false, accountKey: 'regular-a' },
+    { start: '2026-07-02', end: null, teacher: sierra, uncertain: false, accountKey: 'regular-a' },
+  ];
+
+  assert.deepEqual(
+    attributeEvent({
+      type: 'withdraw', date: '2026-07-14', anchorDate: '2026-07-14',
+      formAuthor: nami, accountKey: 'regular-a',
+    }, segments),
+    [{ teacher: nami, weight: 1, rule: 'same' }]
+  );
+});
+
+test('전환이탈: 신청자와 D-14 담당이 다르면 퇴원일 담당 대신 두 사람에게 0.5씩 귀속한다', () => {
+  const nami = 'nami@impact7.kr';
+  const sierra = 'sierra@impact7.kr';
+  const aaron = 'aaron@impact7.kr';
+  const segments = [
+    { start: '2026-06-01', end: '2026-07-01', teacher: nami, uncertain: false, accountKey: 'regular-a' },
+    { start: '2026-07-02', end: null, teacher: sierra, uncertain: false, accountKey: 'regular-a' },
+  ];
+
+  assert.deepEqual(
+    attributeEvent({
+      type: 'withdraw', date: '2026-07-14', anchorDate: '2026-07-14',
+      formAuthor: aaron, accountKey: 'regular-a',
+    }, segments),
+    [
+      { teacher: nami, weight: 0.5, rule: 'transition' },
+      { teacher: aaron, weight: 0.5, rule: 'transition' },
+    ]
+  );
+});
+
+test('전환이 여러 번이어도 D-14 담당과 신청자를 비교한다', () => {
   const nami = 'nami@impact7.kr';
   const aaron = 'aaron@impact7.kr';
   const sierra = 'sierra@impact7.kr';
@@ -580,21 +617,24 @@ test('전환이 여러 번이면 즉시 직전이 아니라 D-14 담당과 D 담
   ];
 
   assert.deepEqual(
-    attributeEvent(withdraw('2026-07-14'), segments).map((a) => [a.teacher, a.weight, a.rule]),
-    [[nami, 0.5, 'buffer-split'], [sierra, 0.5, 'buffer-split']]
+    attributeEvent(withdraw('2026-07-14', sierra), segments).map((a) => [a.teacher, a.weight, a.rule]),
+    [[nami, 0.5, 'transition'], [sierra, 0.5, 'transition']]
   );
 });
 
-test('퇴원신청자는 교수 매칭 여부와 무관하게 자동 귀책을 바꾸지 않는다', () => {
+test('퇴원신청자가 D-14 담당과 같으면 동일이탈이고 다르면 전환이탈이다', () => {
   const event = { type: 'leave_to_withdraw', date: '2026-05-10', anchorDate: '2026-05-10', formAuthor: 'gilsoon@gw.impact7.kr' };
   const result = attributeEvent(event, 내신전환세그);
   assert.deepEqual(
     result.map((a) => [a.teacher, a.weight, a.rule, a.uncertain]),
-    [[길순, 0.5, 'buffer-split', true], [길동, 0.5, 'buffer-split', true]]
+    [['gilsoon@gw.impact7.kr', 1, 'same', true]]
   );
   assert.deepEqual(
     attributeEvent({ ...event, type: 'withdraw', formAuthor: 'frontdesk@impact7.kr' }, 내신전환세그),
-    result
+    [
+      { teacher: 길순, weight: 0.5, rule: 'transition', uncertain: true },
+      { teacher: 'frontdesk@impact7.kr', weight: 0.5, rule: 'transition', uncertain: true },
+    ]
   );
 });
 
@@ -629,18 +669,18 @@ test('scoped ACCOUNT_END는 해당 account의 종료 전날 세그먼트에만 �
     type: 'withdraw',
     date: '2026-07-01',
     anchorDate: '2026-07-01',
+    formAuthor: 길동,
     accountKey: 'regular-a',
     accountId: 'regular-a',
     accountType: '정규',
   }, segments);
-  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'current']]);
+  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'same']]);
 });
 
-test('버퍼 일수는 옵션으로 조정 가능 (기본 14)', () => {
+test('전환기간 일수는 D-N 기준일에 적용한다 (기본 14)', () => {
   assert.equal(RETENTION_BUFFER_DAYS, 14);
   const result = attributeEvent(withdraw('2026-05-17'), 내신전환세그, { bufferDays: 7 });
-  // 5/7 전환 + 7일 = 5/14 → 5/17은 밖 → 현재 담당 1.0
-  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'current']]);
+  assert.deepEqual(result.map((a) => [a.teacher, a.weight, a.rule]), [[길동, 1, 'same']]);
 });
 
 // ─── periodRange ───
