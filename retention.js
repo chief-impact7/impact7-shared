@@ -14,6 +14,7 @@ import { enrollmentCode } from './enrollment-derivation.js';
 export const RETENTION_BUFFER_DAYS = 14;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const OVERRIDE_CLASS_TYPES = new Set(['내신', '자유학기']);
 const _valid = (d) => typeof d === 'string' && ISO_DATE.test(d);
 const _enrollmentKey = (e) => [
   e?.account_id || '',
@@ -31,6 +32,50 @@ const _combinedEnrollments = (current, archived) => {
   }
   return [...byKey.values()].sort((a, b) => _enrollmentKey(a).localeCompare(_enrollmentKey(b)));
 };
+
+function _isOverrideClassType(classType) {
+  return OVERRIDE_CLASS_TYPES.has(classType || '');
+}
+
+function _hasBaseEnrollment(account) {
+  return account.items.some((item) => !_isOverrideClassType(item.class_type));
+}
+
+function _enrollmentsOverlap(a, b) {
+  return (!_valid(a.start_date) || !_valid(b.end_date) || a.start_date <= b.end_date)
+    && (!_valid(a.end_date) || !_valid(b.start_date) || a.end_date >= b.start_date);
+}
+
+function _isBoundedEnrollment(enrollment) {
+  return _valid(enrollment.start_date) && _valid(enrollment.end_date);
+}
+
+function _overlayMatchesBase(overlay, base, overlayCode) {
+  if (overlay.class_type === '내신') {
+    return normalizeClassCode(base.naesin_class_override) === overlayCode;
+  }
+  return normalizeClassCode(enrollmentCode(base)) === overlayCode;
+}
+
+function _detachedOverrideTarget(overlay, baseAccounts) {
+  const code = normalizeClassCode(enrollmentCode(overlay));
+  const overlapping = baseAccounts.filter((baseAccount) => baseAccount.items.some((base) =>
+    !_isOverrideClassType(base.class_type) && _enrollmentsOverlap(overlay, base)
+  ));
+  const linked = overlapping.filter((baseAccount) => baseAccount.items.some((base) =>
+    _overlayMatchesBase(overlay, base, code)
+  ));
+  if (linked.length === 1) return linked[0];
+  if (overlapping.length === 1) return overlapping[0];
+  return null;
+}
+
+function _segmentMatchesScope(segment, scope) {
+  return !scope
+    || segment?.accountKey === scope
+    || segment?.accountId === scope
+    || segment?.accountAliases?.includes(scope) === true;
+}
 
 const _classRecords = (teacherHistory, classCode) => {
   const code = normalizeClassCode(classCode);
@@ -117,25 +162,54 @@ export function buildStudentSegments(student, { classSettings, teacherHistory, f
   const accounts = groupEnrollmentAccounts(enrollments);
   const accountsById = new Map(accounts.map((account) => [account.accountId, account]));
   for (const enrollment of enrollments) {
-    if (enrollment.account_id && ['내신', '자유학기'].includes(enrollment.class_type) && !enrollmentCode(enrollment)) {
-      accountsById.get(enrollment.account_id)?.items.push(enrollment);
+    if (enrollment.account_id && _isOverrideClassType(enrollment.class_type) && !enrollmentCode(enrollment)) {
+      let account = accountsById.get(enrollment.account_id);
+      if (!account) {
+        account = {
+          key: enrollment.account_id,
+          accountId: enrollment.account_id,
+          accountType: accountTypeOf(enrollment),
+          items: [],
+        };
+        accounts.push(account);
+        accountsById.set(enrollment.account_id, account);
+      }
+      account.items.push(enrollment);
     }
   }
-  const regularAccounts = accounts
-    .filter((account) => account.accountType === '정규')
+  const regularAccounts = accounts.filter((account) => account.accountType === '정규');
+  const baseAccounts = regularAccounts.filter(_hasBaseEnrollment);
+  for (const account of regularAccounts) {
+    if (_hasBaseEnrollment(account)) continue;
+    const moved = new Set();
+    for (const overlay of account.items) {
+      if (!_isBoundedEnrollment(overlay)) continue;
+      const target = _detachedOverrideTarget(overlay, baseAccounts);
+      if (!target) continue;
+      target.items.push(overlay);
+      target.aliases ??= new Set();
+      if (account.key) target.aliases.add(account.key);
+      if (account.accountId) target.aliases.add(account.accountId);
+      moved.add(overlay);
+    }
+    account.items = account.items.filter((item) => !moved.has(item));
+  }
+  const populatedRegularAccounts = regularAccounts
+    .filter((account) => account.items.length)
     .sort((a, b) => a.key.localeCompare(b.key));
   const firstReg = _valid(student?.first_registered) ? student.first_registered : null;
   const pieces = [];
 
-  for (const account of regularAccounts) {
+  for (const account of populatedRegularAccounts) {
     const meta = {
       accountKey: account.key,
       accountId: account.accountId,
       accountType: account.accountType,
+      ...(account.aliases?.size ? { accountAliases: [...account.aliases] } : {}),
     };
     const items = [...account.items].sort((a, b) => _enrollmentKey(a).localeCompare(_enrollmentKey(b)));
-    const baseItems = items.filter((e) => !['내신', '자유학기'].includes(e.class_type || ''));
-    const explicitOverlays = items.filter((e) => ['내신', '자유학기'].includes(e.class_type));
+    const baseItems = items.filter((e) => !_isOverrideClassType(e.class_type));
+    const explicitOverlays = items.filter((e) => _isOverrideClassType(e.class_type));
     const baseOverrides = [...new Set(
       baseItems
         .map((base) => base.naesin_class_override)
@@ -353,11 +427,9 @@ function _attributeByRequestAuthor(event, segments, bufferDays) {
 // 이벤트 1건 귀속 — 반환 가중치 합 1.0.
 export function attributeEvent(event, segments, { bufferDays = RETENTION_BUFFER_DAYS } = {}) {
   if (!event) return [{ teacher: '', weight: 1, rule: 'unknown', uncertain: true }];
-  const scopedSegments = event.accountKey
-    ? (segments || []).filter((s) =>
-        s?.accountKey === event.accountKey
-        || (event.accountId && s?.accountId === event.accountId)
-      )
+  const scope = event.accountKey || event.accountId;
+  const scopedSegments = scope
+    ? (segments || []).filter((segment) => _segmentMatchesScope(segment, scope))
     : segments;
   return _attributeByRequestAuthor(event, scopedSegments, bufferDays);
 }
@@ -425,7 +497,7 @@ export function aggregateRetention({ studentIds, segmentsByStudent, attributions
       const exitsAtBoundary = eventsInRange.some((event) => {
         const scope = event.accountKey || event.accountId;
         return seg.end === addDays(event.date, -1)
-          && (!scope || seg.accountKey === scope || seg.accountId === scope);
+          && _segmentMatchesScope(seg, scope);
       });
       if (overlaps || exitsAtBoundary) {
         const exposureKey = seg.accountKey ? `${sid}\0${seg.accountKey}` : sid;

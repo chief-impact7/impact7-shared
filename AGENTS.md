@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 502개 통과.
+- 테스트: `npm test` (`node --test`). 현재 510개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -356,7 +356,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 |------|------|--------------|
 | `RETENTION_BUFFER_DAYS` | const | `14` — 담당 전환 귀속 버퍼 일수 |
 | `teacherOfClassAt` | fn | `(classCode, dateStr, teacherHistory, classSettings) → { teacher, uncertain }` — changed_at≤D 최신 레코드 → 첫 레코드 prev_teacher(uncertain) → classSettings teacher(uncertain) → `''`(uncertain). changed_at은 Timestamp·POJO·Date·ISO 모두(toDate) |
-| `buildStudentSegments` | fn | `(student, { classSettings, teacherHistory, fallbackClassCodes, archivedEnrollments? }) → [{ start, end, classCode, teacher, kind: '정규'\|'내신'\|'자유학기', uncertain, accountKey, accountId, accountType }]` — 현재·종료 스냅샷을 정규 account별로 복원하고 안정 정렬. 내신·자유학기 overlay는 같은 account의 정규 조각만 치환. 휴원은 세그먼트를 끊지 않으며 fallback 종료일은 첫 비재원일 전날 |
+| `buildStudentSegments` | fn | `(student, { classSettings, teacherHistory, fallbackClassCodes, archivedEnrollments? }) → [{ start, end, classCode, teacher, kind: '정규'\|'내신'\|'자유학기', uncertain, accountKey, accountId, accountAliases?, accountType }]` — 현재·종료 스냅샷을 정규 account별로 복원하고 안정 정렬. 내신·자유학기 overlay는 같은 account의 정규 조각을 치환하며, 시작·종료일이 모두 있는 레거시 별도 account는 기간이 겹치는 정규 base가 유일할 때 그 account로 합성. 휴원은 세그먼트를 끊지 않으며 fallback 종료일은 첫 비재원일 전날 |
 | `churnEventsForStudent` | fn | `(student, cycles, { archivedEnrollments? }?) → [{ type: 'withdraw'\|'leave_to_withdraw', date, anchorDate, formAuthor?, subType?, accountKey?, accountId?, accountType? }]` — 특강·기타 종료와 다른 정규 account 유지 중 부분 종료는 제외하고 최종 정규 account 이탈만 반환. scoped cycle은 account 범위를 보존 |
 | `attributeEvent` | fn | `(event, segments, { bufferDays? }?) → [{ teacher, weight, rule: 'buffer-split'\|'current'\|'unknown', uncertain? }]` — 가중치 합 1.0. scoped event는 같은 account 세그먼트에만 귀속하며 첫 비재원일은 종료 전날 세그먼트로 연결. D와 D-bufferDays의 담당이 다르면 반반 귀책, 같거나 과거 담당이 없으면 D 담당 1.0 |
 | `periodRange` | fn | `(period, semesterSettings?) → { start, end }` — month: `[1일, 말일]`. semester: `{level}-{year}-{nameLower}` 키 start_date ~ 같은 학부 다음 학기 시작 전일(마지막 학기면 오늘). 해석 불가는 `{ start: null, end: null }` |

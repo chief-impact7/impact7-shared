@@ -138,6 +138,200 @@ test('buildStudentSegments: 자유학기 월중 전환도 같은 정규 수강�
   assert.equal(new Set(segs.map((s) => s.accountKey)).size, 1);
 });
 
+test('buildStudentSegments: 별도 account로 저장된 내신도 정규 account를 override한다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-05-04',
+        end_date: '2026-07-19',
+        naesin_class_override: '목동중1A',
+      },
+      {
+        account_id: 'legacy-naesin',
+        account_type: '정규',
+        class_type: '내신',
+        class_number: '목동중1A',
+        start_date: '2026-05-15',
+        end_date: '2026-07-03',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.accountKey, s.start, s.end, s.classCode, s.teacher, s.kind]),
+    [
+      ['regular-a', '2026-05-04', '2026-05-14', 'HA101', 길동, '정규'],
+      ['regular-a', '2026-05-15', '2026-07-03', '목동중1A', 길순, '내신'],
+      ['regular-a', '2026-07-04', '2026-07-19', 'HA101', 길동, '정규'],
+    ]
+  );
+});
+
+test('buildStudentSegments: 반코드 없는 별도 내신 account도 정규 override 코드로 합성한다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-05-04',
+        end_date: '2026-07-19',
+        naesin_class_override: '목동중1A',
+      },
+      {
+        account_id: 'legacy-naesin',
+        account_type: '정규',
+        class_type: '내신',
+        start_date: '2026-05-15',
+        end_date: '2026-07-03',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.accountKey, s.start, s.end, s.classCode, s.teacher, s.kind]),
+    [
+      ['regular-a', '2026-05-04', '2026-05-14', 'HA101', 길동, '정규'],
+      ['regular-a', '2026-05-15', '2026-07-03', '목동중1A', 길순, '내신'],
+      ['regular-a', '2026-07-04', '2026-07-19', 'HA101', 길동, '정규'],
+    ]
+  );
+});
+
+test('buildStudentSegments: 별도 account로 저장된 자유학기도 유일한 정규 account를 override한다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-03-01',
+      },
+      {
+        account_id: 'legacy-free',
+        account_type: '정규',
+        level_symbol: 'HB',
+        class_number: '201',
+        class_type: '자유학기',
+        start_date: '2026-04-01',
+        end_date: '2026-04-30',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.accountKey, s.start, s.end, s.classCode, s.teacher, s.kind]),
+    [
+      ['regular-a', '2026-03-01', '2026-03-31', 'HA101', 길동, '정규'],
+      ['regular-a', '2026-04-01', '2026-04-30', 'HB201', 민수, '자유학기'],
+      ['regular-a', '2026-05-01', null, 'HA101', 길동, '정규'],
+    ]
+  );
+});
+
+test('buildStudentSegments: 과거 별도 내신 account는 겹치지 않는 재등원 account를 override하지 않는다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-new',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-05-01',
+      },
+      {
+        account_id: 'legacy-naesin-old',
+        account_type: '정규',
+        class_type: '내신',
+        class_number: '목동중1A',
+        start_date: '2024-03-20',
+        end_date: '2024-05-06',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.accountKey, s.start, s.end, s.classCode, s.kind]),
+    [
+      ['legacy-naesin-old', '2024-03-20', '2024-05-06', '목동중1A', '내신'],
+      ['regular-new', '2026-05-01', null, 'HA101', '정규'],
+    ]
+  );
+});
+
+test('buildStudentSegments: 종료일 없는 과거 별도 내신 account는 새 재등원 account를 override하지 않는다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-new',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-05-01',
+      },
+      {
+        account_id: 'legacy-naesin-old',
+        account_type: '정규',
+        class_type: '내신',
+        class_number: '목동중1A',
+        start_date: '2024-03-20',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(
+    segs.map((s) => [s.accountKey, s.start, s.end, s.classCode, s.kind]),
+    [
+      ['legacy-naesin-old', '2024-03-20', null, '목동중1A', '내신'],
+      ['regular-new', '2026-05-01', null, 'HA101', '정규'],
+    ]
+  );
+});
+
+test('attributeEvent: 합성된 override의 원래 account 범위로도 담당을 찾는다', () => {
+  const segs = buildStudentSegments({
+    enrollments: [
+      {
+        account_id: 'regular-a',
+        account_type: '정규',
+        level_symbol: 'HA',
+        class_number: '101',
+        class_type: '정규',
+        start_date: '2026-05-04',
+        end_date: '2026-07-19',
+        naesin_class_override: '목동중1A',
+      },
+      {
+        account_id: 'legacy-naesin',
+        account_type: '정규',
+        class_type: '내신',
+        class_number: '목동중1A',
+        start_date: '2026-05-15',
+        end_date: '2026-07-03',
+      },
+    ],
+  }, { classSettings: CS, teacherHistory: [] });
+
+  assert.deepEqual(attributeEvent({
+    date: '2026-07-03',
+    anchorDate: '2026-07-03',
+    formAuthor: 길순,
+    accountKey: 'legacy-naesin',
+    accountId: 'legacy-naesin',
+  }, segs), [{ teacher: 길순, weight: 1, rule: 'same', uncertain: true }]);
+});
+
 test('buildStudentSegments: 종료일과 반코드가 없는 진행 중 자유학기도 열린 구간으로 계산한다', () => {
   const segs = buildStudentSegments({
     enrollments: [
