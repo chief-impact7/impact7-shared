@@ -1,11 +1,12 @@
 {
   "name": "@impact7/shared",
-  "version": "1.52.6",
+  "version": "1.53.0",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
     "./history": "./history-classifier.js",
     "./enrollment-status": "./enrollment-status.js",
+    "./enrollment-contract": "./enrollment-contract.js",
     "./attendance-action": "./attendance-action.js",
     "./expected-arrival": "./expected-arrival.js",
     "./attendance-log": "./attendance-log.js",

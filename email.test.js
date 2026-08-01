@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidEmail } from './email.js';
+import { isValidEmail, normalizeImpact7Email } from './email.js';
 
 test('isValidEmail: 유효 형식', () => {
   assert.equal(isValidEmail('a@b.com'), true);
@@ -17,4 +17,21 @@ test('isValidEmail: 비문자열은 false', () => {
   assert.equal(isValidEmail(null), false);
   assert.equal(isValidEmail(undefined), false);
   assert.equal(isValidEmail(123), false);
+});
+
+test('normalizeImpact7Email: 구 도메인만 정본으로 치환', () => {
+  assert.equal(normalizeImpact7Email('edward@gw.impact7.kr'), 'edward@impact7.kr');
+  assert.equal(normalizeImpact7Email('Edward@GW.IMPACT7.KR'), 'Edward@impact7.kr');
+  assert.equal(normalizeImpact7Email('edward@impact7.kr'), 'edward@impact7.kr');
+  assert.equal(normalizeImpact7Email('edward@gmail.com'), 'edward@gmail.com');
+});
+
+test('normalizeImpact7Email: 끝이 아닌 위치의 구 도메인은 그대로', () => {
+  assert.equal(normalizeImpact7Email('a@gw.impact7.kr.example.com'), 'a@gw.impact7.kr.example.com');
+});
+
+test('normalizeImpact7Email: nullish·비문자열은 문자열로', () => {
+  assert.equal(normalizeImpact7Email(null), '');
+  assert.equal(normalizeImpact7Email(undefined), '');
+  assert.equal(normalizeImpact7Email(''), '');
 });

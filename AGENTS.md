@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 478개 통과.
+- 테스트: `npm test` (`node --test`). 현재 502개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -64,6 +64,22 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `reconcileEnrollments` | fn | `(status, enrollments, { dateStr?, previousStatus? }?) → { enrollments, valid, reason? }` — 비원 전환 시 기타만 보존. 내신·자유학기는 같은 정규계정의 정규수업반 필수. 휴원·퇴원→재원은 활성 정규계정 필수. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
 | `studentCategory` | fn | `(status) → '재원생' \| '비원생'` |
 | `selectableStatuses` | fn | `(current, isNew) → string[]` |
+
+### `./enrollment-contract` — `enrollment-contract.js`
+
+enrollments 배열 **전수** 계약 검증. `firestore.rules`가 index 0~4로 펼쳐 검사하던 것(상한 5)을 대체하므로 **상한이 없고**, 특강·기타 다중 보유가 계약대로 허용된다. 서버 callable과 클라 저장 전 사전검증이 같은 함수를 쓴다. 계약 정본은 루트 `AGENTS.md` 「수업계열 도메인 계약」.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `validateEnrollmentContract` | fn | `(enrollments, { status }?) → { valid, errors: [{ code, index, message }] }` — 항목당 첫 위반만 보고. `message`는 사용자에게 그대로 노출되는 한국어. 배열이 아닌 입력은 빈 배열로 취급(배열 여부는 호출자 스키마 검증 책임) |
+
+| code | 검사 축 |
+|------|--------|
+| `E_ACCOUNT_TYPE` | `account_type` ∈ `ACCOUNT_TYPES` — 누락·빈 값 거부(파생하지 않음) |
+| `E_CLASS_TYPE` | `account_type` × `class_type` 조합 유효(`isValidEnrollmentClassType`) — `class_type` 누락도 거부 |
+| `E_ACCOUNT_ID` | `account_id` 비어 있지 않은 문자열 |
+| `E_STATUS` | enrollable 4종(재원·등원예정·실휴원·가휴원)이 아닌 status는 enrollments가 비었거나 전부 기타계열만 허용 |
+| `E_REGULAR_BASE` | 내신·자유학기 항목은 같은 `account_id`의 (정규, 정규) base가 배열에 존재 |
 
 ### `./enrollment-derivation` — `enrollment-derivation.js`
 
@@ -144,6 +160,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `isValidEmail` | fn | `(email) → boolean` — `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`, 비문자열 → false. HR 여러 화면이 복제하던 정규식 통일 |
+| `normalizeImpact7Email` | fn | `(email) → string` — 끝의 `@gw.impact7.kr`(대소문자 무관)을 정본 `@impact7.kr`로 치환, nullish → `''`. `history_logs.google_login_id`·`updated_by` 등 작성자 필드 저장 표기 SSoT |
 
 ### `./ai-model-policy` — `ai-model-policy.js`
 

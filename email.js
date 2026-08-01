@@ -5,3 +5,10 @@
 export function isValidEmail(email) {
   return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
+
+// 구 도메인(@gw.impact7.kr) 계정의 저장 표기를 정본(@impact7.kr)으로 통일.
+// history_logs·updated_by 등 작성자 필드의 표기가 앱마다 갈리는 것을 막는다.
+/** @param {unknown} email */
+export function normalizeImpact7Email(email) {
+  return String(email || '').replace(/@gw\.impact7\.kr$/i, '@impact7.kr');
+}
