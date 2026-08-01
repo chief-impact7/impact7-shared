@@ -92,7 +92,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `createPromoteEnrollPending` | fn | `(firebase, { idField?, batchUpdate? }) → async (students, today) → pending[]` — 오늘 활성(시작됐고 안 끝난) enrollment 필요, 200명 단위 batch 분할 |
+| `createPromoteEnrollPending` | fn | `(firebase, { idField?, batchUpdate?, actor? }) → async (students, today) → pending[]` — 오늘 활성(시작됐고 안 끝난) enrollment 필요, 200명 단위 batch 분할. `actor`는 로그인 이메일을 돌려주는 함수로, history_logs의 `google_login_id`에 기록된다. firestore.rules가 이 값을 `request.auth.token.email`과 대조하므로 소비자는 반드시 주입해야 한다 |
 
 ### `./expected-arrival` — `expected-arrival.js`
 
