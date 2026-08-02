@@ -5,6 +5,7 @@ const AI_MODEL_POLICIES = Object.freeze({
   'parent-message': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
   'consultation-title': Object.freeze([GEMINI_FLASH_PRIMARY]),
   'exam-general-text': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
+  'student-report': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
 });
 
 export function aiModelSequence(feature) {

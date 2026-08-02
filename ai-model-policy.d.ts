@@ -1,7 +1,8 @@
 export type AiModelPolicyFeature =
   | 'parent-message'
   | 'consultation-title'
-  | 'exam-general-text';
+  | 'exam-general-text'
+  | 'student-report';
 
 export const GEMINI_FLASH_PRIMARY: 'gemini-3.6-flash';
 export const GEMINI_FLASH_FALLBACK: 'gemini-3.5-flash';

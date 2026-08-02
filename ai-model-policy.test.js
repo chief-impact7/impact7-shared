@@ -12,6 +12,7 @@ test('기능별 3.6 기본 모델과 지정된 3.5 폴백을 한 곳에서 결�
   assert.deepEqual(aiModelSequence('parent-message'), [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]);
   assert.deepEqual(aiModelSequence('consultation-title'), [GEMINI_FLASH_PRIMARY]);
   assert.deepEqual(aiModelSequence('exam-general-text'), [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]);
+  assert.deepEqual(aiModelSequence('student-report'), [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]);
 });
 
 test('학부모 총평은 3.6 실패 시 3.5로 폴백', async () => {
