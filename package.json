@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.53.0",
+  "version": "1.54.0",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -11,6 +11,7 @@
     "./expected-arrival": "./expected-arrival.js",
     "./attendance-log": "./attendance-log.js",
     "./enrollment-derivation": "./enrollment-derivation.js",
+    "./enrollment-normalize": "./enrollment-normalize.js",
     "./class-move": "./class-move.js",
     "./promote-enroll": "./promote-enroll.js",
     "./student-number": "./student-number.js",

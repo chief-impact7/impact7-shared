@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 510개 통과.
+- 테스트: `npm test` (`node --test`). 현재 518개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -93,6 +93,16 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `isNaesinActiveAt` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → boolean` — 기준일 내신기간 활성 여부. 내신 active 판정은 로컬 재구현 말고 이 함수 사용(current는 호출자가 날짜 필터한 활성 enrollment 배열) |
 | `deriveClassPeriodHistory` | fn | `(enrollments, classSettings, { enrollmentCode? }?) → [{ class_type, code, start_date, end_date, account_id?, account_type? }]` — 명시 기간 존재를 계정별 판정 |
 | `deriveLevelPeriod` | fn | `(enrollments, todayStr) → { start: string\|null, label: string }` |
+
+### `./enrollment-normalize` — `enrollment-normalize.js`
+
+레거시 flat 반 필드(`level_symbol`·`class_number`·`day`·`start_date`…) → `enrollments` 변환과 day·class_type 정규화. DB `app.js`·DSC `data-layer.js`·`firestore-helpers.js`에 3벌로 갈라져 있던 구현의 통합 정본(2026-08-02). 반 정보 증거에 `class_type`을 세지 않는다 — 상담·퇴원 문서가 빈 '정규' enrollment로 둔갑하던 회로 차단. 기존 `enrollments`가 있으면 그대로 반환(로드 시 표시용, 저장 아님).
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `normalizeEnrollments` | fn | `(studentData) → enrollment[]` — 레거시 반 정보(level_symbol/level_code·class_number·start_date·special_start_date·day)가 전무하면 `[]`. 숫자뿐인 level_symbol은 class_number로 이동. 복수 class_type은 항목 분리. 특강은 special_start/end_date 우선 |
+| `normalizeDays` | fn | `(day) → string[]` — `"월요일 수요일"`·`["월요일","수"]`·`"화,목"` → `['월','수']` 류. falsy → `[]` |
+| `normalizeClassTypes` | fn | `(ct) → string[]` — falsy → `['정규']`, 문자열은 `,·공백` 분리 |
 
 ### `./class-move` — `class-move.js`
 

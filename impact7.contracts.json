@@ -5,7 +5,7 @@
     {
       "id": "student-lifecycle",
       "signals": ["학생 상태", "재원", "퇴원", "휴원", "등원예정", "수업계열", "수강계열", "정규수업", "내신수업", "자유학기수업", "특강수업", "기타수업", "enrollment", "enrollment 계약 검증", "수강계정", "반 이동", "승격"],
-      "exports": ["./enrollment-status", "./enrollment-contract", "./enrollment-derivation", "./class-move", "./promote-enroll"],
+      "exports": ["./enrollment-status", "./enrollment-contract", "./enrollment-derivation", "./enrollment-normalize", "./class-move", "./promote-enroll"],
       "consumers": ["db", "dsc", "exam", "functions"]
     },
     {
