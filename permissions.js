@@ -45,7 +45,18 @@ export const PERMISSION_GROUPS = [
     items: [
       { key: 'canManageClasses', label: '반 편성·관리', apps: ['DSC'], enforced: 'none' },
       { key: 'canManageAcademicSettings', label: '학기·학년 승급 설정', apps: ['DB'], enforced: 'none' },
-      { key: 'canApproveLeaveRequests', label: '휴원·퇴원 승인', apps: ['DB', 'DSC'], enforced: 'none' },
+    ],
+  },
+  {
+    key: 'requests',
+    title: '요청서',
+    items: [
+      { key: 'canCreateLeaveRequests', label: '요청서작성', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canCreateLeaveRequestsOnBehalf', label: '요청서대리작성', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canApproveFacultyLeaveRequests', label: '교수부승인', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canApproveAdministrationLeaveRequests', label: '행정부승인', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canEditLeaveRequests', label: '요청서변경', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canEditLeaveRequestsOnBehalf', label: '요청서대리변경', apps: ['DB', 'DSC'], enforced: 'rules' },
     ],
   },
   {
@@ -139,6 +150,23 @@ const permissionKeys = (items) => items.flatMap((item) => (
 ));
 
 export const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((group) => permissionKeys(group.items));
+
+export function hasRequestPermission(hrUser, permission) {
+  return ['owner', 'principal'].includes(hrUser?.role)
+    || hrUser?.permissions?.[permission] === true;
+}
+
+export function canCreateLeaveRequest(hrUser) {
+  return hasRequestPermission(hrUser, 'canCreateLeaveRequests')
+    || hasRequestPermission(hrUser, 'canCreateLeaveRequestsOnBehalf');
+}
+
+export function canEditLeaveRequest(hrUser, isAuthor) {
+  return hasRequestPermission(
+    hrUser,
+    isAuthor ? 'canEditLeaveRequests' : 'canEditLeaveRequestsOnBehalf',
+  );
+}
 
 // 오너/원장만 부여·회수할 수 있는 민감 권한.
 export const SENSITIVE_PERMISSION_KEYS = ['canViewPopulationStats', 'canViewClassCounts'];

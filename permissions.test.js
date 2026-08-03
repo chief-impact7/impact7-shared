@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import {
   PERMISSION_GROUPS,
   ALL_PERMISSION_KEYS,
+  canCreateLeaveRequest,
+  canEditLeaveRequest,
   SENSITIVE_PERMISSION_KEYS,
 } from './permissions.js';
 
@@ -17,8 +19,8 @@ test('키 중복 없음', () => {
   assert.equal(seen.size, ALL_PERMISSION_KEYS.length);
 });
 
-test('ALL_PERMISSION_KEYS 개수 46', () => {
-  assert.equal(ALL_PERMISSION_KEYS.length, 46);
+test('ALL_PERMISSION_KEYS 개수 51', () => {
+  assert.equal(ALL_PERMISSION_KEYS.length, 51);
 });
 
 test('모든 item에 key/label/apps/enforced 존재', () => {
@@ -84,6 +86,39 @@ test('인사 그룹은 온보딩·계약서와 부서별 급여약정서 권한�
       ]],
     ],
   );
+});
+
+test('요청서 그룹은 작성·대리작성·부서별 승인·변경 권한을 제공한다', () => {
+  const requests = PERMISSION_GROUPS.find((group) => group.key === 'requests');
+
+  assert.deepEqual(requests, {
+    key: 'requests',
+    title: '요청서',
+    items: [
+      { key: 'canCreateLeaveRequests', label: '요청서작성', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canCreateLeaveRequestsOnBehalf', label: '요청서대리작성', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canApproveFacultyLeaveRequests', label: '교수부승인', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canApproveAdministrationLeaveRequests', label: '행정부승인', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canEditLeaveRequests', label: '요청서변경', apps: ['DB', 'DSC'], enforced: 'rules' },
+      { key: 'canEditLeaveRequestsOnBehalf', label: '요청서대리변경', apps: ['DB', 'DSC'], enforced: 'rules' },
+    ],
+  });
+});
+
+test('요청서 작성은 작성 또는 대리작성 권한으로 허용한다', () => {
+  assert.equal(canCreateLeaveRequest({ permissions: { canCreateLeaveRequests: true } }), true);
+  assert.equal(canCreateLeaveRequest({ permissions: { canCreateLeaveRequestsOnBehalf: true } }), true);
+  assert.equal(canCreateLeaveRequest({ permissions: {} }), false);
+});
+
+test('요청서 변경은 본인과 대리 권한을 구분하고 오너는 모두 허용한다', () => {
+  const editor = { permissions: { canEditLeaveRequests: true } };
+  const proxy = { permissions: { canEditLeaveRequestsOnBehalf: true } };
+
+  assert.equal(canEditLeaveRequest(editor, true), true);
+  assert.equal(canEditLeaveRequest(editor, false), false);
+  assert.equal(canEditLeaveRequest(proxy, false), true);
+  assert.equal(canEditLeaveRequest({ role: 'owner', permissions: {} }, false), true);
 });
 
 test('중첩 item의 권한 키도 ALL_PERMISSION_KEYS에 포함된다', () => {
