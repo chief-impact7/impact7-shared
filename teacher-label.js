@@ -3,10 +3,11 @@
 // 강사 데이터의 원본은 impact7db의 HR 직원현황(staff)이다. 강사는 부서 '교수',
 // 재직 강사는 여기에 staff-status 파생 재직 조건을 더한다. 저장 status는 실체화
 // 시점에 따라 stale할 수 있으므로 재직 판정에 직접 사용하지 않는다.
-// 표시는 영어이름 첫 토큰에 첫 글자만 대문자 — 'Edward Lee' → 'Edward',
+// 표시는 Preferred Name 첫 토큰에 첫 글자만 대문자 — 'Edward Lee' → 'Edward',
 // 'KEN' → 'Ken'. 이메일 로컬파트(edward@…)와 소문자 비교로 매칭한다.
 // 소비처: impact7db(반 설정), impact7HR(직원현황), payments(미러 동기화).
 import { effectiveStaffStatus } from './staff-status.js';
+import { academyAccountId } from './staff-label.js';
 
 export function isTeacher(staff) {
   return staff?.department === '교수';
@@ -16,16 +17,15 @@ export function isEmployedTeacher(staff, today) {
   return isTeacher(staff) && effectiveStaffStatus(staff, today) === 'active';
 }
 
-export function teacherDisplayName(englishName) {
-  if (typeof englishName !== 'string') return '';
-  const first = englishName.trim().split(/\s+/)[0];
+export function teacherDisplayName(preferredName) {
+  if (typeof preferredName !== 'string') return '';
+  const first = preferredName.trim().split(/\s+/)[0];
   if (!first) return '';
   return first[0].toUpperCase() + first.slice(1).toLowerCase();
 }
 
 export function teacherKeyOfStaff(staff) {
-  const englishName = teacherDisplayName(staff?.englishName);
-  return englishName ? englishName.toLowerCase() : staff?.email || '';
+  return academyAccountId(staff);
 }
 
 // 내부 도메인 — 구(@gw.impact7.kr)·신(@impact7.kr)만 같은 사람으로 로컬파트 병합.
@@ -44,8 +44,7 @@ export function isSameTeacher(a, b) {
 }
 
 export function isTeacherStaffIdentity(staff, teacher) {
-  return isSameTeacher(teacherKeyOfStaff(staff), teacher)
-    || isSameTeacher(staff?.email, teacher);
+  return isSameTeacher(teacherKeyOfStaff(staff), teacher);
 }
 
 // 구(@gw.impact7.kr)·신(@impact7.kr) 메일이 공존하는 teachers 목록을 사람당 1건으로 정규화.

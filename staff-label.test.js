@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { staffLabel } from './staff-label.js';
+import * as staffName from './staff-label.js';
+
+const { academyAccountId, staffDisplayName, staffLabel, staffPreferredName } = staffName;
+
+test('Preferred Name 해석 API를 제공한다', () => {
+  assert.equal(typeof academyAccountId, 'function');
+  assert.equal(typeof staffPreferredName, 'function');
+  assert.equal(typeof staffDisplayName, 'function');
+});
 
 test('이메일 → @ 앞부분만', () => {
   assert.equal(staffLabel('hong@impact7.kr'), 'hong');
@@ -21,4 +29,37 @@ test('비문자열(null/undefined/숫자) → 빈 문자열', () => {
   assert.equal(staffLabel(null), '');
   assert.equal(staffLabel(undefined), '');
   assert.equal(staffLabel(123), '');
+});
+
+test('Preferred Name은 수동값이 학원 계정 아이디보다 우선한다', () => {
+  const staff = {
+    name: '김원장',
+    preferredName: 'Alice',
+    academyAccountId: 'owner',
+    email: 'owner@impact7.kr',
+  };
+  assert.equal(staffPreferredName(staff), 'Alice');
+  assert.equal(staffDisplayName(staff), 'Alice');
+});
+
+test('수동값이 없으면 학원 계정 아이디가 기본 Preferred Name이다', () => {
+  assert.equal(staffPreferredName({ academyAccountId: 'owner' }), 'owner');
+  assert.equal(staffPreferredName({ email: 'teacher@gw.impact7.kr' }), 'teacher');
+  assert.equal(academyAccountId({ email: 'teacher@impact7.kr' }), 'teacher');
+});
+
+test('개인 이메일은 학원 계정 아이디로 사용하지 않는다', () => {
+  assert.equal(academyAccountId({ email: 'teacher@gmail.com' }), '');
+  assert.equal(staffPreferredName({ email: 'teacher@gmail.com' }), '');
+});
+
+test('학원 계정 아이디 형식이 아니면 식별자로 사용하지 않는다', () => {
+  assert.equal(academyAccountId({ academyAccountId: 'teacher@outside.com' }), '');
+  assert.equal(academyAccountId({ academyAccountId: 'teacher,other' }), '');
+});
+
+test('Preferred Name과 학원 계정이 없으면 표시 이름은 실명이다', () => {
+  const staff = { name: '김선생', email: 'teacher@gmail.com' };
+  assert.equal(staffPreferredName(staff), '');
+  assert.equal(staffDisplayName(staff), '김선생');
 });

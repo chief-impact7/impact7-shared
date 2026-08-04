@@ -58,7 +58,7 @@ test('폐기 용어 leave_pending(휴직 날짜 없음)은 재직으로 정규�
   );
 });
 
-test('영어이름 첫 토큰, 첫 글자만 대문자', () => {
+test('Preferred Name 첫 토큰, 첫 글자만 대문자', () => {
   assert.equal(teacherDisplayName('Edward Lee'), 'Edward');
   assert.equal(teacherDisplayName('KEN LEE'), 'Ken');
   assert.equal(teacherDisplayName('nami lee'), 'Nami');
@@ -74,18 +74,21 @@ test('isSameTeacher — 구·신 메일은 같은 사람, 다른 로컬파트는
   assert.equal(isSameTeacher(null, 'edward@impact7.kr'), false);
 });
 
-test('직원 이메일이 비어 있거나 개인 메일이어도 영어이름으로 담당 계정을 식별한다', () => {
-  assert.equal(teacherKeyOfStaff({ englishName: 'Aaron', email: '' }), 'aaron');
+test('Preferred Name을 바꿔도 담당 계정 식별자는 바뀌지 않는다', () => {
+  assert.equal(
+    teacherKeyOfStaff({ preferredName: 'Alice', academyAccountId: 'owner' }),
+    'owner'
+  );
   assert.equal(
     isTeacherStaffIdentity(
-      { englishName: 'Ken', email: 'rheems22@naver.com' },
+      { preferredName: 'Alice', academyAccountId: 'ken', email: 'rheems22@naver.com' },
       'ken@impact7.kr'
     ),
     true
   );
   assert.equal(
     isTeacherStaffIdentity(
-      { englishName: 'Lena', email: 'minishell789@naver.com' },
+      { preferredName: 'Lena', email: 'lena@impact7.kr' },
       'lena@impact7.kr'
     ),
     true
