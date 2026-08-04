@@ -151,7 +151,7 @@ export const PERMISSION_GROUPS = [
     key: 'admin',
     title: '관리',
     items: [
-      { key: 'canManagePermissions', label: '권한 관리', apps: ['전체'], enforced: 'rules' },
+      { key: 'canManagePermissions', label: '권한 설정·위임', apps: ['HR'], enforced: 'rules' },
     ],
   },
 ];
