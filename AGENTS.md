@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 518개 통과.
+- 테스트: `npm test` (`node --test`). 현재 530개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -221,6 +221,9 @@ Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase �
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `staffLabel` | fn | `(emailOrId) → string` — `@` 앞만, 이미 ID면 통과 |
+| `academyAccountId` | fn | `(staff) → string` — 명시 `academyAccountId` 우선, 없으면 내부 도메인 이메일의 로컬파트. 개인 이메일은 제외 |
+| `staffPreferredName` | fn | `(staff) → string` — 수동 `preferredName` 우선, 없으면 학원 계정 ID |
+| `staffDisplayName` | fn | `(staff) → string` — Preferred Name 우선, 없으면 실명 |
 
 ### `./staff-status` — `staff-status.js`
 
@@ -240,9 +243,9 @@ Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase �
 |------|------|---------|
 | `isTeacher` | fn | `(staff) → boolean` — 부서가 '교수'인 강사 |
 | `isEmployedTeacher` | fn | `(staff, today) → boolean` — 강사 ∧ staff-status 파생 재직 (저장 status 아님) |
-| `teacherDisplayName` | fn | `(englishName) → string` — 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
-| `teacherKeyOfStaff` | fn | `(staff) → string` — 영어이름 첫 토큰 소문자 우선, 없으면 email |
-| `isTeacherStaffIdentity` | fn | `(staff, teacher) → boolean` — 영어이름 key 또는 이메일로 동일 강사 판정 |
+| `teacherDisplayName` | fn | `(preferredName) → string` — Preferred Name 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
+| `teacherKeyOfStaff` | fn | `(staff) → string` — 학원 계정 ID |
+| `isTeacherStaffIdentity` | fn | `(staff, teacher) → boolean` — 학원 계정 ID로 동일 강사 판정 |
 | `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로. 외부 도메인은 병합하지 않음 |
 | `isSameTeacher` | fn | `(a, b) → boolean` — 내부 도메인(impact7.kr·gw.impact7.kr, 도메인 없는 ID 포함)만 로컬파트 비교, 외부 도메인은 완전 일치 필요 |
 
