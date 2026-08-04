@@ -3,8 +3,11 @@ import { test } from 'node:test';
 import {
   PERMISSION_GROUPS,
   ALL_PERMISSION_KEYS,
+  hasAppAccess,
+  hasPermission,
   canCreateLeaveRequest,
   canEditLeaveRequest,
+  hasRequestPermission,
   SENSITIVE_PERMISSION_KEYS,
 } from './permissions.js';
 
@@ -105,23 +108,31 @@ test('요청서 그룹은 작성·대리작성·부서별 승인·변경 권한�
   });
 });
 
-test('앱 접근 그룹은 직원용 소비앱 8종을 제공하고 미연동 상태를 명시한다', () => {
+test('앱 접근 그룹은 직원용 소비앱 8종을 클라이언트에서 강제한다', () => {
   const appAccess = PERMISSION_GROUPS.find((group) => group.key === 'app-access');
 
   assert.deepEqual(appAccess, {
     key: 'app-access',
     title: '앱 접근',
     items: [
-      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'none' },
-      { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'none' },
-      { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'none' },
-      { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'none' },
-      { key: 'canAccessDashboard', label: '인원 현황', apps: ['대시보드'], enforced: 'none' },
-      { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'none' },
-      { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'none' },
-      { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'none' },
+      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'client' },
+      { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'client' },
+      { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'client' },
+      { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'client' },
+      { key: 'canAccessDashboard', label: '인원 현황', apps: ['대시보드'], enforced: 'client' },
+      { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'client' },
+      { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'client' },
+      { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'client' },
     ],
   });
+});
+
+test('앱 접근은 누락·false를 차단하고 명시적 true와 오너·원장을 허용한다', () => {
+  assert.equal(hasRequestPermission({ role: 'staff', permissions: {} }, 'canAccessImpact7DB'), false);
+  assert.equal(hasRequestPermission({ role: 'staff', permissions: { canAccessImpact7DB: false } }, 'canAccessImpact7DB'), false);
+  assert.equal(hasRequestPermission({ role: 'staff', permissions: { canAccessImpact7DB: true } }, 'canAccessImpact7DB'), true);
+  assert.equal(hasRequestPermission({ role: 'owner', permissions: {} }, 'canAccessImpact7DB'), true);
+  assert.equal(hasRequestPermission({ role: 'principal', permissions: {} }, 'canAccessImpact7DB'), true);
 });
 
 test('요청서 작성은 작성 또는 대리작성 권한으로 허용한다', () => {
@@ -156,6 +167,16 @@ test('SENSITIVE_PERMISSION_KEYS ⊆ ALL_PERMISSION_KEYS', () => {
   for (const key of SENSITIVE_PERMISSION_KEYS) {
     assert.ok(all.has(key), `SENSITIVE 키가 카탈로그에 없음: ${key}`);
   }
+});
+
+test('공용 권한 helper는 앱 접근과 기능 권한을 구분한다', () => {
+  assert.equal(hasPermission({ role: 'owner', permissions: {} }, 'canManageContracts'), true);
+  assert.equal(hasPermission({ permissions: { canManageContracts: true } }, 'canManageContracts'), true);
+  assert.equal(hasPermission({ permissions: {} }, 'canManageContracts'), false);
+
+  assert.equal(hasAppAccess({ role: 'owner', permissions: {} }, 'canAccessImpact7HR'), true);
+  assert.equal(hasAppAccess({ permissions: {} }, 'canAccessImpact7HR'), false);
+  assert.equal(hasAppAccess({ permissions: { canAccessImpact7HR: false } }, 'canAccessImpact7HR'), false);
 });
 
 test('그룹 key 중복 없음', () => {

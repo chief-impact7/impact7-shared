@@ -6,21 +6,21 @@
 // enforced 값의 의미:
 //   'rules'  — firestore.rules 서버 강제 (클라 우회 불가)
 //   'client' — 앱 화면 제어만 (서버 강제 없음)
-//   'none'   — 카탈로그만 (앱 연동 예정, 아직 미강제)
+//   'none'   — 카탈로그만 (앱 미연동, 아직 미강제)
 
 export const PERMISSION_GROUPS = [
   {
     key: 'app-access',
     title: '앱 접근',
     items: [
-      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'none' },
-      { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'none' },
-      { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'none' },
-      { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'none' },
-      { key: 'canAccessDashboard', label: '인원 현황', apps: ['대시보드'], enforced: 'none' },
-      { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'none' },
-      { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'none' },
-      { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'none' },
+      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'client' },
+      { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'client' },
+      { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'client' },
+      { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'client' },
+      { key: 'canAccessDashboard', label: '인원 현황', apps: ['대시보드'], enforced: 'client' },
+      { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'client' },
+      { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'client' },
+      { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'client' },
     ],
   },
   {
@@ -165,9 +165,16 @@ const permissionKeys = (items) => items.flatMap((item) => (
 
 export const ALL_PERMISSION_KEYS = PERMISSION_GROUPS.flatMap((group) => permissionKeys(group.items));
 
+export function hasPermission(user, permission) {
+  return ['owner', 'principal'].includes(user?.role) || user?.permissions?.[permission] === true;
+}
+
+export function hasAppAccess(user, permission) {
+  return hasPermission(user, permission);
+}
+
 export function hasRequestPermission(hrUser, permission) {
-  return ['owner', 'principal'].includes(hrUser?.role)
-    || hrUser?.permissions?.[permission] === true;
+  return hasPermission(hrUser, permission);
 }
 
 export function canCreateLeaveRequest(hrUser) {
