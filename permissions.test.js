@@ -22,8 +22,8 @@ test('키 중복 없음', () => {
   assert.equal(seen.size, ALL_PERMISSION_KEYS.length);
 });
 
-test('ALL_PERMISSION_KEYS 개수 59', () => {
-  assert.equal(ALL_PERMISSION_KEYS.length, 59);
+test('ALL_PERMISSION_KEYS 개수 60', () => {
+  assert.equal(ALL_PERMISSION_KEYS.length, 60);
 });
 
 test('모든 item에 key/label/apps/enforced 존재', () => {
@@ -108,7 +108,7 @@ test('요청서 그룹은 작성·대리작성·부서별 승인·변경 권한�
   });
 });
 
-test('앱 접근 그룹은 직원용 소비앱 8종을 클라이언트에서 강제한다', () => {
+test('앱 접근 그룹은 직원용 소비앱 9종을 강제한다', () => {
   const appAccess = PERMISSION_GROUPS.find((group) => group.key === 'app-access');
 
   assert.deepEqual(appAccess, {
@@ -123,6 +123,7 @@ test('앱 접근 그룹은 직원용 소비앱 8종을 클라이언트에서 강
       { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'client' },
       { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'client' },
       { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'client' },
+      { key: 'canAccessImpact7Tablet', label: '태블릿 출결', apps: ['태블릿'], enforced: 'client' },
     ],
   });
 });

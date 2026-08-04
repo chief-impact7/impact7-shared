@@ -21,6 +21,7 @@ export const PERMISSION_GROUPS = [
       { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'client' },
       { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'client' },
       { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'client' },
+      { key: 'canAccessImpact7Tablet', label: '태블릿 출결', apps: ['태블릿'], enforced: 'client' },
     ],
   },
   {
