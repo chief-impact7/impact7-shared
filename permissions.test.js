@@ -19,8 +19,8 @@ test('키 중복 없음', () => {
   assert.equal(seen.size, ALL_PERMISSION_KEYS.length);
 });
 
-test('ALL_PERMISSION_KEYS 개수 51', () => {
-  assert.equal(ALL_PERMISSION_KEYS.length, 51);
+test('ALL_PERMISSION_KEYS 개수 59', () => {
+  assert.equal(ALL_PERMISSION_KEYS.length, 59);
 });
 
 test('모든 item에 key/label/apps/enforced 존재', () => {
@@ -101,6 +101,25 @@ test('요청서 그룹은 작성·대리작성·부서별 승인·변경 권한�
       { key: 'canApproveAdministrationLeaveRequests', label: '행정부승인', apps: ['DB', 'DSC'], enforced: 'rules' },
       { key: 'canEditLeaveRequests', label: '요청서변경', apps: ['DB', 'DSC'], enforced: 'rules' },
       { key: 'canEditLeaveRequestsOnBehalf', label: '요청서대리변경', apps: ['DB', 'DSC'], enforced: 'rules' },
+    ],
+  });
+});
+
+test('앱 접근 그룹은 직원용 소비앱 8종을 제공하고 미연동 상태를 명시한다', () => {
+  const appAccess = PERMISSION_GROUPS.find((group) => group.key === 'app-access');
+
+  assert.deepEqual(appAccess, {
+    key: 'app-access',
+    title: '앱 접근',
+    items: [
+      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'none' },
+      { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'none' },
+      { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'none' },
+      { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'none' },
+      { key: 'canAccessDashboard', label: '인원 현황', apps: ['대시보드'], enforced: 'none' },
+      { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'none' },
+      { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'none' },
+      { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'none' },
     ],
   });
 });

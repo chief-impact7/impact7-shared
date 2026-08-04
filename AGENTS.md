@@ -354,7 +354,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
-| `PERMISSION_GROUPS` | const | `[{ key, title, items: PermissionEntry[] }]` — 항목은 권한 `{ key, label, apps, enforced }` 또는 재귀 하위 목록 `{ id, label, children }`. 그룹 12종. `enforced`: `'rules'`(firestore.rules 서버 강제) \| `'client'`(앱 화면 제어만) \| `'none'`(카탈로그만) |
+| `PERMISSION_GROUPS` | const | `[{ key, title, items: PermissionEntry[] }]` — 항목은 권한 `{ key, label, apps, enforced }` 또는 재귀 하위 목록 `{ id, label, children }`. 그룹 13종. `enforced`: `'rules'`(firestore.rules 서버 강제) \| `'client'`(앱 화면 제어만) \| `'none'`(카탈로그만) |
 | `ALL_PERMISSION_KEYS` | const | `PERMISSION_GROUPS`의 중첩 항목을 재귀 순회한 권한 키 51종 |
 | `SENSITIVE_PERMISSION_KEYS` | const | `['canViewPopulationStats', 'canViewClassCounts']` — 오너/원장만 부여·회수 |
 

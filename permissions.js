@@ -10,6 +10,20 @@
 
 export const PERMISSION_GROUPS = [
   {
+    key: 'app-access',
+    title: '앱 접근',
+    items: [
+      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'none' },
+      { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'none' },
+      { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'none' },
+      { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'none' },
+      { key: 'canAccessDashboard', label: '인원 현황', apps: ['대시보드'], enforced: 'none' },
+      { key: 'canAccessImpact7Board', label: '업무 보드', apps: ['board'], enforced: 'none' },
+      { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'none' },
+      { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'none' },
+    ],
+  },
+  {
     key: 'sensitive',
     title: '민감 지표',
     items: [
