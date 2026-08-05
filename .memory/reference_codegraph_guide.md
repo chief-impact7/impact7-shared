@@ -15,7 +15,7 @@ metadata:
 ## 패키지 구조
 
 ```
-@impact7/shared v1.26.1 — DB·DSC·HR·exam·qbank가 import하는 순수 함수 라이브러리
+@impact7/shared v1.26.1 — DB·DSC·HR·exam이 import하는 순수 함수 라이브러리
 ```
 
 ## export map → 파일 매핑
