@@ -130,7 +130,7 @@ export const PERMISSION_GROUPS = [
         ],
       },
       { key: 'canViewEmployees', label: '직원 정보 열람', apps: ['HR'], enforced: 'none' },
-      { key: 'canManageEmployees', label: '직원 관리', apps: ['HR'], enforced: 'none' },
+      { key: 'canManageEmployees', label: '직원 관리', apps: ['HR'], enforced: 'rules' },
       { key: 'canViewStaffAttendance', label: '직원 근태 열람', apps: ['HR'], enforced: 'none' },
       { key: 'canManageStaffAttendance', label: '직원 근태 보정', apps: ['HR', 'DB'], enforced: 'none' },
       { key: 'canSignContract', label: '계약 서명', apps: ['HR'], enforced: 'client' },

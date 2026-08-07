@@ -89,6 +89,10 @@ test('인사 그룹은 온보딩·계약서와 부서별 급여약정서 권한�
       ]],
     ],
   );
+  assert.equal(
+    hr.items.find((item) => !('children' in item) && item.key === 'canManageEmployees')?.enforced,
+    'rules',
+  );
 });
 
 test('요청서 그룹은 작성·대리작성·부서별 승인·변경 권한을 제공한다', () => {
