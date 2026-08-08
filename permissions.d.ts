@@ -27,6 +27,9 @@ export interface PermissionCatalogGroup {
 export const PERMISSION_GROUPS: PermissionCatalogGroup[];
 export const ALL_PERMISSION_KEYS: string[];
 export const SENSITIVE_PERMISSION_KEYS: string[];
+export type PermissionStaffRole = 'member' | 'manager' | 'supervisor' | 'director';
+export function canManageStaffPermissions(role: unknown): boolean;
+export function canManageStaffRole(actorRole: unknown, targetRole: unknown): boolean;
 export function hasPermission(user: PermissionUser | null | undefined, permission: string): boolean;
 export function hasAppAccess(user: PermissionUser | null | undefined, permission: string): boolean;
 export function hasRequestPermission(user: PermissionUser | null | undefined, permission: string): boolean;
