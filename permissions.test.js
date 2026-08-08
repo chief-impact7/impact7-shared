@@ -7,11 +7,29 @@ import {
   hasPermission,
   canCreateLeaveRequest,
   canEditLeaveRequest,
+  canManageStaffPermissions,
+  canManageStaffRole,
   hasRequestPermission,
   SENSITIVE_PERMISSION_KEYS,
 } from './permissions.js';
 
 const VALID_ENFORCED = new Set(['rules', 'client', 'none']);
+
+test('권한 관리는 자기보다 낮은 직원 역할에만 위임한다', () => {
+  assert.equal(canManageStaffPermissions('member'), false);
+  assert.equal(canManageStaffPermissions('manager'), true);
+  assert.equal(canManageStaffPermissions('supervisor'), true);
+  assert.equal(canManageStaffPermissions('director'), true);
+  assert.equal(canManageStaffRole('manager', 'member'), true);
+  assert.equal(canManageStaffRole('manager', 'manager'), false);
+  assert.equal(canManageStaffRole('supervisor', 'manager'), true);
+  assert.equal(canManageStaffRole('supervisor', 'supervisor'), false);
+  assert.equal(canManageStaffRole('director', 'supervisor'), true);
+  assert.equal(canManageStaffRole('director', 'director'), false);
+  assert.equal(canManageStaffPermissions('unknown'), false);
+  assert.equal(canManageStaffRole('manager', 'unknown'), false);
+  assert.equal(canManageStaffRole('unknown', 'member'), false);
+});
 
 test('키 중복 없음', () => {
   const seen = new Set();
@@ -69,10 +87,10 @@ test('enforced 값은 rules/client/none 3종만', () => {
   }
 });
 
-test('인사 그룹은 온보딩·계약서와 부서별 급여약정서 권한을 제공한다', () => {
+test('채용 그룹은 온보딩·계약서와 부서별 급여약정서 권한을 제공한다', () => {
   const hr = PERMISSION_GROUPS.find((group) => group.key === 'hr');
   assert.ok(hr);
-  assert.equal(hr.title, '인사');
+  assert.equal(hr.title, '채용');
   assert.deepEqual(
     hr.items.filter((item) => !('children' in item)).slice(0, 2).map((item) => [item.key, item.label]),
     [

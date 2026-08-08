@@ -8,6 +8,18 @@
 //   'client' — 앱 화면 제어만 (서버 강제 없음)
 //   'none'   — 카탈로그만 (앱 미연동, 아직 미강제)
 
+const STAFF_ROLE_RANK = Object.freeze({ member: 0, manager: 1, supervisor: 2, director: 3 });
+
+export function canManageStaffPermissions(role) {
+  return Object.hasOwn(STAFF_ROLE_RANK, role) && STAFF_ROLE_RANK[role] > 0;
+}
+
+export function canManageStaffRole(actorRole, targetRole) {
+  return Object.hasOwn(STAFF_ROLE_RANK, actorRole)
+    && Object.hasOwn(STAFF_ROLE_RANK, targetRole)
+    && STAFF_ROLE_RANK[actorRole] > STAFF_ROLE_RANK[targetRole];
+}
+
 export const PERMISSION_GROUPS = [
   {
     key: 'app-access',
@@ -117,7 +129,7 @@ export const PERMISSION_GROUPS = [
   },
   {
     key: 'hr',
-    title: '인사',
+    title: '채용',
     items: [
       { key: 'canManageOnboarding', label: '온보딩', apps: ['HR'], enforced: 'rules' },
       { key: 'canManageContracts', label: '계약서', apps: ['HR'], enforced: 'rules' },
@@ -191,4 +203,4 @@ export function canEditLeaveRequest(hrUser, isAuthor) {
 }
 
 // 오너/원장만 부여·회수할 수 있는 민감 권한.
-export const SENSITIVE_PERMISSION_KEYS = ['canViewPopulationStats', 'canViewClassCounts'];
+export const SENSITIVE_PERMISSION_KEYS = ['canViewPopulationStats', 'canViewClassCounts', 'canManagePermissions'];
