@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidEmail, normalizeImpact7Email } from './email.js';
+import { isValidEmail, normalizeAcademyEmail, normalizeImpact7Email } from './email.js';
 
 test('isValidEmail: 유효 형식', () => {
   assert.equal(isValidEmail('a@b.com'), true);
@@ -34,4 +34,19 @@ test('normalizeImpact7Email: nullish·비문자열은 문자열로', () => {
   assert.equal(normalizeImpact7Email(null), '');
   assert.equal(normalizeImpact7Email(undefined), '');
   assert.equal(normalizeImpact7Email(''), '');
+});
+
+test('normalizeImpact7Email: 학원 설정을 주입하면 레거시 도메인을 해당 주 도메인으로 치환', () => {
+  const config = {
+    primaryStaffDomain: 'sample.edu',
+    legacyStaffDomains: ['old.sample.edu', 'login.sample.edu'],
+  };
+  assert.equal(normalizeImpact7Email('teacher@old.sample.edu', config), 'teacher@sample.edu');
+  assert.equal(normalizeImpact7Email('teacher@login.sample.edu', config), 'teacher@sample.edu');
+  assert.equal(normalizeImpact7Email('teacher@impact7.kr', config), 'teacher@impact7.kr');
+  assert.equal(normalizeAcademyEmail('teacher@old.sample.edu', config), 'teacher@sample.edu');
+});
+
+test('normalizeImpact7Email: 잘못된 학원 설정은 실패한다', () => {
+  assert.throws(() => normalizeImpact7Email('teacher@old.sample.edu', { legacyStaffDomains: [''] }), TypeError);
 });
