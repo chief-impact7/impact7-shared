@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 530개 통과.
+- 테스트: `npm test` (`node --test`). 현재 541개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -165,12 +165,21 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `ATTENDANCE_STATUSES` | const | `Set { '출석', '지각', '조퇴', '결석' }` |
 | `ARRIVAL_STATUSES` | const | `Set { '출석', '지각' }` — 도착 시각 기록 상태(⊂ ATTENDANCE_STATUSES) |
 
+### `./academy-config` — `academy-config.js`
+
+Firebase·DOM·외부 의존성 없는 배포 학원 설정. 미지정 값은 기존 Impact7 동작을 유지하며, 명시한 잘못된 값은 기본값으로 묵살하지 않고 `TypeError`.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|----------------|
+| `DEFAULT_ACADEMY_CONFIG` | const | `{ brandName, primaryStaffDomain, legacyStaffDomains, formContact }` — frozen Impact7 기본 설정 |
+| `defineAcademyConfig` | fn | `(config?) → frozen config` — 부분 설정 병합, 도메인 정규화·HTTPS 연락처 검증, 잘못된 명시값 fail-closed |
+
 ### `./email` — `email.js`
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `isValidEmail` | fn | `(email) → boolean` — `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`, 비문자열 → false. HR 여러 화면이 복제하던 정규식 통일 |
-| `normalizeImpact7Email` | fn | `(email) → string` — 끝의 `@gw.impact7.kr`(대소문자 무관)을 정본 `@impact7.kr`로 치환, nullish → `''`. `history_logs.google_login_id`·`updated_by` 등 작성자 필드 저장 표기 SSoT |
+| `normalizeImpact7Email` | fn | `(email, config?) → string` — 설정된 레거시 도메인을 주 도메인으로 치환. config 생략 시 `@gw.impact7.kr`→`@impact7.kr`, nullish → `''` |
 
 ### `./ai-model-policy` — `ai-model-policy.js`
 
@@ -221,9 +230,9 @@ Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase �
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `staffLabel` | fn | `(emailOrId) → string` — `@` 앞만, 이미 ID면 통과 |
-| `academyAccountId` | fn | `(staff) → string` — 명시 `academyAccountId` 우선, 없으면 내부 도메인 이메일의 로컬파트. 개인 이메일은 제외 |
-| `staffPreferredName` | fn | `(staff) → string` — 수동 `preferredName` 우선, 없으면 학원 계정 ID |
-| `staffDisplayName` | fn | `(staff) → string` — Preferred Name 우선, 없으면 실명 |
+| `academyAccountId` | fn | `(staff, config?) → string` — 명시 `academyAccountId` 우선, 없으면 설정된 내부 도메인 이메일의 로컬파트. 개인 이메일은 제외 |
+| `staffPreferredName` | fn | `(staff, config?) → string` — 수동 `preferredName` 우선, 없으면 학원 계정 ID |
+| `staffDisplayName` | fn | `(staff, config?) → string` — Preferred Name 우선, 없으면 실명 |
 
 ### `./staff-status` — `staff-status.js`
 
@@ -244,10 +253,10 @@ Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase �
 | `isTeacher` | fn | `(staff) → boolean` — 부서가 '교수'인 강사 |
 | `isEmployedTeacher` | fn | `(staff, today) → boolean` — 강사 ∧ staff-status 파생 재직 (저장 status 아님) |
 | `teacherDisplayName` | fn | `(preferredName) → string` — Preferred Name 첫 토큰, 첫 글자만 대문자 (`'Edward Lee'→'Edward'`) |
-| `teacherKeyOfStaff` | fn | `(staff) → string` — 학원 계정 ID |
-| `isTeacherStaffIdentity` | fn | `(staff, teacher) → boolean` — 학원 계정 ID로 동일 강사 판정 |
-| `canonicalizeTeacherEmails` | fn | `(emails) → string[]` — 구(@gw)·신 메일 중복을 신메일 우선 사람당 1건으로. 외부 도메인은 병합하지 않음 |
-| `isSameTeacher` | fn | `(a, b) → boolean` — 내부 도메인(impact7.kr·gw.impact7.kr, 도메인 없는 ID 포함)만 로컬파트 비교, 외부 도메인은 완전 일치 필요 |
+| `teacherKeyOfStaff` | fn | `(staff, config?) → string` — 학원 계정 ID |
+| `isTeacherStaffIdentity` | fn | `(staff, teacher, config?) → boolean` — 학원 계정 ID로 동일 강사 판정 |
+| `canonicalizeTeacherEmails` | fn | `(emails, config?) → string[]` — 설정된 레거시·주 도메인 중복을 주 도메인 우선 사람당 1건으로. 외부 도메인은 병합하지 않음 |
+| `isSameTeacher` | fn | `(a, b, config?) → boolean` — 설정된 내부 도메인과 도메인 없는 ID만 로컬파트 비교, 외부 도메인은 완전 일치 필요 |
 
 ### `./class-code` — `class-code.js`
 
@@ -309,7 +318,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `COMPONENT_SETTINGS_DEFAULTS` | const | `{ privacyConsent, marketingConsent, kakaoChannel, footer }` — frozen 기본 문구 |
-| `normalizeComponentSettings` | fn | `(value, cap?) → settings` — cap(서버 길이 제한) 주입 시 저장용, 생략 시 표시용. 공백만·비문자열 값은 기본값 유지 |
+| `normalizeComponentSettings` | fn | `(value, cap?, config?) → settings` — cap(서버 길이 제한) 주입 시 저장용, config로 브랜드·연락처 기본값 변경. 공백만·비문자열 값은 기본값 유지 |
 
 ### `./html-escape` — `html-escape.js`
 

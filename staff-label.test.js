@@ -63,3 +63,15 @@ test('Preferred Name과 학원 계정이 없으면 표시 이름은 실명이다
   assert.equal(staffPreferredName(staff), '');
   assert.equal(staffDisplayName(staff), '김선생');
 });
+
+test('사용자 지정 학원 도메인만 학원 계정으로 인정한다', () => {
+  const config = {
+    primaryStaffDomain: 'sample.edu',
+    legacyStaffDomains: ['old.sample.edu'],
+  };
+  assert.equal(academyAccountId({ email: 'teacher@sample.edu' }, config), 'teacher');
+  assert.equal(academyAccountId({ email: 'teacher@old.sample.edu' }, config), 'teacher');
+  assert.equal(academyAccountId({ email: 'teacher@impact7.kr' }, config), '');
+  assert.equal(staffPreferredName({ email: 'teacher@old.sample.edu' }, config), 'teacher');
+  assert.equal(staffDisplayName({ name: '김선생', email: 'teacher@old.sample.edu' }, config), 'teacher');
+});

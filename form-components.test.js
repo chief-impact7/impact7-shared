@@ -36,3 +36,21 @@ test("비문자열(객체·숫자) 값은 기본값으로 — '[object Object]' 
   assert.equal(result.footer.text, COMPONENT_SETTINGS_DEFAULTS.footer.text);
   assert.equal(result.footer.linkLabel, COMPONENT_SETTINGS_DEFAULTS.footer.linkLabel);
 });
+
+test('학원 설정으로 브랜드와 폼 연락처 기본값을 바꾼다', () => {
+  const config = {
+    brandName: '샘플 학원',
+    formContact: {
+      channelLabel: '채널 문의',
+      channelUrl: 'https://sample.edu/channel',
+      inquiryLabel: '상담 문의',
+      inquiryUrl: 'https://sample.edu/contact',
+    },
+  };
+  const result = normalizeComponentSettings(undefined, undefined, config);
+  assert.equal(result.kakaoChannel.label, '채널 문의');
+  assert.equal(result.kakaoChannel.url, 'https://sample.edu/channel');
+  assert.equal(result.footer.text, '샘플 학원');
+  assert.equal(result.footer.linkLabel, '상담 문의');
+  assert.equal(result.footer.linkUrl, 'https://sample.edu/contact');
+});

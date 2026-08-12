@@ -1,3 +1,5 @@
+import { defineAcademyConfig } from './academy-config.js';
+
 // impact7 공유 — 담당자/작성자 표시 라벨·Preferred Name (SSoT)
 //
 // 로그인 계정 이메일에서 도메인(@impact7.kr 등)을 떼고 아이디만 노출한다.
@@ -10,10 +12,10 @@ export function staffLabel(emailOrId) {
   return t.split('@')[0];
 }
 
-const ACADEMY_EMAIL_DOMAINS = new Set(['impact7.kr', 'gw.impact7.kr']);
 const ACADEMY_ACCOUNT_ID = /^[a-z0-9._-]+$/i;
 
-export function academyAccountId(staff) {
+export function academyAccountId(staff, config) {
+  const academy = defineAcademyConfig(config);
   const explicit = typeof staff?.academyAccountId === 'string'
     ? staff.academyAccountId.trim()
     : '';
@@ -22,18 +24,20 @@ export function academyAccountId(staff) {
   if (typeof staff?.email !== 'string') return '';
   const parts = staff.email.trim().split('@');
   const [local, domain] = parts;
-  return parts.length === 2 && local && ACADEMY_EMAIL_DOMAINS.has(domain.toLowerCase()) ? local : '';
+  const domains = new Set([academy.primaryStaffDomain, ...academy.legacyStaffDomains]);
+  return parts.length === 2 && local && domains.has(domain.toLowerCase()) ? local : '';
 }
 
-export function staffPreferredName(staff) {
+export function staffPreferredName(staff, config) {
+  const academy = defineAcademyConfig(config);
   const preferredName = typeof staff?.preferredName === 'string'
     ? staff.preferredName.trim()
     : '';
-  return preferredName || academyAccountId(staff);
+  return preferredName || academyAccountId(staff, academy);
 }
 
-export function staffDisplayName(staff) {
-  const preferredName = staffPreferredName(staff);
+export function staffDisplayName(staff, config) {
+  const preferredName = staffPreferredName(staff, config);
   if (preferredName) return preferredName;
   return typeof staff?.name === 'string' ? staff.name.trim() : '';
 }

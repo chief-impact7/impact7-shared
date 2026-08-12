@@ -8,6 +8,7 @@
 // 소비처: impact7db(반 설정), impact7HR(직원현황), payments(미러 동기화).
 import { effectiveStaffStatus } from './staff-status.js';
 import { academyAccountId } from './staff-label.js';
+import { defineAcademyConfig } from './academy-config.js';
 
 export function isTeacher(staff) {
   return staff?.department === '교수';
@@ -24,40 +25,46 @@ export function teacherDisplayName(preferredName) {
   return first[0].toUpperCase() + first.slice(1).toLowerCase();
 }
 
-export function teacherKeyOfStaff(staff) {
-  return academyAccountId(staff);
+export function teacherKeyOfStaff(staff, config) {
+  return academyAccountId(staff, config);
 }
 
-// 내부 도메인 — 구(@gw.impact7.kr)·신(@impact7.kr)만 같은 사람으로 로컬파트 병합.
+// 설정된 주·레거시 내부 도메인만 같은 사람으로 로컬파트 병합.
 // 외부 도메인(gmail 등)의 같은 로컬파트를 오병합하지 않기 위한 경계.
-const INTERNAL_DOMAINS = new Set(['impact7.kr', 'gw.impact7.kr']);
-const _isInternal = (domain) => !domain || INTERNAL_DOMAINS.has(domain); // 도메인 없는 ID는 내부로 간주
+const internalDomains = (config) => {
+  const academy = defineAcademyConfig(config);
+  return new Set([academy.primaryStaffDomain, ...academy.legacyStaffDomains]);
+};
+const _isInternal = (domain, domains) => !domain || domains.has(domain); // 도메인 없는 ID는 내부로 간주
 
 // 같은 사람인지 — 구·신 내부 메일(또는 도메인 없는 ID)은 로컬파트 비교,
 // 외부 도메인은 도메인까지 일치해야 같은 사람.
-export function isSameTeacher(a, b) {
+export function isSameTeacher(a, b, config) {
+  const domains = internalDomains(config);
   if (typeof a !== 'string' || typeof b !== 'string' || !a || !b) return false;
   const [la, da = ''] = a.toLowerCase().split('@');
   const [lb, db = ''] = b.toLowerCase().split('@');
   if (la !== lb) return false;
-  return (_isInternal(da) && _isInternal(db)) || da === db;
+  return (_isInternal(da, domains) && _isInternal(db, domains)) || da === db;
 }
 
-export function isTeacherStaffIdentity(staff, teacher) {
-  return isSameTeacher(teacherKeyOfStaff(staff), teacher);
+export function isTeacherStaffIdentity(staff, teacher, config) {
+  return isSameTeacher(teacherKeyOfStaff(staff, config), teacher, config);
 }
 
 // 구(@gw.impact7.kr)·신(@impact7.kr) 메일이 공존하는 teachers 목록을 사람당 1건으로 정규화.
 // 같은 로컬파트는 신메일(@impact7.kr)을 우선하고, 순서는 첫 등장 위치를 보존한다.
 // 외부 도메인 메일은 내부와 병합하지 않고 자체 키(로컬@도메인)로 dedup만 한다.
-export function canonicalizeTeacherEmails(emails) {
+export function canonicalizeTeacherEmails(emails, config) {
+  const academy = defineAcademyConfig(config);
+  const domains = new Set([academy.primaryStaffDomain, ...academy.legacyStaffDomains]);
   const byPerson = new Map();
   for (const email of emails ?? []) {
     if (typeof email !== 'string' || !email) continue;
     const [local, domain = ''] = email.toLowerCase().split('@');
-    const key = _isInternal(domain) ? local : `${local}@${domain}`;
+    const key = _isInternal(domain, domains) ? local : `${local}@${domain}`;
     const prev = byPerson.get(key);
-    if (!prev || domain === 'impact7.kr') byPerson.set(key, email);
+    if (!prev || domain === academy.primaryStaffDomain) byPerson.set(key, email);
   }
   return [...byPerson.values()];
 }

@@ -1,9 +1,10 @@
 {
   "name": "@impact7/shared",
-  "version": "1.56.0",
+  "version": "1.57.0",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
+    "./academy-config": "./academy-config.js",
     "./history": "./history-classifier.js",
     "./enrollment-status": "./enrollment-status.js",
     "./enrollment-contract": "./enrollment-contract.js",
