@@ -189,9 +189,10 @@ Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase �
 |------|------|----------------|
 | `GEMINI_FLASH_PRIMARY` | const | `'gemini-3.6-flash'` |
 | `GEMINI_FLASH_FALLBACK` | const | `'gemini-3.5-flash'` |
-| `aiModelSequence` | fn | `(feature) → readonly string[]` — 학부모 총평·학생 종합 리포트·Exam 일반 텍스트는 3.5 폴백, 상담 제목은 3.6 단일 |
+| `GEMINI_FLASH_LITE` | const | `'gemini-3.5-flash-lite'` |
+| `aiModelSequence` | fn | `(feature) → readonly string[]` — 학부모 총평·상담 제목·성장 코멘트는 Lite→3.6, 나머지 등록 기능은 3.6→3.5 |
 | `runWithAiModelPolicy` | fn | `(feature, generate) → Promise<result>` — 모델 순서대로 실행 |
-| `geminiGenerationConfig` | fn | `(model, config?) → config` — 3.6에서 폐기된 sampling 파라미터 제거 |
+| `geminiGenerationConfig` | fn | `(model, config?) → config` — 3.6에서 폐기된 sampling 파라미터 제거, Lite는 MINIMAL·3.6은 LOW thinking 기본값 |
 
 ### `./student-number` — `student-number.js`
 
