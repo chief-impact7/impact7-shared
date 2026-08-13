@@ -43,6 +43,12 @@
       "signals": ["이력", "history", "history_logs", "작성자 표시"],
       "exports": ["./history"],
       "consumers": ["db", "dsc", "consultation"]
+    },
+    {
+      "id": "school-info",
+      "signals": ["학교정보", "급식", "식단", "알레르기", "시간표", "학사일정", "나이스", "NEIS", "학교 매칭", "공공데이터"],
+      "exports": ["./school-info"],
+      "consumers": ["functions", "info"]
     }
   ]
 }

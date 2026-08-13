@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 541개 통과.
+- 테스트: `npm test` (`node --test`). 현재 565개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -384,6 +384,18 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `attributeEvent` | fn | `(event, segments, { bufferDays? }?) → [{ teacher, weight, rule: 'buffer-split'\|'current'\|'unknown', uncertain? }]` — 가중치 합 1.0. scoped event는 같은 account 세그먼트에만 귀속하며 첫 비재원일은 종료 전날 세그먼트로 연결. D와 D-bufferDays의 담당이 다르면 반반 귀책, 같거나 과거 담당이 없으면 D 담당 1.0 |
 | `periodRange` | fn | `(period, semesterSettings?) → { start, end }` — month: `[1일, 말일]`. semester: `{level}-{year}-{nameLower}` 키 start_date ~ 같은 학부 다음 학기 시작 전일(마지막 학기면 오늘). 해석 불가는 `{ start: null, end: null }` |
 | `aggregateRetention` | fn | `({ studentIds, segmentsByStudent, attributionsByStudent, range }) → { byTeacher: { [email]: { exposed, churn, retentionRate, events } } }` — 분모=기간 겹침 `(studentId, accountKey)` 노출 수, 분자=기간 내 account 이탈 귀속 가중 합, retentionRate=exposed>0 ? 1−churn/exposed : null. accountKey 없는 기존 세그먼트는 학생 단위 호환, Map·plain object 및 구·신 이메일 병합 |
+
+### `./school-info` — `school-info.js`
+
+나이스(NEIS) 학교 공공정보 파싱·매칭 SSoT. 급식·시간표·학사일정을 수집하는 서버(impact7-functions)와 표시하는 앱(info·mobile)이 같은 규칙을 공유한다. 학교명 정규화는 `./student-label`의 `canonicalSchoolLabel`을 재사용하므로 학교 라벨 계약과 항상 정합이다.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|--------------|
+| `NEIS_ALLERGEN_LABELS` | const | frozen `{ 1: '난류', 2: '우유', … 19: '잣' }` — 나이스 급식 알레르기 코드 1~19 한국어 라벨 |
+| `parseMealDish` | fn | `(raw) → { name, allergens: number[] }` — `'미역국 (5.6.)'`·`'불고기5.10.13.'` 등 괄호·마침표·쉼표·전각괄호·공백 변형 흡수. 코드가 1~19 밖이거나 표기가 규격 밖이면 `name`에 **원문을 그대로** 두고 `allergens: []` (메뉴 자체는 잃지 않는다) |
+| `parseMealDishes` | fn | `(dishText) → dish[]` — DDISH_NM 필드(`<br/>`·줄바꿈 구분) 전체 파싱, 빈 조각 제거 |
+| `normalizeSchoolMatchKey` | fn | `(name) → string` — 학교명 매칭 키. 괄호 부가어(`'(분교)'`)·공백 제거 후 `canonicalSchoolLabel` 적용 → `'대현초'` ≡ `'서울대현초등학교'`. 학부 미상(DUP_EXCEPT bare stem)은 축약형이 별도 키 |
+| `matchSchoolName` | fn | `(studentSchool, neisSchoolName) → boolean` — 빈 키는 항상 false |
 
 ---
 
