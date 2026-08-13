@@ -1,11 +1,15 @@
 export const GEMINI_FLASH_PRIMARY = 'gemini-3.6-flash';
 export const GEMINI_FLASH_FALLBACK = 'gemini-3.5-flash';
+export const GEMINI_FLASH_LITE = 'gemini-3.5-flash-lite';
 
 const AI_MODEL_POLICIES = Object.freeze({
-  'parent-message': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
-  'consultation-title': Object.freeze([GEMINI_FLASH_PRIMARY]),
+  'parent-message': Object.freeze([GEMINI_FLASH_LITE, GEMINI_FLASH_PRIMARY]),
+  'consultation-title': Object.freeze([GEMINI_FLASH_LITE, GEMINI_FLASH_PRIMARY]),
   'exam-general-text': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
+  'growth-commentary': Object.freeze([GEMINI_FLASH_LITE, GEMINI_FLASH_PRIMARY]),
   'student-report': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
+  'board-briefing': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
+  'survey-analysis': Object.freeze([GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]),
 });
 
 export function aiModelSequence(feature) {
@@ -32,7 +36,17 @@ export async function runWithAiModelPolicy(feature, generate) {
 }
 
 export function geminiGenerationConfig(model, config = {}) {
-  if (model !== GEMINI_FLASH_PRIMARY) return config;
-  const { temperature, topP, topK, top_p, top_k, ...supported } = config;
-  return supported;
+  let normalized = config;
+  if (model === GEMINI_FLASH_PRIMARY) {
+    const { temperature, topP, topK, top_p, top_k, ...supported } = config;
+    normalized = supported;
+  }
+  if (normalized.thinkingConfig) return normalized;
+  if (model === GEMINI_FLASH_LITE) {
+    return { ...normalized, thinkingConfig: { thinkingLevel: 'MINIMAL' } };
+  }
+  if (model === GEMINI_FLASH_PRIMARY) {
+    return { ...normalized, thinkingConfig: { thinkingLevel: 'LOW' } };
+  }
+  return normalized;
 }
