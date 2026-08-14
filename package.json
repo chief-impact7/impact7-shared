@@ -6,6 +6,7 @@
   "exports": {
     "./academy-config": "./academy-config.js",
     "./history": "./history-classifier.js",
+    "./enrollment-history": "./enrollment-history.js",
     "./enrollment-status": "./enrollment-status.js",
     "./enrollment-contract": "./enrollment-contract.js",
     "./attendance-action": "./attendance-action.js",
