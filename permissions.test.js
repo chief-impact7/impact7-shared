@@ -146,7 +146,7 @@ test('앱 접근 그룹은 직원용 소비앱 10종을 강제한다', () => {
       { key: 'canAccessImpact7Forms', label: '지원 폼', apps: ['forms'], enforced: 'client' },
       { key: 'canAccessPayments', label: '수납·결제', apps: ['수납'], enforced: 'client' },
       { key: 'canAccessImpact7Tablet', label: '태블릿 출결', apps: ['태블릿'], enforced: 'client' },
-      { key: 'canAccessImpact7Info', label: '학교정보', apps: ['info'], enforced: 'client' },
+      { key: 'canAccessImpact7School', label: '학교정보', apps: ['school'], enforced: 'client' },
     ],
   });
 });

@@ -393,7 +393,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 ### `./school-info` — `school-info.js`
 
-나이스(NEIS) 학교 공공정보 파싱·매칭 SSoT. 급식·시간표·학사일정을 수집하는 서버(impact7-functions)와 표시하는 앱(info·mobile)이 같은 규칙을 공유한다. 학교명 정규화는 `./student-label`의 `canonicalSchoolLabel`을 재사용하므로 학교 라벨 계약과 항상 정합이다.
+나이스(NEIS) 학교 공공정보 파싱·매칭 SSoT. 급식·시간표·학사일정을 수집하는 서버(impact7-functions)와 표시하는 앱(school·mobile)이 같은 규칙을 공유한다. 학교명 정규화는 `./student-label`의 `canonicalSchoolLabel`을 재사용하므로 학교 라벨 계약과 항상 정합이다.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
