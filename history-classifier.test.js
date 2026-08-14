@@ -17,6 +17,25 @@ test('수강계정 이력은 학생 상태 이력과 별도 라벨로 분류', (
     assert.equal(line({ change_type: 'ACCOUNT_PAUSE', before: '{}', after: '{}' }), '계정휴원:활성>휴원');
     assert.equal(line({ change_type: 'ACCOUNT_RESUME', before: '{}', after: '{}' }), '계정재개:휴원>활성');
     assert.equal(line({ change_type: 'ACCOUNT_END', before: '{}', after: '{}' }), '계정종료:활성>종료');
+    assert.equal(line({
+        change_type: 'ACCOUNT_END',
+        before: JSON.stringify({
+            account_type: '특강',
+            items: [{ class_type: '특강', class_number: '수능인덱스 2차 수2' }],
+        }),
+        after: '{}',
+    }), '계정종료:특강 수능인덱스 2차 수2>종료');
+    assert.equal(line({
+        change_type: 'ACCOUNT_END',
+        before: JSON.stringify({
+            account_type: '정규',
+            items: [
+                { class_type: '내신', class_number: '2단지홍익여고A' },
+                { class_type: '정규', level_symbol: 'HX', class_number: '104' },
+            ],
+        }),
+        after: '{}',
+    }), '계정종료:정규 HX104>종료');
 });
 
 test('신규 — 정규반코드 표시 (없으면 등록)', () => {
@@ -54,9 +73,15 @@ test('수업추가 / 한글 코드(내신 csKey·특강명) 추출', () => {
     // 특강 한글명 — DSC 반편성 마법사 로그
     assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: 수요특강 (특강) 누적' }), '수업추가:>수요특강');
     // 내신 csKey
-    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: 2단지목동중2A (내신) 누적' }), '수업추가:>2단지목동중2A');
+    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: 2단지목동중2A (내신) 누적' }), '내신전환:>2단지목동중2A');
+    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: HX104 (자유학기) 누적' }), '자유학기전환:>HX104');
     // 정규 영문+숫자 코드 — 여는괄호 전까지
     assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: HA103 (정규), 총 2개 누적' }), '수업추가:>HA103');
+});
+
+test('첫 수업 배정은 기존 수업에 더하는 추가와 구분한다', () => {
+    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '배정: HX104, 총 1개 누적' }), '수업배정:>HX104');
+    assert.equal(line({ change_type: 'UPDATE', before: '—', after: '추가: SP201, 총 2개 누적' }), '수업추가:>SP201');
 });
 
 test('숨김 대상', () => {
@@ -75,7 +100,8 @@ test('shortAuthor', () => {
 
 test('HISTORY_BADGE 모든 라벨 매핑 존재', () => {
     for (const lab of [
-        '신규', '휴원', '복귀', '퇴원', '재등원', '전반', '수업추가',
+        '신규', '휴원', '복귀', '퇴원', '재등원', '전반', '수업배정', '수업추가',
+        '내신전환', '자유학기전환',
         '계정휴원', '계정재개', '계정종료',
     ]) {
         assert.ok(HISTORY_BADGE[lab], `${lab} 뱃지 누락`);

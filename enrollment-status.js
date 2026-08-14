@@ -27,6 +27,12 @@ export function hasRealEnrollment(enrollments) {
   return (enrollments || []).some(e => e && (e.level_symbol || e.class_number));
 }
 
+export function hasRegularOrSpecialEnrollment(enrollments) {
+  return hasRealEnrollment((enrollments || []).filter(item =>
+    ['정규', '특강'].includes(accountTypeOf(item))
+  ));
+}
+
 const _validDate = (d) => !!d && /^\d{4}-/.test(d);
 const _isDateActive = (e, dateStr) =>
   !_validDate(dateStr)
@@ -278,7 +284,7 @@ export function reconcileEnrollments(status, enrollments, opts) {
   if (NON_ENROLLABLE_STATUSES.has(status)) {
     return { enrollments: list.filter(item => accountTypeOf(item) === '기타'), valid: true };
   }
-  if (!hasRealEnrollment(list)) {
+  if (!hasRegularOrSpecialEnrollment(list)) {
     return {
       enrollments: list,
       valid: false,

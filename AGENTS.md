@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 566개 통과.
+- 테스트: `npm test` (`node --test`). 현재 568개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -15,12 +15,13 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 
 ### `./history` — `history-classifier.js`
 
-수업이력 로그를 교사용 10종 이벤트로 분류. DB·DSC가 동일 컬렉션 공유.
+수업이력 로그를 교사용 13종 이벤트로 분류. DB·DSC가 동일 컬렉션 공유.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
-| `HISTORY_BADGE` | const | `{ '신규'|'복귀'|'재등원'|'수업추가'|'계정재개': 'badge-enroll', '전반'|'휴원'|'계정휴원': 'badge-update', '퇴원'|'계정종료': 'badge-withdraw' }` |
+| `HISTORY_BADGE` | const | 수업이력 13종 라벨의 배지 tone 매핑 |
 | `classifyHistory` | fn | `(log) → { label, from, to } \| null` |
+| `historyPeriodLabel` | fn | `(classType) → '내신전환'\|'자유학기전환'\|'수업추가'` |
 | `parseStatusClass` | fn | `(text) → { status, classes, pauseStart }` |
 | `shortAuthor` | fn | `(emailOrId) → string` — `@` 앞만, 비문자열→`'system'` |
 | `isAttendedStatus` | fn | `(status) → boolean` — 출석/지각/조퇴만 true |
@@ -44,6 +45,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `isEnrollableStatus` | fn | `(status) → boolean` |
 | `canRegisterStudentInClass` | fn | `(status, classType) → boolean` — 특강·기타는 status와 무관하게 등록 가능, 정규계열은 재원상태만 가능. 내신·자유학기의 정규수업반 보유 검사는 아래 base helper와 저장 정합성 검사를 함께 사용 |
 | `hasRealEnrollment` | fn | `(enrollments) → boolean` — 빈 placeholder 제외 |
+| `hasRegularOrSpecialEnrollment` | fn | `(enrollments) → boolean` — 재원 기준 정규·특강 수업 존재 판정 |
 | `accountTypeOf` | fn | `(enrollment) → '정규'\|'특강'\|'기타'` — 명시 `account_type` 우선, 레거시는 `class_type`으로 파생 |
 | `isValidEnrollmentClassType` | fn | `(accountType, classType) → boolean` — 정규→정규/내신/자유학기, 특강→특강, 기타→기타 조합만 허용 |
 | `groupEnrollmentAccounts` | fn | `(enrollments) → [{ key, accountId, accountType, items, typeConflict }]` — placeholder 제외. `key`는 ID 또는 `legacy:{유형}:{대표 반코드}` |

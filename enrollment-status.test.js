@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
 import {
-  isEnrollableStatus, hasRealEnrollment, reconcileEnrollments,
+  isEnrollableStatus, hasRealEnrollment, hasRegularOrSpecialEnrollment, reconcileEnrollments,
   studentCategory, selectableStatuses, STUDENT_STATUS_GROUPS,
   LEAVE_STATUSES, ENROLLABLE_STATUSES,
   ACCOUNT_TYPES, accountTypeOf, deriveEnrollmentAccountTypes,
@@ -23,6 +23,18 @@ test('hasRealEnrollment — 빈 placeholder 제외', () => {
   assert.equal(hasRealEnrollment([{ class_type: '정규' }]), false); // 반코드 없음
   assert.equal(hasRealEnrollment([{ class_type: '정규', class_number: '104' }]), true);
   assert.equal(hasRealEnrollment([{ level_symbol: 'HA' }]), true);
+});
+
+test('hasRegularOrSpecialEnrollment — 기타만 있으면 재원 기준 수업으로 보지 않음', () => {
+  assert.equal(hasRegularOrSpecialEnrollment([{
+    account_type: '기타', class_type: '기타', class_number: '자습실',
+  }]), false);
+  assert.equal(hasRegularOrSpecialEnrollment([{
+    account_type: '특강', class_type: '특강', class_number: '여름특강',
+  }]), true);
+  assert.equal(hasRegularOrSpecialEnrollment([{
+    account_type: '정규', class_type: '정규', level_symbol: 'HX', class_number: '104',
+  }]), true);
 });
 
 test('reconcileEnrollments — 비재원은 기타 enrollment만 보존', () => {
@@ -51,6 +63,12 @@ test('reconcileEnrollments — 재원 계열 + 실질 반 있으면 valid', () =
   const r = reconcileEnrollments('재원', [{ class_type: '정규', class_number: '104' }]);
   assert.equal(r.valid, true);
   assert.equal(r.enrollments.length, 1);
+  assert.equal(reconcileEnrollments('재원', [{
+    account_type: '특강', class_type: '특강', class_number: '여름특강',
+  }]).valid, true);
+  assert.equal(reconcileEnrollments('재원', [{
+    account_type: '기타', class_type: '기타', class_number: '자습실',
+  }]).valid, false);
 });
 
 test('reconcileEnrollments — 수업계열과 소분류가 어긋나면 저장 차단', () => {

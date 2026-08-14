@@ -18,10 +18,18 @@ const LEAVE = ['실휴원', '가휴원'];
 
 // 종류별 뱃지 색 (초록=긍정/등록, 파랑=중립 변경, 빨강=퇴원)
 export const HISTORY_BADGE = {
-    '신규': 'badge-enroll', '복귀': 'badge-enroll', '재등원': 'badge-enroll', '수업추가': 'badge-enroll',
-    '전반': 'badge-update', '휴원': 'badge-update', '계정휴원': 'badge-update',
+    '신규': 'badge-enroll', '복귀': 'badge-enroll', '재등원': 'badge-enroll',
+    '수업배정': 'badge-enroll', '수업추가': 'badge-enroll',
+    '전반': 'badge-update', '내신전환': 'badge-update', '자유학기전환': 'badge-update',
+    '휴원': 'badge-update', '계정휴원': 'badge-update',
     '계정재개': 'badge-enroll', '퇴원': 'badge-withdraw', '계정종료': 'badge-withdraw',
 };
+
+export function historyPeriodLabel(classType) {
+    if (classType === '내신') return '내신전환';
+    if (classType === '자유학기') return '자유학기전환';
+    return '수업추가';
+}
 
 // 작성자 표시: 이메일은 @ 앞부분만, 자동전환·시스템·미상은 'system'.
 export function shortAuthor(id) {
@@ -33,6 +41,20 @@ export function shortAuthor(id) {
 function newClassCode(aC, afterText) {
     if (aC) return aC;
     return afterText.match(/\(([^)]*\d[^)]*)\)/)?.[1]?.trim() || '';
+}
+
+function accountSnapshotLabel(text) {
+    if (typeof text !== 'string' || !text.trim().startsWith('{')) return '';
+    try {
+        const snapshot = JSON.parse(text);
+        const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+        const item = items.find(entry => (entry?.class_type || '정규') === '정규')
+            || items.find(entry => entry?.level_symbol || entry?.class_number);
+        const code = `${item?.level_symbol || ''}${item?.class_number || ''}`.trim();
+        return [snapshot.account_type, code].filter(Boolean).join(' ');
+    } catch {
+        return '';
+    }
 }
 
 // history before/after에서 상태·반코드·휴원시작일을 best-effort로 추출.
@@ -61,7 +83,7 @@ export function parseStatusClass(text) {
     return { status: '', classes: '', pauseStart: '' };
 }
 
-// 수업이력을 7종(신규/휴원/복귀/퇴원/재등원/전반/수업추가)으로만 분류 — 일선 교사용.
+// 학생 상태·수업 배정·기간 전환·계정 상태 변화를 일선 교사용 이력으로 분류.
 // 상태 전이·휴원기간·반이동·수업추가만 노출하고 그 외(요일변경·자동활성화 등)는 숨김.
 // STATUS_CHANGE는 UPDATE와 쌍으로 기록되는 중복 로그이므로 무시.
 // 분류 결과 { label, from, to } 또는 null(숨김).
@@ -70,7 +92,7 @@ export function classifyHistory(log) {
     if (t === 'STATUS_CHANGE' || t === 'DELETE' || t === 'PROMOTION') return null;
     if (t === 'ACCOUNT_PAUSE') return { label: '계정휴원', from: '활성', to: '휴원' };
     if (t === 'ACCOUNT_RESUME') return { label: '계정재개', from: '휴원', to: '활성' };
-    if (t === 'ACCOUNT_END') return { label: '계정종료', from: '활성', to: '종료' };
+    if (t === 'ACCOUNT_END') return { label: '계정종료', from: accountSnapshotLabel(log.before) || '활성', to: '종료' };
 
     const { status: bS, classes: bC, pauseStart: bP } = parseStatusClass(log.before);
     const { status: aS, classes: aC, pauseStart: aP } = parseStatusClass(log.after);
@@ -102,11 +124,15 @@ export function classifyHistory(log) {
     if (!bP && aP && !LEAVE.includes(bS)) return { label: '휴원', from: bS || '재원', to: '휴원' };
     if (bP && !aP && (aS === '재원' || aS === '등원예정')) return { label: '복귀', from: '휴원', to: aS };
 
+    const assigned = afterText.match(/배정:\s*([^,(]+)/)?.[1]?.trim();
+    if (assigned) return { label: '수업배정', from: '', to: assigned };
+
     // 수업 추가 ("추가: SP201 ... 총 N개 누적" — 수업추가 로그 시그니처. 코드 있을 때만)
     // 코드는 영문+숫자(HA103)뿐 아니라 한글(내신 csKey·특강명)도 추출 — 콤마/여는괄호 직전까지.
     if (afterText.includes('추가:') && afterText.includes('누적')) {
         const added = afterText.match(/추가:\s*([^,(]+)/)?.[1]?.trim();
-        if (added) return { label: '수업추가', from: '', to: added };
+        const classType = afterText.match(/\((내신|자유학기|정규|특강|기타)\)/)?.[1] || '';
+        if (added) return { label: historyPeriodLabel(classType), from: '', to: added };
     }
 
     // 전반: 상태 변화 없이 반코드 변경
