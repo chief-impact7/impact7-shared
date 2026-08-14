@@ -5,6 +5,7 @@ import {
   effectiveStaffStatus,
   mergePersonnelDates,
 } from './staff-status.js';
+import * as staffStatus from './staff-status.js';
 
 const T = '2026-07-17';
 const d = (type, date) => ({ type, date });
@@ -173,4 +174,16 @@ test('today 생략·비문자열·비ISO는 throw — 조용한 오판 금지', 
   assert.throws(() => autoStatusFromPersonnelDates([], 'active'), TypeError);
   assert.throws(() => effectiveStaffStatus({ status: 'active' }), TypeError);
   assert.throws(() => effectiveStaffStatus({ status: 'active' }, new Date()), TypeError);
+});
+
+test('담당 가능 직원은 교수·행정의 온보딩·입사예정·재직만 허용한다', () => {
+  for (const department of ['교수', '행정']) {
+    for (const status of ['onboarding', 'join_pending', 'active']) {
+      assert.equal(staffStatus.isAssignableStaff({ department, status }, T), true);
+    }
+  }
+  assert.equal(staffStatus.isAssignableStaff({ department: '단기', status: 'active' }, T), false);
+  assert.equal(staffStatus.isAssignableStaff({ department: '교수', status: 'inactive' }, T), false);
+  assert.equal(staffStatus.isAssignableStaff({ department: '행정', status: 'join_cancelled' }, T), false);
+  assert.equal(staffStatus.isAssignableStaff({ department: '교수', status: 'active', excludedFromPersonnel: true }, T), false);
 });

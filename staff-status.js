@@ -38,6 +38,9 @@ const AUTO_STATUS_BY_DATE_TYPE = {
 
 const REJOIN_TYPES = new Set(['joinDate', 'plannedJoinDate', 'firstWorkDate']);
 const CANCELLED_STATUSES = new Set(['join_cancelled', 'leave_cancelled']);
+const ASSIGNABLE_STAFF_STATUSES = new Set(['onboarding', 'join_pending', 'active']);
+
+export const STAFF_DIRECTORY_DEPARTMENTS = Object.freeze(['교수', '행정']);
 
 // 병합·dedupe 대상 known 타입 — 파생에 안 쓰는 interviewDate·other도 포함해
 // HR 편집 화면이 같은 병합 결과를 쓰게 한다.
@@ -137,4 +140,18 @@ export function effectiveStaffStatus(staff, today) {
   const raw = textOf(staff?.status) || 'active';
   const base = raw === 'leave_pending' ? 'active' : raw;
   return autoStatusFromPersonnelDates(mergePersonnelDates(staff), base, today);
+}
+
+export function staffDirectoryStatus(staff, today) {
+  if (staff?.excludedFromPersonnel === true) return '';
+  const status = effectiveStaffStatus(staff, today);
+  return status === 'join_cancelled' ? '' : status;
+}
+
+export function isStaffDirectoryDepartment(staff) {
+  return STAFF_DIRECTORY_DEPARTMENTS.includes(staff?.department);
+}
+
+export function isAssignableStaff(staff, today) {
+  return isStaffDirectoryDepartment(staff) && ASSIGNABLE_STAFF_STATUSES.has(staffDirectoryStatus(staff, today));
 }
