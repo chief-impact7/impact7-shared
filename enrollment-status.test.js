@@ -166,10 +166,14 @@ test('selectableStatuses — 비원생은 등원예정/재원 + 현 status, 휴�
   assert.ok(!s.includes('실휴원') && !s.includes('가휴원'));
 });
 
-test('selectableStatuses — 재원생은 휴원 진입 가능, 상담은 불가', () => {
+test('selectableStatuses — 재원생도 휴원·퇴원·종강 직접 진입 불가 (요청서 경로만)', () => {
   const s = selectableStatuses('재원', false);
-  assert.ok(s.includes('실휴원') && s.includes('가휴원'));
-  assert.ok(!s.includes('상담'));
+  assert.deepEqual(s, ['재원', '등원예정']);
+});
+
+test('selectableStatuses — 휴원생은 현 status + 등원예정/재원만 (요청서 밖 전환 차단은 폼 가드)', () => {
+  const s = selectableStatuses('실휴원', false);
+  assert.deepEqual(s, ['실휴원', '등원예정', '재원']);
 });
 
 // ─── 2026-07-05 리뷰 P1 회귀 ───
@@ -520,4 +524,27 @@ test('reconcileEnrollments는 2인자 하위호환을 유지하고 dateStr에서
 
   const future = [{ account_id: 'a', class_number: '101', start_date: '2026-08-01' }];
   assert.equal(reconcileEnrollments('등원예정', future, { dateStr: '2026-07-23' }).valid, true);
+});
+
+// ─── 2026-08-16 황사랑 강등 사고 회귀 ───
+test('예정 계정만 남아도 재원 학생은 재원 유지 (반이동 예약 중 강등 금지)', () => {
+  const futureOnly = [
+    { account_id: 'a', account_type: '정규', class_type: '정규', class_number: '101', start_date: '2026-08-17' },
+  ];
+  assert.equal(
+    deriveStudentStatusAfterAccountChange(futureOnly, '2026-08-16', { currentStatus: '재원' }),
+    '재원',
+  );
+});
+
+test('예정 계정만 있는 신규·등원예정·비원생은 등원예정 유지', () => {
+  const futureOnly = [
+    { account_id: 'a', account_type: '정규', class_type: '정규', class_number: '101', start_date: '2026-08-17' },
+  ];
+  for (const currentStatus of ['등원예정', '상담', '퇴원', undefined]) {
+    assert.equal(
+      deriveStudentStatusAfterAccountChange(futureOnly, '2026-08-16', { currentStatus }),
+      '등원예정',
+    );
+  }
 });

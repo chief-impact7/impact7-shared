@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 572개 통과.
+- 테스트: `npm test` (`node --test`). 현재 582개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -72,10 +72,10 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `pauseAccount` | fn | `(enrollments, accountIdOrKey, { pauseStart, pauseEnd?, leaveSubType }) → { updatedEnrollments, skipped }` |
 | `resumeAccount` | fn | `(enrollments, accountIdOrKey) → { updatedEnrollments, skipped }` |
 | `closeAccount` | fn | `(enrollments, accountIdOrKey, { endDate, endReason }) → { updatedEnrollments, removed, skipped }` |
-| `deriveStudentStatusAfterAccountChange` | fn | `(enrollments, dateStr, { fallbackReason?, currentStatus?, changedAccountType? }?) → status` — 기타 계정 변경은 status 불변, 정규·특강 계정은 활성→재원·휴원→예정→종료 우선순위 |
+| `deriveStudentStatusAfterAccountChange` | fn | `(enrollments, dateStr, { fallbackReason?, currentStatus?, changedAccountType? }?) → status` — 기타 계정 변경은 status 불변, 정규·특강 계정은 활성→재원·휴원→예정→종료 우선순위. 예정만 남아도 현재 재원이면 재원 유지(반이동 예약 강등 금지) |
 | `reconcileEnrollments` | fn | `(status, enrollments, { dateStr?, previousStatus? }?) → { enrollments, valid, reason? }` — 비원 전환 시 기타만 보존. 내신·자유학기는 같은 정규계정의 정규수업반 필수. 휴원·퇴원→재원은 활성 정규계정 필수. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
 | `studentCategory` | fn | `(status) → '재원생' \| '비원생'` |
-| `selectableStatuses` | fn | `(current, isNew) → string[]` |
+| `selectableStatuses` | fn | `(current, isNew) → string[]` — 신규·기존 모두 등원예정/재원(+현 status)만. 휴원·퇴원·종강 진입은 요청서 승인 경로 전용 |
 
 ### `./enrollment-contract` — `enrollment-contract.js`
 
@@ -123,6 +123,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `moveClass` | fn | `(student, { semester, targetLevelSymbol, targetClassNumber, accountId? }) → { updatedEnrollments, before, after, skipped, warning }` — accountId 생략 시 기존 첫 정규 계정 동작 |
+| `moveRegularClass` | fn | `(student, { targetLevelSymbol, targetClassNumber, targetDay?, moveDate, today }) → { updatedEnrollments, before, after, skipped, warning }` — 반이동 SSoT. 활성 반은 이동일 전날까지 유지(end_date)하고 새 반을 이동일 시작으로 추가하는 같은 계정 2단 구성. 예약 반은 제자리 교체, 기존 예약 조각은 대체. 정규 계정 0·2개 이상, 과거 이동일은 skipped |
 
 ### `./promote-enroll` — `promote-enroll.js`
 
