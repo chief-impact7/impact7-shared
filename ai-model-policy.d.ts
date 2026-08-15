@@ -7,8 +7,8 @@ export type AiModelPolicyFeature =
   | 'survey-analysis'
   | 'student-report';
 
-export const GEMINI_FLASH_PRIMARY: 'gemini-3.6-flash';
-export const GEMINI_FLASH_FALLBACK: 'gemini-3.5-flash';
+export const GEMINI_FLASH_PRIMARY: 'gemini-3.7-flash';
+export const GEMINI_FLASH_FALLBACK: 'gemini-3.6-flash';
 export const GEMINI_FLASH_LITE: 'gemini-3.5-flash-lite';
 
 export function aiModelSequence(feature: AiModelPolicyFeature): readonly string[];

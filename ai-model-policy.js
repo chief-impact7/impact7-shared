@@ -1,5 +1,5 @@
-export const GEMINI_FLASH_PRIMARY = 'gemini-3.6-flash';
-export const GEMINI_FLASH_FALLBACK = 'gemini-3.5-flash';
+export const GEMINI_FLASH_PRIMARY = 'gemini-3.7-flash';
+export const GEMINI_FLASH_FALLBACK = 'gemini-3.6-flash';
 export const GEMINI_FLASH_LITE = 'gemini-3.5-flash-lite';
 
 const AI_MODEL_POLICIES = Object.freeze({
@@ -36,8 +36,9 @@ export async function runWithAiModelPolicy(feature, generate) {
 }
 
 export function geminiGenerationConfig(model, config = {}) {
+  const usesLowThinking = model === GEMINI_FLASH_PRIMARY || model === GEMINI_FLASH_FALLBACK;
   let normalized = config;
-  if (model === GEMINI_FLASH_PRIMARY) {
+  if (usesLowThinking) {
     const { temperature, topP, topK, top_p, top_k, ...supported } = config;
     normalized = supported;
   }
@@ -45,7 +46,7 @@ export function geminiGenerationConfig(model, config = {}) {
   if (model === GEMINI_FLASH_LITE) {
     return { ...normalized, thinkingConfig: { thinkingLevel: 'MINIMAL' } };
   }
-  if (model === GEMINI_FLASH_PRIMARY) {
+  if (usesLowThinking) {
     return { ...normalized, thinkingConfig: { thinkingLevel: 'LOW' } };
   }
   return normalized;

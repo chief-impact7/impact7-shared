@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 571개 통과.
+- 테스트: `npm test` (`node --test`). 현재 572개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -195,16 +195,16 @@ Firebase·DOM·외부 의존성 없는 배포 학원 설정. 미지정 값은 �
 
 ### `./ai-model-policy` — `ai-model-policy.js`
 
-Gemini 모델 선택·폴백·3.6 요청 설정 정규화 SSoT. SDK·Firebase 의존성 없이 DSC·Functions·Exam이 공유.
+Gemini 모델 선택·폴백·3.x 요청 설정 정규화 SSoT. SDK·Firebase 의존성 없이 DSC·Functions·Exam이 공유.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|----------------|
-| `GEMINI_FLASH_PRIMARY` | const | `'gemini-3.6-flash'` |
-| `GEMINI_FLASH_FALLBACK` | const | `'gemini-3.5-flash'` |
+| `GEMINI_FLASH_PRIMARY` | const | `'gemini-3.7-flash'` |
+| `GEMINI_FLASH_FALLBACK` | const | `'gemini-3.6-flash'` |
 | `GEMINI_FLASH_LITE` | const | `'gemini-3.5-flash-lite'` |
-| `aiModelSequence` | fn | `(feature) → readonly string[]` — 학부모 총평·상담 제목·성장 코멘트는 Lite→3.6, 나머지 등록 기능은 3.6→3.5 |
+| `aiModelSequence` | fn | `(feature) → readonly string[]` — 학부모 총평·상담 제목·성장 코멘트는 Lite→3.7, 나머지 등록 기능은 3.7→3.6 |
 | `runWithAiModelPolicy` | fn | `(feature, generate) → Promise<result>` — 모델 순서대로 실행 |
-| `geminiGenerationConfig` | fn | `(model, config?) → config` — 3.6에서 폐기된 sampling 파라미터 제거, Lite는 MINIMAL·3.6은 LOW thinking 기본값 |
+| `geminiGenerationConfig` | fn | `(model, config?) → config` — 3.6·3.7에서 폐기된 sampling 파라미터 제거, Lite는 MINIMAL·3.6/3.7은 LOW thinking 기본값 |
 
 ### `./student-number` — `student-number.js`
 

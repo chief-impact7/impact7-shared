@@ -9,17 +9,25 @@ import {
   runWithAiModelPolicy,
 } from './ai-model-policy.js';
 
-test('기능별 기본 모델과 폴백을 한 곳에서 결정', () => {
-  assert.deepEqual(aiModelSequence('parent-message'), [GEMINI_FLASH_LITE, GEMINI_FLASH_PRIMARY]);
-  assert.deepEqual(aiModelSequence('consultation-title'), [GEMINI_FLASH_LITE, GEMINI_FLASH_PRIMARY]);
-  assert.deepEqual(aiModelSequence('exam-general-text'), [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]);
-  assert.deepEqual(aiModelSequence('growth-commentary'), [GEMINI_FLASH_LITE, GEMINI_FLASH_PRIMARY]);
-  assert.deepEqual(aiModelSequence('student-report'), [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]);
-  assert.deepEqual(aiModelSequence('board-briefing'), [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]);
-  assert.deepEqual(aiModelSequence('survey-analysis'), [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK]);
+const LITE_PRIMARY_SEQUENCE = [GEMINI_FLASH_LITE, GEMINI_FLASH_PRIMARY];
+const PRIMARY_FALLBACK_SEQUENCE = [GEMINI_FLASH_PRIMARY, GEMINI_FLASH_FALLBACK];
+
+test('공개 Gemini Flash 모델 상수를 고정', () => {
+  assert.equal(GEMINI_FLASH_PRIMARY, 'gemini-3.7-flash');
+  assert.equal(GEMINI_FLASH_FALLBACK, 'gemini-3.6-flash');
+  assert.equal(GEMINI_FLASH_LITE, 'gemini-3.5-flash-lite');
 });
 
-test('학부모 총평은 Lite 실패 시 3.6으로 폴백', async () => {
+test('기능별 기본 모델과 폴백을 한 곳에서 결정', () => {
+  for (const feature of ['parent-message', 'consultation-title', 'growth-commentary']) {
+    assert.deepEqual(aiModelSequence(feature), LITE_PRIMARY_SEQUENCE);
+  }
+  for (const feature of ['exam-general-text', 'student-report', 'board-briefing', 'survey-analysis']) {
+    assert.deepEqual(aiModelSequence(feature), PRIMARY_FALLBACK_SEQUENCE);
+  }
+});
+
+test('학부모 총평은 Lite 실패 시 3.7로 폴백', async () => {
   const called = [];
   const result = await runWithAiModelPolicy('parent-message', async (model, index) => {
     called.push([model, index]);
@@ -33,7 +41,7 @@ test('학부모 총평은 Lite 실패 시 3.6으로 폴백', async () => {
   ]);
 });
 
-test('상담 제목은 Lite 실패 시 3.6으로 폴백', async () => {
+test('상담 제목은 Lite 실패 시 3.7로 폴백', async () => {
   const called = [];
   const result = await runWithAiModelPolicy('consultation-title', async (model) => {
     called.push(model);
@@ -76,6 +84,12 @@ test('모델별 기본 사고 수준을 적용하고 명시값을 보존', () =>
     }),
     { maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: 'MEDIUM' } },
   );
-  const fallbackConfig = { temperature: 0.4, maxOutputTokens: 1024 };
-  assert.equal(geminiGenerationConfig(GEMINI_FLASH_FALLBACK, fallbackConfig), fallbackConfig);
+  assert.deepEqual(
+    geminiGenerationConfig(GEMINI_FLASH_FALLBACK, {
+      temperature: 0.4,
+      topP: 0.9,
+      maxOutputTokens: 1024,
+    }),
+    { maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: 'LOW' } },
+  );
 });
