@@ -166,14 +166,15 @@ test('selectableStatuses — 비원생은 등원예정/재원 + 현 status, 휴�
   assert.ok(!s.includes('실휴원') && !s.includes('가휴원'));
 });
 
-test('selectableStatuses — 재원생도 휴원·퇴원·종강 직접 진입 불가 (요청서 경로만)', () => {
+test('selectableStatuses — DB 재원생 편집은 휴원·퇴원·종강 직접 진입 가능, 상담은 불가', () => {
   const s = selectableStatuses('재원', false);
-  assert.deepEqual(s, ['재원', '등원예정']);
+  assert.deepEqual(s, ['등원예정', '재원', '실휴원', '가휴원', '퇴원', '종강']);
+  assert.ok(!s.includes('상담'));
 });
 
-test('selectableStatuses — 휴원생은 현 status + 등원예정/재원만 (요청서 밖 전환 차단은 폼 가드)', () => {
+test('selectableStatuses — 휴원생은 재원계열과 퇴원·종강을 직접 선택 가능', () => {
   const s = selectableStatuses('실휴원', false);
-  assert.deepEqual(s, ['실휴원', '등원예정', '재원']);
+  assert.deepEqual(s, ['등원예정', '재원', '실휴원', '가휴원', '퇴원', '종강']);
 });
 
 // ─── 2026-07-05 리뷰 P1 회귀 ───

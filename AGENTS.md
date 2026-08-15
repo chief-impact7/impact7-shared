@@ -75,7 +75,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 | `deriveStudentStatusAfterAccountChange` | fn | `(enrollments, dateStr, { fallbackReason?, currentStatus?, changedAccountType? }?) → status` — 기타 계정 변경은 status 불변, 정규·특강 계정은 활성→재원·휴원→예정→종료 우선순위. 예정만 남아도 현재 재원이면 재원 유지(반이동 예약 강등 금지) |
 | `reconcileEnrollments` | fn | `(status, enrollments, { dateStr?, previousStatus? }?) → { enrollments, valid, reason? }` — 비원 전환 시 기타만 보존. 내신·자유학기는 같은 정규계정의 정규수업반 필수. 휴원·퇴원→재원은 활성 정규계정 필수. 날짜 지정 시 열린 계정과 유형 충돌 검사 |
 | `studentCategory` | fn | `(status) → '재원생' \| '비원생'` |
-| `selectableStatuses` | fn | `(current, isNew) → string[]` — 신규·기존 모두 등원예정/재원(+현 status)만. 휴원·퇴원·종강 진입은 요청서 승인 경로 전용 |
+| `selectableStatuses` | fn | `(current, isNew) → string[]` — 신규·비원생은 휴원 직접 진입 차단, 재원생 편집은 재원계열·퇴원·종강 선택 가능. 서버는 `canAccessImpact7DB` 권한자만 휴·퇴원 직접 전환 허용 |
 
 ### `./enrollment-contract` — `enrollment-contract.js`
 

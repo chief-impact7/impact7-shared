@@ -366,10 +366,13 @@ export const INITIAL_STATUSES = ['등원예정', '재원'];
 
 // 주어진 맥락에서 선택 가능한 status 목록.
 // current: 편집 중인 학생의 현재 status (신규면 무시), isNew: 신규 등록 여부
-// - 신규: 등원예정/재원만
-// - 그 외: 현 status + 등원예정/재원만. 휴원·퇴원·종강 진입은 폼 직접 전환이 아니라
-//   휴퇴원요청서 승인 경로(leave_requests finalize)로만 — 진입·진출 모두 요청서 강제(2026-08-16).
+// - 신규: 등원예정/재원만 (휴원 진입 차단)
+// - 비원생(상담/퇴원/종강): 등원예정/재원으로만 재원생화 + 현 status 유지
+// - 재원생: 재원계열 전체 + 퇴원/종강 (학생 DB 접근 권한자가 사용하는 편집 경로)
 export function selectableStatuses(current, isNew) {
   if (isNew) return [...INITIAL_STATUSES];
-  return [...new Set([current, ...INITIAL_STATUSES].filter(Boolean))];
+  if (NON_ENROLLABLE_STATUSES.has(current)) {
+    return [...new Set([current, ...INITIAL_STATUSES])];
+  }
+  return ['등원예정', '재원', '실휴원', '가휴원', '퇴원', '종강'];
 }
