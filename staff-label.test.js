@@ -66,8 +66,10 @@ test('Preferred Name과 학원 계정이 없으면 표시 이름은 실명이다
 
 test('사용자 지정 학원 도메인만 학원 계정으로 인정한다', () => {
   const config = {
+    brandName: '샘플 학원',
     primaryStaffDomain: 'sample.edu',
     legacyStaffDomains: ['old.sample.edu'],
+    formContact: { channelLabel: '채널 문의', channelUrl: 'https://sample.edu/channel', inquiryLabel: '상담 문의', inquiryUrl: 'https://sample.edu/contact' },
   };
   assert.equal(academyAccountId({ email: 'teacher@sample.edu' }, config), 'teacher');
   assert.equal(academyAccountId({ email: 'teacher@old.sample.edu' }, config), 'teacher');

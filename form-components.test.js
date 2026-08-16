@@ -40,6 +40,8 @@ test("비문자열(객체·숫자) 값은 기본값으로 — '[object Object]' 
 test('학원 설정으로 브랜드와 폼 연락처 기본값을 바꾼다', () => {
   const config = {
     brandName: '샘플 학원',
+    primaryStaffDomain: 'sample.edu',
+    legacyStaffDomains: [],
     formContact: {
       channelLabel: '채널 문의',
       channelUrl: 'https://sample.edu/channel',

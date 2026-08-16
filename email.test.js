@@ -38,8 +38,10 @@ test('normalizeImpact7Email: nullish·비문자열은 문자열로', () => {
 
 test('normalizeImpact7Email: 학원 설정을 주입하면 레거시 도메인을 해당 주 도메인으로 치환', () => {
   const config = {
+    brandName: '샘플 학원',
     primaryStaffDomain: 'sample.edu',
     legacyStaffDomains: ['old.sample.edu', 'login.sample.edu'],
+    formContact: { channelLabel: '채널 문의', channelUrl: 'https://sample.edu/channel', inquiryLabel: '상담 문의', inquiryUrl: 'https://sample.edu/contact' },
   };
   assert.equal(normalizeImpact7Email('teacher@old.sample.edu', config), 'teacher@sample.edu');
   assert.equal(normalizeImpact7Email('teacher@login.sample.edu', config), 'teacher@sample.edu');

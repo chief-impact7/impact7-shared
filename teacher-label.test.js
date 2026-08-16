@@ -138,8 +138,10 @@ test('canonicalizeTeacherEmails: 외부 도메인은 내부와 병합하지 않�
 
 test('강사 식별은 사용자 지정 주·레거시 도메인을 같은 사람으로 병합한다', () => {
   const config = {
+    brandName: '샘플 학원',
     primaryStaffDomain: 'sample.edu',
     legacyStaffDomains: ['old.sample.edu'],
+    formContact: { channelLabel: '채널 문의', channelUrl: 'https://sample.edu/channel', inquiryLabel: '상담 문의', inquiryUrl: 'https://sample.edu/contact' },
   };
   assert.equal(isSameTeacher('edward@old.sample.edu', 'edward@sample.edu', config), true);
   assert.equal(isSameTeacher('edward@impact7.kr', 'edward@sample.edu', config), false);

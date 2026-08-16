@@ -1,4 +1,4 @@
-import { defineAcademyConfig } from './academy-config.js';
+import { defineAcademyConfig, IMPACT7_CONFIG } from './academy-config.js';
 
 // 공개 폼 공통 구성요소(동의·카카오·푸터)의 기본 문구와 정규화. 스튜디오(클라)와 Cloud Run(서버)이 공유한다.
 const CONTENT_DEFAULTS = Object.freeze({
@@ -17,7 +17,7 @@ const CONTENT_DEFAULTS = Object.freeze({
 });
 
 function componentSettingsDefaults(config) {
-  const academy = defineAcademyConfig(config);
+  const academy = config ? defineAcademyConfig(config) : IMPACT7_CONFIG;
   return Object.freeze({
     ...CONTENT_DEFAULTS,
     kakaoChannel: Object.freeze({

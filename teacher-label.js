@@ -8,7 +8,7 @@
 // 소비처: impact7db(반 설정), impact7HR(직원현황), payments(미러 동기화).
 import { effectiveStaffStatus } from './staff-status.js';
 import { academyAccountId } from './staff-label.js';
-import { defineAcademyConfig } from './academy-config.js';
+import { defineAcademyConfig, IMPACT7_CONFIG } from './academy-config.js';
 
 export function isTeacher(staff) {
   return staff?.department === '교수';
@@ -32,7 +32,7 @@ export function teacherKeyOfStaff(staff, config) {
 // 설정된 주·레거시 내부 도메인만 같은 사람으로 로컬파트 병합.
 // 외부 도메인(gmail 등)의 같은 로컬파트를 오병합하지 않기 위한 경계.
 const internalDomains = (config) => {
-  const academy = defineAcademyConfig(config);
+  const academy = config ? defineAcademyConfig(config) : IMPACT7_CONFIG;
   return new Set([academy.primaryStaffDomain, ...academy.legacyStaffDomains]);
 };
 const _isInternal = (domain, domains) => !domain || domains.has(domain); // 도메인 없는 ID는 내부로 간주
@@ -56,7 +56,7 @@ export function isTeacherStaffIdentity(staff, teacher, config) {
 // 같은 로컬파트는 신메일(@impact7.kr)을 우선하고, 순서는 첫 등장 위치를 보존한다.
 // 외부 도메인 메일은 내부와 병합하지 않고 자체 키(로컬@도메인)로 dedup만 한다.
 export function canonicalizeTeacherEmails(emails, config) {
-  const academy = defineAcademyConfig(config);
+  const academy = config ? defineAcademyConfig(config) : IMPACT7_CONFIG;
   const domains = new Set([academy.primaryStaffDomain, ...academy.legacyStaffDomains]);
   const byPerson = new Map();
   for (const email of emails ?? []) {

@@ -1,4 +1,4 @@
-import { defineAcademyConfig } from './academy-config.js';
+import { defineAcademyConfig, IMPACT7_CONFIG } from './academy-config.js';
 
 // impact7 공유 — 담당자/작성자 표시 라벨·Preferred Name (SSoT)
 //
@@ -15,7 +15,7 @@ export function staffLabel(emailOrId) {
 const ACADEMY_ACCOUNT_ID = /^[a-z0-9._-]+$/i;
 
 export function academyAccountId(staff, config) {
-  const academy = defineAcademyConfig(config);
+  const academy = config ? defineAcademyConfig(config) : IMPACT7_CONFIG;
   const explicit = typeof staff?.academyAccountId === 'string'
     ? staff.academyAccountId.trim()
     : '';
@@ -29,7 +29,7 @@ export function academyAccountId(staff, config) {
 }
 
 export function staffPreferredName(staff, config) {
-  const academy = defineAcademyConfig(config);
+  const academy = config ? defineAcademyConfig(config) : IMPACT7_CONFIG;
   const preferredName = typeof staff?.preferredName === 'string'
     ? staff.preferredName.trim()
     : '';

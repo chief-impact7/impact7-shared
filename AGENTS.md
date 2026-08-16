@@ -180,12 +180,12 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 ### `./academy-config` — `academy-config.js`
 
-Firebase·DOM·외부 의존성 없는 배포 학원 설정. 미지정 값은 기존 Impact7 동작을 유지하며, 명시한 잘못된 값은 기본값으로 묵살하지 않고 `TypeError`.
+Firebase·DOM·외부 의존성 없는 배포 학원 설정. **2026-08-16 계약 변경(AcademION W3)**: 누락 키를 Impact7 값으로 조용히 보전하던 fallback을 제거 — 모든 키 필수, 누락·오류는 `TypeError`(fail-fast). 임팩트7 값이 필요하면 `IMPACT7_CONFIG`를 명시적으로 주입한다.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|----------------|
-| `DEFAULT_ACADEMY_CONFIG` | const | `{ brandName, primaryStaffDomain, legacyStaffDomains, formContact }` — frozen Impact7 기본 설정 |
-| `defineAcademyConfig` | fn | `(config?) → frozen config` — 부분 설정 병합, 도메인 정규화·HTTPS 연락처 검증, 잘못된 명시값 fail-closed |
+| `IMPACT7_CONFIG` | const | `{ brandName, primaryStaffDomain, legacyStaffDomains, formContact }` — frozen **임팩트7의 명시 설정** (기본값 아님). 구 `DEFAULT_ACADEMY_CONFIG` 대체 |
+| `defineAcademyConfig` | fn | `(config) → frozen config` — 전 키 필수, 도메인 정규화·HTTPS 연락처 검증, 누락·잘못된 값 즉시 `TypeError` |
 
 ### `./email` — `email.js`
 
