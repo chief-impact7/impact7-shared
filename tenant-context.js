@@ -3,7 +3,7 @@
 // resolvePathMode의 환경값 하나로 전 앱이 tenant 경로로 전환된다.
 // 컬렉션 배치의 정본: AcademION docs/02a-컬렉션-배치표.md (원장 확정 3축 반영).
 
-// 테넌트 이동 — impact7db 51개 (배치표 그대로)
+// 테넌트 이동 — impact7db 54개 (배치표 그대로)
 const SCOPED_IMPACT7DB = [
   // 학생·상담·성적
   'students', 'student_records', 'student_scores', 'contacts',
@@ -28,6 +28,8 @@ const SCOPED_IMPACT7DB = [
   'history_logs', 'audit_logs', 'notification_logs', 'message_logs', 'class_teacher_history',
   // 업무 보드 (board_sections는 전역 콘텐츠)
   'board_cards', 'board_comment_reads', 'board_briefings',
+  // 공개 폼 (forms 순번 4에서 검출 — 학원이 만드는 신청 폼과 제출)
+  'custom_forms', 'custom_form_versions', 'custom_form_submissions',
 ];
 
 // 테넌트 이동 — payments 프로젝트(impact7-payments) 소유 컬렉션.
