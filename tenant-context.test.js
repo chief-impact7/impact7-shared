@@ -10,9 +10,9 @@ import {
   resolvePathMode,
 } from './tenant-context.js';
 
-test('배치표 합계: 이동 55+payments 11, 전역 36, 교집합 없음', () => {
-  assert.equal(ACADEMY_SCOPED_COLLECTIONS.size, 66);
-  assert.equal(GLOBAL_COLLECTIONS.size, 36);
+test('배치표 합계: 이동 63+payments 11, 전역 40, 교집합 없음', () => {
+  assert.equal(ACADEMY_SCOPED_COLLECTIONS.size, 74);
+  assert.equal(GLOBAL_COLLECTIONS.size, 40);
   for (const name of ACADEMY_SCOPED_COLLECTIONS) {
     assert.equal(GLOBAL_COLLECTIONS.has(name), false, name);
   }

@@ -3,7 +3,7 @@
 // resolvePathMode의 환경값 하나로 전 앱이 tenant 경로로 전환된다.
 // 컬렉션 배치의 정본: AcademION docs/02a-컬렉션-배치표.md (원장 확정 3축 반영).
 
-// 테넌트 이동 — impact7db 55개 (배치표 그대로)
+// 테넌트 이동 — impact7db 63개 (배치표 그대로)
 const SCOPED_IMPACT7DB = [
   // 학생·상담·성적
   'students', 'student_records', 'student_scores', 'contacts',
@@ -32,6 +32,11 @@ const SCOPED_IMPACT7DB = [
   'custom_forms', 'custom_form_versions', 'custom_form_submissions',
   // AI 사용량 로그 — 테넌트별 사용량이 SaaS 과금의 기초 (exam 순번 10에서 검출)
   'ai_usage',
+  // 메시지 발송 멱등·감사와 출결 알림 운영 (impact7-functions 심층 실측, 3b 준비에서 검출)
+  'bulk_campaigns', 'direct_batches', 'message_request_batches', 'message_deletions',
+  'message_opt_out_audit', 'template_audit', 'attendance_notification_gaps',
+  // 재원생 학교별 인원 월별 스냅샷 — 학원 통계
+  'school_headcount',
 ];
 
 // 테넌트 이동 — payments 프로젝트(impact7-payments) 소유 컬렉션.
@@ -57,6 +62,8 @@ export const GLOBAL_COLLECTIONS = Object.freeze(new Set([
   'contractTemplates', 'HR_config', 'HR_externalAccess', 'staff_attendance', 'settings',
   'payroll', 'expenses', 'vendors', 'taxReports', 'auditLog',
   'users', 'exam_users', 'board_sections', 'message_queue',
+  // 본사 축 — Google Chat 동기화(admin 전용)와 나이스 공공정보 캐시(전 테넌트 공유 콘텐츠)
+  'chat_messages', 'schools', 'school_daily', 'school_collection',
 ]));
 
 const MODES = new Set(['legacy', 'tenant']);
