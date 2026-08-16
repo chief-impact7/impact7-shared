@@ -32,6 +32,8 @@ const SCOPED_IMPACT7DB = [
 
 // 테넌트 이동 — payments 프로젝트(impact7-payments) 소유 컬렉션.
 // 파일럿(3a 순번 0)에서 확장: 수강료 청구·결제는 전부 학원 단위 데이터다.
+// payments의 impact7db 미러 읽기(students·teachers·staff 등)는 동명이라
+// 위 SCOPED_IMPACT7DB/전역 등록을 그대로 공유한다 — 별도 등록 불요.
 const SCOPED_PAYMENTS = [
   'invoices', 'payments', 'businesses', 'notifications', 'enrollments', 'adjustments',
   'paymentClaims', 'chargeApplications', 'discounts', 'config', 'classes',
