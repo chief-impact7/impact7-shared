@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   ACADEMY_SCOPED_COLLECTIONS,
   GLOBAL_COLLECTIONS,
+  col,
   collectionPath,
   docPath,
   requireAcademyId,
@@ -61,4 +62,17 @@ test('resolvePathMode: 정확히 tenant일 때만 전환, 그 외 legacy 안전 
   assert.equal(resolvePathMode({ TENANT_PATHS: 'true' }), 'legacy');
   assert.equal(resolvePathMode({}), 'legacy');
   assert.equal(resolvePathMode(undefined), 'legacy');
+});
+
+test('col: legacy는 평면, tenant는 스코프만 aid 접두·전역은 평면, 미등록은 실패', () => {
+  const fakeDb = { collection: (path) => ({ path }) };
+  assert.equal(col(fakeDb, 'students', {}).path, 'students');
+  assert.equal(
+    col(fakeDb, 'students', { TENANT_PATHS: 'tenant', ACADEMY_ID: 'acme' }).path,
+    'academies/acme/students',
+  );
+  assert.equal(col(fakeDb, 'students', { TENANT_PATHS: 'tenant' }).path, 'academies/impact7/students');
+  assert.equal(col(fakeDb, 'staff', { TENANT_PATHS: 'tenant' }).path, 'staff');
+  assert.throws(() => col(fakeDb, 'no_such_collection', {}), TypeError);
+  assert.throws(() => col(fakeDb, 'no_such_collection', { TENANT_PATHS: 'tenant' }), TypeError);
 });

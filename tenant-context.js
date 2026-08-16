@@ -103,3 +103,17 @@ export function resolvePathMode(env) {
   const value = env?.VITE_TENANT_PATHS ?? env?.TENANT_PATHS;
   return value === 'tenant' ? 'tenant' : 'legacy';
 }
+
+// admin SDK 컬렉션 헬퍼 — receiver가 db.collection(path) 인터페이스인 서버 코드용.
+// 3a 소비자 3곳(payments·impact7-functions·consultation)에서 승격한 정본. env는
+// 명시 주입(클라 번들 안전·테스트 용이) — 앱 어댑터가 process.env를 바인딩한다.
+// 전역 컬렉션은 tenant 모드에서도 academyId 없이(collectionPath가 전역+aid 조합 거부).
+// 파일럿(단일 테넌트) 한정: academyId는 env 고정 — 다학원 요청 컨텍스트 주입은
+// 3b 이후 설계 항목, AcademION docs/02c D3 참조.
+export function col(db, name, env) {
+  const mode = resolvePathMode(env);
+  const academyId = mode === 'tenant' && ACADEMY_SCOPED_COLLECTIONS.has(name)
+    ? (env?.ACADEMY_ID ?? 'impact7')
+    : undefined;
+  return db.collection(collectionPath(name, { academyId, mode }));
+}
