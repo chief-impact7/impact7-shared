@@ -63,7 +63,7 @@ export const GLOBAL_COLLECTIONS = Object.freeze(new Set([
   'payroll', 'expenses', 'vendors', 'taxReports', 'auditLog',
   'users', 'exam_users', 'board_sections', 'message_queue',
   // 본사 축 — Google Chat 동기화(admin 전용)와 나이스 공공정보 캐시(전 테넌트 공유 콘텐츠)
-  'chat_messages', 'schools', 'school_daily', 'school_collection',
+  'chat_messages', 'sync_state', 'schools', 'school_daily', 'school_collection',
 ]));
 
 const MODES = new Set(['legacy', 'tenant']);

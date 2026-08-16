@@ -246,7 +246,7 @@ Gemini 모델 선택·폴백·3.x 요청 설정 정규화 SSoT. SDK·Firebase �
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `ACADEMY_SCOPED_COLLECTIONS` | const | frozen Set(74) — impact7db 이동 63 + payments 11 |
-| `GLOBAL_COLLECTIONS` | const | frozen Set(40) — HR·법인/콘텐츠/인증/큐/본사 축 |
+| `GLOBAL_COLLECTIONS` | const | frozen Set(41) — HR·법인/콘텐츠/인증/큐/본사 축 |
 | `collectionPath` | fn | `(name, { academyId?, mode }) → string` — 미등록 이름·전역+aid·tenant에서 aid 누락은 TypeError |
 | `docPath` | fn | `(name, id, ctx) → string` |
 | `requireAcademyId` | fn | `(claimsOrString) → string` — 형식 `[a-z0-9][a-z0-9-]*` |
