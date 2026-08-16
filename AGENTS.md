@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 584개 통과.
+- 테스트: `npm test` (`node --test`). 현재 591개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -238,6 +238,19 @@ Gemini 모델 선택·폴백·3.x 요청 설정 정규화 SSoT. SDK·Firebase �
 | `studentSearchTerms` | fn | `(student) → string[]` — 검색어 후보 [학교, 학교+학부글자, 풀라벨] |
 | `schoolLevelFromName` | fn | `(name) → '초등'\|'중등'\|'고등'\|''` — 학교명 자유텍스트만으로 학부 파생. 학교급 접미(초등학교/중학교/고등학교·초등/중등/고등) 확정 → 없으면 정규화 축약형 마지막 글자 → DUP_EXCEPT(안중·영중 등) bare stem은 미상(`''`). 학생 level 없는 도메인(내신자료) 목록 그룹핑·필터용 |
 | `canonicalSchoolLabel` | fn | `(name) → string` — 학교명 표기 편차(금옥중학교·금옥중·금옥중등)를 한 라벨(`금옥중`)로 통일. 학교급 표현을 떼고 학부약어 재부착(schoolLevelGradeLabel 재사용) — 중복제거·DUP_EXCEPT·지역명유지 정합. 목록 학교 옵션·필터·표시 SSoT |
+
+### `./tenant-context` — `tenant-context.js`
+
+테넌트 경로 SSoT (2단계 산출물 02c 구현, 3a 수렴의 유일한 경로 통로). legacy 모드는 평면 경로 그대로(동작 불변), 컷오버는 env(`TENANT_PATHS`/`VITE_TENANT_PATHS`='tenant') 하나로 전환. 배치 정본: AcademION docs/02a.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `ACADEMY_SCOPED_COLLECTIONS` | const | frozen Set(62) — impact7db 이동 51 + payments 11 |
+| `GLOBAL_COLLECTIONS` | const | frozen Set(36) — HR·법인/콘텐츠/인증/큐 |
+| `collectionPath` | fn | `(name, { academyId?, mode }) → string` — 미등록 이름·전역+aid·tenant에서 aid 누락은 TypeError |
+| `docPath` | fn | `(name, id, ctx) → string` |
+| `requireAcademyId` | fn | `(claimsOrString) → string` — 형식 `[a-z0-9][a-z0-9-]*` |
+| `resolvePathMode` | fn | `(env) → 'legacy'\|'tenant'` — 정확히 'tenant'일 때만 전환 |
 
 ### `./staff-domain` — `staff-domain.js`
 
