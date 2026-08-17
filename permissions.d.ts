@@ -6,6 +6,7 @@ export interface PermissionUser {
 export interface PermissionCatalogItem {
   key: string;
   label: string;
+  description?: string;
   apps: string[];
   enforced: 'rules' | 'client' | 'none';
 }

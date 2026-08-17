@@ -25,7 +25,13 @@ export const PERMISSION_GROUPS = [
     key: 'app-access',
     title: '앱 접근',
     items: [
-      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'client' },
+      {
+        key: 'canAccessImpact7DB',
+        label: 'DB 전체 접근',
+        description: 'DB 전체 기능을 허용합니다. 거부된 사용자도 별도로 허용된 DB 기능만 제한적으로 사용할 수 있습니다.',
+        apps: ['DB'],
+        enforced: 'client',
+      },
       { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'client' },
       { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'client' },
       { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'client' },
@@ -50,6 +56,13 @@ export const PERMISSION_GROUPS = [
     key: 'students',
     title: '학생',
     items: [
+      {
+        key: 'canAdmitStudents',
+        label: '신규입학 처리',
+        description: 'DB 전체 접근 없이도 신규입학 화면과 처리만 허용합니다. 다른 DB 기능은 사용할 수 없습니다.',
+        apps: ['DB'],
+        enforced: 'rules',
+      },
       { key: 'canViewStudents', label: '학생 목록 보기', apps: ['DB', 'DSC'], enforced: 'none' },
       { key: 'canEditStudents', label: '학생 정보 수정', apps: ['DB', 'DSC'], enforced: 'none' },
       { key: 'canViewStudentPrivateInfo', label: '학생 개인정보 보기', apps: ['DB', 'DSC', 'exam'], enforced: 'none' },

@@ -40,8 +40,8 @@ test('키 중복 없음', () => {
   assert.equal(seen.size, ALL_PERMISSION_KEYS.length);
 });
 
-test('ALL_PERMISSION_KEYS 개수 61', () => {
-  assert.equal(ALL_PERMISSION_KEYS.length, 61);
+test('ALL_PERMISSION_KEYS 개수 62', () => {
+  assert.equal(ALL_PERMISSION_KEYS.length, 62);
 });
 
 test('모든 item에 key/label/apps/enforced 존재', () => {
@@ -137,7 +137,13 @@ test('앱 접근 그룹은 직원용 소비앱 10종을 강제한다', () => {
     key: 'app-access',
     title: '앱 접근',
     items: [
-      { key: 'canAccessImpact7DB', label: '학생 DB', apps: ['DB'], enforced: 'client' },
+      {
+        key: 'canAccessImpact7DB',
+        label: 'DB 전체 접근',
+        description: 'DB 전체 기능을 허용합니다. 거부된 사용자도 별도로 허용된 DB 기능만 제한적으로 사용할 수 있습니다.',
+        apps: ['DB'],
+        enforced: 'client',
+      },
       { key: 'canAccessImpact7DSC', label: 'DSC·로그북·메시지', apps: ['DSC'], enforced: 'client' },
       { key: 'canAccessImpact7HR', label: '인사·급여', apps: ['HR'], enforced: 'client' },
       { key: 'canAccessImpact7Exam', label: '시험·성적', apps: ['exam'], enforced: 'client' },
@@ -157,6 +163,15 @@ test('앱 접근은 누락·false를 차단하고 명시적 true와 오너·원�
   assert.equal(hasRequestPermission({ role: 'staff', permissions: { canAccessImpact7DB: true } }, 'canAccessImpact7DB'), true);
   assert.equal(hasRequestPermission({ role: 'owner', permissions: {} }, 'canAccessImpact7DB'), true);
   assert.equal(hasRequestPermission({ role: 'principal', permissions: {} }, 'canAccessImpact7DB'), true);
+});
+
+test('학생 권한은 신규입학 처리를 Rules 강제 권한으로 제공한다', () => {
+  const students = PERMISSION_GROUPS.find((group) => group.key === 'students');
+  assert.ok(students.items.some((item) => !('children' in item)
+    && item.key === 'canAdmitStudents'
+    && item.label === '신규입학 처리'
+    && item.description === 'DB 전체 접근 없이도 신규입학 화면과 처리만 허용합니다. 다른 DB 기능은 사용할 수 없습니다.'
+    && item.enforced === 'rules'));
 });
 
 test('요청서 작성은 작성 또는 대리작성 권한으로 허용한다', () => {
