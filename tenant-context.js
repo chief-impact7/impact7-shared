@@ -128,3 +128,20 @@ export function col(db, name, env) {
     : undefined;
   return db.collection(collectionPath(name, { academyId, mode }));
 }
+
+// 클라(경로 문자열) 헬퍼 — modular SDK는 ref가 아니라 경로 문자열을 받는다.
+// 서버 col()과 대칭: tenant 모드에서 스코프 컬렉션만 academyId를 요구·접두하고
+// (부재 시 requireAcademyId가 fail-fast), 전역 컬렉션과 legacy는 aid 없이 평면.
+// env는 명시 주입 — 앱 어댑터가 빌드타임 env와 로그인 클레임(academyId)을 바인딩한다.
+export function colPathFor(name, env, academyId) {
+  const mode = resolvePathMode(env);
+  const aid = mode === 'tenant' && ACADEMY_SCOPED_COLLECTIONS.has(name)
+    ? requireAcademyId(academyId)
+    : undefined;
+  return collectionPath(name, { academyId: aid, mode });
+}
+
+export function docPathFor(name, id, env, academyId) {
+  if (typeof id !== 'string' || !id) throw new TypeError(`docPathFor id가 비었다: ${name}`);
+  return `${colPathFor(name, env, academyId)}/${id}`;
+}

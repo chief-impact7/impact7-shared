@@ -4,7 +4,9 @@ import {
   ACADEMY_SCOPED_COLLECTIONS,
   GLOBAL_COLLECTIONS,
   col,
+  colPathFor,
   collectionPath,
+  docPathFor,
   docPath,
   requireAcademyId,
   resolvePathMode,
@@ -75,4 +77,13 @@ test('col: legacy는 평면, tenant는 스코프만 aid 접두·전역은 평면
   assert.equal(col(fakeDb, 'staff', { TENANT_PATHS: 'tenant' }).path, 'staff');
   assert.throws(() => col(fakeDb, 'no_such_collection', {}), TypeError);
   assert.throws(() => col(fakeDb, 'no_such_collection', { TENANT_PATHS: 'tenant' }), TypeError);
+});
+
+test('colPathFor/docPathFor: 클라 헬퍼 — legacy 평면, tenant 스코프만 aid 접두·전역 평면, aid 부재 fail-fast', () => {
+  assert.equal(colPathFor('students', {}, undefined), 'students');
+  assert.equal(colPathFor('students', { VITE_TENANT_PATHS: 'tenant' }, 'acme'), 'academies/acme/students');
+  assert.equal(colPathFor('HR_users', { VITE_TENANT_PATHS: 'tenant' }, 'acme'), 'HR_users');
+  assert.throws(() => colPathFor('students', { VITE_TENANT_PATHS: 'tenant' }, undefined), TypeError);
+  assert.equal(docPathFor('students', 's1', {}, undefined), 'students/s1');
+  assert.throws(() => docPathFor('students', '', {}, undefined), TypeError);
 });
