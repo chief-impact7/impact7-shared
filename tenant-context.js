@@ -40,6 +40,8 @@ const SCOPED_IMPACT7DB = [
   'student_career_profiles',
   // 직원용 어시스턴트 질문·답변 로그 (AcademION docs/08 5절) — 서버만 쓴다
   'assistant_logs',
+  // 학원이 승인한 운영 절차 (AcademION docs/09) — 학원마다 답이 달라 코드가 아닌 데이터다
+  'operating_procedures',
   // 입학·진단 신청과 후속 관리 (newtest, 3b 준비에서 검출)
   'application_quotas', 'consult_surveys', 'diagnostic_applications',
   'follow_up_actions', 'free_test_periods',
