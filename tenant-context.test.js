@@ -12,9 +12,9 @@ import {
   resolvePathMode,
 } from './tenant-context.js';
 
-test('배치표 합계: 이동 69+payments 11, 전역 41, 교집합 없음', () => {
-  assert.equal(ACADEMY_SCOPED_COLLECTIONS.size, 80);
-  assert.equal(GLOBAL_COLLECTIONS.size, 41);
+test('배치표 합계: 이동 69+payments 11+학생 진로 1, 전역 41+진로 공공자료 3, 교집합 없음', () => {
+  assert.equal(ACADEMY_SCOPED_COLLECTIONS.size, 81);
+  assert.equal(GLOBAL_COLLECTIONS.size, 44);
   for (const name of ACADEMY_SCOPED_COLLECTIONS) {
     assert.equal(GLOBAL_COLLECTIONS.has(name), false, name);
   }
@@ -35,11 +35,18 @@ test('tenant 모드는 academies/{aid}/ 경로 — 격리의 근거', () => {
     docPath('invoices', 'inv1', { academyId: 'b-academy', mode: 'tenant' }),
     'academies/b-academy/invoices/inv1',
   );
+  assert.equal(
+    docPath('student_career_profiles', 's1', { academyId: 'impact7', mode: 'tenant' }),
+    'academies/impact7/student_career_profiles/s1',
+  );
 });
 
 test('전역 컬렉션은 모드와 무관하게 평면 — academyId를 주면 실패(오배치 조기 발견)', () => {
   assert.equal(collectionPath('HR_users', { mode: 'tenant' }), 'HR_users');
   assert.equal(collectionPath('exams', { mode: 'legacy' }), 'exams');
+  assert.equal(collectionPath('career_jobs', { mode: 'tenant' }), 'career_jobs');
+  assert.equal(collectionPath('career_majors', { mode: 'tenant' }), 'career_majors');
+  assert.equal(collectionPath('universities', { mode: 'tenant' }), 'universities');
   assert.throws(() => collectionPath('HR_users', { academyId: 'impact7', mode: 'tenant' }), TypeError);
 });
 

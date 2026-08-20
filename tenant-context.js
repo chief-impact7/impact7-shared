@@ -37,6 +37,7 @@ const SCOPED_IMPACT7DB = [
   'message_opt_out_audit', 'template_audit', 'attendance_notification_gaps',
   // 재원생 학교 연결·학교별 인원 — 학원 데이터
   'school_mappings', 'school_headcount',
+  'student_career_profiles',
   // 입학·진단 신청과 후속 관리 (newtest, 3b 준비에서 검출)
   'application_quotas', 'consult_surveys', 'diagnostic_applications',
   'follow_up_actions', 'free_test_periods',
@@ -67,6 +68,7 @@ export const GLOBAL_COLLECTIONS = Object.freeze(new Set([
   'users', 'exam_users', 'board_sections', 'message_queue',
   // 본사 축 — Google Chat 동기화(admin 전용)와 나이스 공공정보 캐시(전 테넌트 공유 콘텐츠)
   'chat_messages', 'sync_state', 'schools', 'school_daily', 'school_collection',
+  'career_jobs', 'career_majors', 'universities',
 ]));
 
 const MODES = new Set(['legacy', 'tenant']);
