@@ -410,7 +410,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
 | `PERMISSION_GROUPS` | const | `[{ key, title, items: PermissionEntry[] }]` — 항목은 권한 `{ key, label, apps, enforced }` 또는 재귀 하위 목록 `{ id, label, children }`. 그룹 13종. `enforced`: `'rules'`(firestore.rules 서버 강제) \| `'client'`(앱 화면 제어만) \| `'none'`(카탈로그만) |
-| `ALL_PERMISSION_KEYS` | const | `PERMISSION_GROUPS`의 중첩 항목을 재귀 순회한 권한 키 61종 |
+| `ALL_PERMISSION_KEYS` | const | `PERMISSION_GROUPS`의 중첩 항목을 재귀 순회한 권한 키 62종 |
 | `SENSITIVE_PERMISSION_KEYS` | const | `['canViewPopulationStats', 'canViewClassCounts']` — 오너/원장만 부여·회수 |
 
 ### `./retention` — `retention.js`
@@ -456,7 +456,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 - `ENROLLABLE_STATUSES`, `NON_ENROLLABLE_STATUSES` — 상태 집합 변경 시 소비자 전체 영향
 - `reconcileEnrollments()` 반환 형태 `{ enrollments, valid, reason? }` — 필드명 변경 금지
-- `HISTORY_BADGE` 키 집합 10종 — DB 렌더러가 CSS 클래스로 매핑
+- `HISTORY_BADGE` 키 집합 13종 — DB 렌더러가 CSS 클래스로 매핑
 - `currentSchool(student)` 시그니처 — DSC·DB 다수 사이트에서 호출
 - `SCHOOL_FIELD` 값 (`school_elementary` 등) — Firestore 필드명과 동기화
 
@@ -471,7 +471,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 1. `package.json` `.version` 올림
 2. `git tag vX.Y.Z && git push origin vX.Y.Z`
-3. GitHub Actions(`notify-consumers.yml`)가 등록된 소비자 레포의 package.json을 수정하고 커밋함
+3. `scripts/release-shared-tag.sh`가 subtree split으로 구 레포에 태그를 push함 (소비자 package.json은 수동 갱신)
 
 **breaking change** (시그니처·구조 변경)는 minor/major bump + 소비자 레포 영향 확인 선행.
 `npm update @impact7/shared`는 태그 고정 방식에서 동작하지 않음 — 태그를 올려야 한다.
