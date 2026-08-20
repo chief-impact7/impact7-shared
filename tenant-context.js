@@ -38,6 +38,8 @@ const SCOPED_IMPACT7DB = [
   // 재원생 학교 연결·학교별 인원 — 학원 데이터
   'school_mappings', 'school_headcount',
   'student_career_profiles',
+  // 직원용 어시스턴트 질문·답변 로그 (AcademION docs/08 5절) — 서버만 쓴다
+  'assistant_logs',
   // 입학·진단 신청과 후속 관리 (newtest, 3b 준비에서 검출)
   'application_quotas', 'consult_surveys', 'diagnostic_applications',
   'follow_up_actions', 'free_test_periods',
