@@ -42,6 +42,8 @@ const SCOPED_IMPACT7DB = [
   'assistant_logs',
   // 학원이 승인한 운영 절차 (AcademION docs/09) — 학원마다 답이 달라 코드가 아닌 데이터다
   'operating_procedures',
+  // 어시스턴트 일별 집계 — 질문 원문은 180일 뒤 사라지지만 이 수치는 남는다 (원문 없음, TTL 없음)
+  'assistant_stats',
   // 입학·진단 신청과 후속 관리 (newtest, 3b 준비에서 검출)
   'application_quotas', 'consult_surveys', 'diagnostic_applications',
   'follow_up_actions', 'free_test_periods',

@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.71.4",
+  "version": "1.71.5",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
