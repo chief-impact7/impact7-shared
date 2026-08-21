@@ -42,8 +42,27 @@ test('사람이 없는 질문은 그대로 통과한다', () => {
   }
 });
 
-test('명단에 없는 이름이 남으면 버린다 — 새는 것보다 표본이 적은 편이 낫다', () => {
-  assert.deepEqual(mask('최민서 오늘 왔어요?'), { masked: null, dropped: true, reason: 'unmasked_name' });
+test('명단에 없는 이름 하나는 [이름?]으로 지우고 문장은 살린다', () => {
+  const r = mask('최민서 오늘 왔어요?');
+  assert.equal(r.dropped, false);
+  assert.equal(r.masked, `${MASK.unknown} 오늘 왔어요?`);
+  assert.equal(r.uncertain, true);   // 명단이 못 미쳤다는 사실은 남긴다
+});
+
+test('조사는 남기고 이름만 바꾼다', () => {
+  assert.equal(mask('김영수는 어느 반이에요?').masked, `${MASK.unknown}는 어느 반이에요?`);
+});
+
+test('미확인 이름이 둘이면 버린다 — 못 잡은 사람이 옆에 있을 확률이 높다', () => {
+  const r = mask('최민서랑 김영수 둘 다 결석이래요');
+  assert.equal(r.dropped, true);
+  assert.equal(r.reason, 'multiple_unknown_names');
+});
+
+test('명단으로 확인된 이름은 불확실이 아니다', () => {
+  const r = mask('홍길동 왔어요?');
+  assert.equal(r.uncertain, false);
+  assert.equal(r.masked, `${MASK.student} 왔어요?`);
 });
 
 test('경음이 섞이면 이름이 아니다 — 한국 이름에 ㄲㄸㅃㅆㅉ은 없다', () => {
@@ -57,8 +76,8 @@ test('경음이 섞이면 이름이 아니다 — 한국 이름에 ㄲㄸㅃㅆ�
   assert.equal(mask('안았어 뭐라고요?').dropped, false);
 });
 
-test('명단에 없는 형제도 성이 같아 걸린다', () => {
-  assert.equal(mask('김영수는 어느 반이에요?').dropped, true);
+test('명단에 없는 형제도 성이 같아 잡힌다', () => {
+  assert.equal(mask('김영수는 어느 반이에요?').uncertain, true);
 });
 
 test('성으로 시작하지 않는 흔한 말은 이름으로 보지 않는다', () => {
@@ -68,13 +87,15 @@ test('성으로 시작하지 않는 흔한 말은 이름으로 보지 않는다'
 });
 
 test('빈 질문은 버린다', () => {
-  assert.deepEqual(maskQuestion('', known), { masked: null, dropped: true, reason: 'empty' });
-  assert.deepEqual(maskQuestion('   ', known), { masked: null, dropped: true, reason: 'empty' });
+  assert.equal(maskQuestion('', known).dropped, true);
+  assert.equal(maskQuestion('   ', known).reason, 'empty');
 });
 
-test('명단이 없으면 이름 있는 질문은 전부 버린다 — 지울 근거가 없다', () => {
-  assert.equal(maskQuestion('홍길동 왔어요?', {}).dropped, true);
-  assert.equal(maskQuestion('퇴원 요청 어떻게 해요?', {}).dropped, false);
+test('명단이 없어도 이름 모양은 지운다 — 다만 불확실로 남긴다', () => {
+  const r = maskQuestion('홍길동 왔어요?', {});
+  assert.equal(r.masked, `${MASK.unknown} 왔어요?`);
+  assert.equal(r.uncertain, true);
+  assert.equal(maskQuestion('퇴원 요청 어떻게 해요?', {}).uncertain, false);
 });
 
 test('같은 이름이 여러 번 나와도 모두 지운다', () => {
@@ -94,14 +115,14 @@ test('"~해 주세요" 같은 어미를 이름으로 보지 않는다', () => {
 });
 
 test('어미를 걸러도 진짜 이름은 여전히 잡는다', () => {
-  assert.equal(mask('최민서 왔어요?').dropped, true);
-  assert.equal(mask('김영수는 어느 반이에요?').dropped, true);
+  assert.equal(mask('최민서 왔어요?').uncertain, true);
+  assert.equal(mask('김영수는 어느 반이에요?').uncertain, true);
 });
 
 test('복성은 두 자라 세 자 규칙에 안 걸린다 — 따로 본다', () => {
-  assert.equal(mask('남궁민수 어느 반이죠?').dropped, true);
-  assert.equal(mask('남궁민수는 어느 반이죠?').dropped, true);
-  assert.equal(mask('황보라온 왔나요?').dropped, true);
+  assert.equal(mask('남궁민수 어느 반이죠?').masked, `${MASK.unknown} 어느 반이죠?`);
+  assert.equal(mask('남궁민수는 어느 반이죠?').uncertain, true);
+  assert.equal(mask('황보라온 왔나요?').uncertain, true);
 });
 
 test('명단에 있으면 복성이라도 지우고 문장은 남긴다', () => {
