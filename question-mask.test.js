@@ -97,3 +97,15 @@ test('어미를 걸러도 진짜 이름은 여전히 잡는다', () => {
   assert.equal(mask('최민서 왔어요?').dropped, true);
   assert.equal(mask('김영수는 어느 반이에요?').dropped, true);
 });
+
+test('복성은 두 자라 세 자 규칙에 안 걸린다 — 따로 본다', () => {
+  assert.equal(mask('남궁민수 어느 반이죠?').dropped, true);
+  assert.equal(mask('남궁민수는 어느 반이죠?').dropped, true);
+  assert.equal(mask('황보라온 왔나요?').dropped, true);
+});
+
+test('명단에 있으면 복성이라도 지우고 문장은 남긴다', () => {
+  const r = maskQuestion('남궁민수 왔나요?', { studentNames: ['남궁민수'] });
+  assert.equal(r.dropped, false);
+  assert.equal(r.masked, `${MASK.student} 왔나요?`);
+});

@@ -24,6 +24,9 @@ const SURNAMES = new Set([
   ...'민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국은편용',
 ]);
 
+// 복성은 두 자다. 세 자 규칙에 안 걸려 그대로 새어나가므로 따로 본다.
+const COMPOUND_SURNAMES = new Set(['남궁', '황보', '제갈', '선우', '독고', '사공', '서문', '동방']);
+
 // 조사가 붙어 4자로 잡힌 것도 떼고 본다 — "김영수는"의 이름은 앞 3자다.
 const PARTICLE = new Set(['은', '는', '이', '가', '을', '를', '도', '만', '의', '와', '과', '에', '로', '랑', '님']);
 
@@ -54,11 +57,15 @@ function hasTense(text) {
 const NOT_NAMES = new Set(['전체적', '문의사', '신청서', '성적표', '안내문']);
 
 function looksLikeName(run) {
+  if (hasTense(run)) return false;
+
+  // 복성 + 이름 두 자. "남궁민수"는 세 자 규칙에 안 걸린다.
+  if (run.length === 4 && COMPOUND_SURNAMES.has(run.slice(0, 2))) return true;
+
   let token = run;
   if (token.length === 4 && PARTICLE.has(token[3])) token = token.slice(0, 3);
   if (token.length !== 3) return false;
   if (VERB_TAIL.has(token[2])) return false;
-  if (hasTense(token)) return false;
   if (NOT_NAMES.has(token)) return false;
   return SURNAMES.has(token[0]);
 }
