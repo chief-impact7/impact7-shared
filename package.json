@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.71.6",
+  "version": "1.71.7",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -38,7 +38,8 @@
     "./ai-model-policy": "./ai-model-policy.js",
     "./retention": "./retention.js",
     "./school-info": "./school-info.js",
-    "./class-review": "./class-review.js"
+    "./class-review": "./class-review.js",
+    "./question-mask": "./question-mask.js"
   },
   "files": [
     "*.js",
