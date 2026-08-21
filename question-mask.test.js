@@ -46,8 +46,15 @@ test('명단에 없는 이름이 남으면 버린다 — 새는 것보다 표본
   assert.deepEqual(mask('최민서 오늘 왔어요?'), { masked: null, dropped: true, reason: 'unmasked_name' });
 });
 
-test('오타 난 이름도 성이 남아 걸린다', () => {
-  assert.equal(mask('홍길똥 오늘 왔나요?').dropped, true);
+test('경음이 섞이면 이름이 아니다 — 한국 이름에 ㄲㄸㅃㅆㅉ은 없다', () => {
+  // 오타 난 이름은 실제 학생을 식별하지 못한다. 지키려다 멀쩡한 질문을 버리지 않는다.
+  assert.equal(mask('홍길똥 오늘 왔나요?').dropped, false);
+  assert.equal(mask('이따희 왔어요?').dropped, false);
+  // 흔한 말도 임시 목록 없이 이 규칙으로 통과한다.
+  assert.equal(mask('여러 명 한꺼번에 출결 바꾸는 법').dropped, false);
+  assert.equal(mask('오늘까지 결석 처리 안 된 학생').dropped, false);
+  // 종성 경음도 본다 — 성으로 시작하는 활용형이 이름으로 오인되지 않는다.
+  assert.equal(mask('안았어 뭐라고요?').dropped, false);
 });
 
 test('명단에 없는 형제도 성이 같아 걸린다', () => {

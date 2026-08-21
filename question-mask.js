@@ -31,14 +31,34 @@ const PARTICLE = new Set(['은', '는', '이', '가', '을', '를', '도', '만'
 // — 이걸 안 하면 "~해 주세요"가 붙은 질문이 전부 버려진다.
 const VERB_TAIL = new Set(['요', '죠', '까', '다', '네', '까', '군', '냐', '지']);
 
-// 성으로 시작하는 3자인데 이름이 아닌 흔한 말. 늘려야 할 만큼 버려지면 그때 추가한다.
-const NOT_NAMES = new Set(['한꺼번', '오늘까', '전체적', '문의사', '신청서', '성적표', '안내문']);
+// 한국 이름에는 경음(ㄲㄸㅃㅆㅉ)이 없다. "이쫑수"·"이따희" 같은 이름은 존재하지 않는다.
+// 그래서 경음이 섞였으면 이름이 아니다 — "한꺼번"·"오늘까"가 여기서 걸러진다.
+// 오타 난 이름("홍길똥")도 이 규칙으로 통과한다. 실제 학생을 식별하지 못하는 글자를
+// 지키려다 멀쩡한 질문을 버릴 이유가 없다(원장 판단 2026-08-21).
+// 초성뿐 아니라 종성도 본다 — 이름 전체에 경음이 없다.
+// 종성까지 보면 "안았어"처럼 성으로 시작하는 활용형이 이름으로 오인되지 않는다.
+const TENSE_INITIAL = new Set([1, 4, 8, 10, 13]);   // ㄲ ㄸ ㅃ ㅆ ㅉ
+const TENSE_FINAL = new Set([2, 20]);               // ㄲ ㅆ
+
+function hasTense(text) {
+  for (const ch of text) {
+    const code = ch.charCodeAt(0) - 0xAC00;
+    if (code < 0 || code > 11171) continue;
+    if (TENSE_INITIAL.has(Math.floor(code / 588))) return true;
+    if (TENSE_FINAL.has(code % 28)) return true;
+  }
+  return false;
+}
+
+// 경음 규칙으로도 안 걸러지는 흔한 말. 늘려야 할 만큼 버려지면 그때 추가한다.
+const NOT_NAMES = new Set(['전체적', '문의사', '신청서', '성적표', '안내문']);
 
 function looksLikeName(run) {
   let token = run;
   if (token.length === 4 && PARTICLE.has(token[3])) token = token.slice(0, 3);
   if (token.length !== 3) return false;
   if (VERB_TAIL.has(token[2])) return false;
+  if (hasTense(token)) return false;
   if (NOT_NAMES.has(token)) return false;
   return SURNAMES.has(token[0]);
 }
