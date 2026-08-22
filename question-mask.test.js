@@ -5,7 +5,6 @@ import { maskQuestion, MASK } from './question-mask.js';
 const known = {
   studentNames: ['홍길동', '김영희', '이서준'],
   staffNames: ['박선생'],
-  schoolNames: ['양정중학교', '양정중'],
 };
 const mask = (q) => maskQuestion(q, known);
 
@@ -13,11 +12,6 @@ test('명단에 있는 학생 이름을 지우고 문장은 남긴다', () => {
   const r = mask('홍길동 3월에 환불받은 거 어떻게 처리해요?');
   assert.equal(r.dropped, false);
   assert.equal(r.masked, `${MASK.student} 3월에 환불받은 거 어떻게 처리해요?`);
-});
-
-test('학교는 긴 이름부터 지운다 — 짧은 것 먼저 지우면 조각이 남는다', () => {
-  assert.equal(mask('양정중학교 애들 출결 어디서 봐요?').masked, `${MASK.school} 애들 출결 어디서 봐요?`);
-  assert.equal(mask('양정중 애들 어디서 봐요?').masked, `${MASK.school} 애들 어디서 봐요?`);
 });
 
 test('전화번호는 형식이 달라도 지운다', () => {
@@ -132,10 +126,10 @@ test('명단에 있으면 복성이라도 지우고 문장은 남긴다', () => 
 });
 
 test('한 글자짜리 명단 값은 지우지 않는다 — 문장을 망가뜨린다', () => {
-  // 학생 데이터의 학교 칸에 "0"·"*"·"초"가 실제로 들어 있다(2026-08-22 실측).
-  const dirty = { studentNames: [], schoolNames: ['0', '*', '초', '양정중학교'], staffNames: [] };
+  // 명단에 "0"·"*"·"초"가 실제로 섞여 있다(2026-08-22 실측).
+  const dirty = { studentNames: ['0', '*', '초', '김영희'], staffNames: [] };
   assert.equal(maskQuestion('8/20까지 휴원을 연장하려면', dirty).masked, '8/20까지 휴원을 연장하려면');
-  assert.equal(maskQuestion('양정중학교 애들', dirty).masked, `${MASK.school} 애들`);
+  assert.equal(maskQuestion('김영희 왔나요?', dirty).masked, `${MASK.student} 왔나요?`);
 });
 
 test('notNames는 이름 모양 판정을 막는다', () => {
@@ -145,10 +139,28 @@ test('notNames는 이름 모양 판정을 막는다', () => {
 });
 
 test('notNames는 명단에 잘못 들어간 값도 막는다', () => {
-  // "등원"이 학교 칸에 등록돼 있어 "등원해"가 "[학교]해"가 되던 문제.
-  const dirty = { studentNames: [], schoolNames: ['등원'], staffNames: [] };
-  assert.equal(maskQuestion('몇명이나 등원해?', dirty).masked, `몇명이나 ${MASK.school}해?`);
-  assert.equal(maskQuestion('몇명이나 등원해?', { ...dirty, notNames: ['등원'] }).masked, '몇명이나 등원해?');
+  // 명단에 잘못 들어간 흔한 말은 예외로 막는다.
+  const dirty = { studentNames: ['등원'], staffNames: [] };
+  assert.equal(maskQuestion('오늘 등원은 몇명?', dirty).masked, `오늘 ${MASK.student}은 몇명?`);
+  assert.equal(maskQuestion('오늘 등원은 몇명?', { ...dirty, notNames: ['등원'] }).masked, '오늘 등원은 몇명?');
+});
+
+test('짧은 이름이 긴 이름을 먼저 먹지 않는다', () => {
+  // 목록별로 따로 돌리면 짧은 쪽이 먼저 걸려 이름 일부가 그대로 남았다(2026-08-22).
+  const dirty = { studentNames: ['조원근'], staffNames: ['조원'] };
+  assert.equal(maskQuestion('오늘 조원근 결석이유는?', dirty).masked, `오늘 ${MASK.student} 결석이유는?`);
+});
+
+test('한글이 아닌 명단 값은 지우지 않는다', () => {
+  // 명단에 "ㅇㅇ"·"고2"·"*"가 실제로 들어 있다.
+  const dirty = { studentNames: ['ㅇㅇ', '고2', '*'], staffNames: [] };
+  assert.equal(maskQuestion('고2 몇명이야?', dirty).masked, '고2 몇명이야?');
+});
+
+test('두 글자 이름은 낱말 속에 박혀 있으면 지우지 않는다', () => {
+  const dirty = { studentNames: ['강해'], staffNames: [] };
+  assert.equal(maskQuestion('바람이 강해졌어', dirty).masked, '바람이 강해졌어');
+  assert.equal(maskQuestion('강해는 왔어?', dirty).masked, `${MASK.student}는 왔어?`);
 });
 
 test('예외로 막힌 이름은 불확실로도 세지 않는다', () => {
