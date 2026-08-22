@@ -130,3 +130,36 @@ test('명단에 있으면 복성이라도 지우고 문장은 남긴다', () => 
   assert.equal(r.dropped, false);
   assert.equal(r.masked, `${MASK.student} 왔나요?`);
 });
+
+test('한 글자짜리 명단 값은 지우지 않는다 — 문장을 망가뜨린다', () => {
+  // 학생 데이터의 학교 칸에 "0"·"*"·"초"가 실제로 들어 있다(2026-08-22 실측).
+  const dirty = { studentNames: [], schoolNames: ['0', '*', '초', '양정중학교'], staffNames: [] };
+  assert.equal(maskQuestion('8/20까지 휴원을 연장하려면', dirty).masked, '8/20까지 휴원을 연장하려면');
+  assert.equal(maskQuestion('양정중학교 애들', dirty).masked, `${MASK.school} 애들`);
+});
+
+test('notNames는 이름 모양 판정을 막는다', () => {
+  const q = '지각처리를 여기서 할 수 있나?';
+  assert.equal(mask(q).masked, `지각처리를 ${MASK.unknown} 할 수 있나?`);
+  assert.equal(maskQuestion(q, { ...known, notNames: ['여기서'] }).masked, q);
+});
+
+test('notNames는 명단에 잘못 들어간 값도 막는다', () => {
+  // "등원"이 학교 칸에 등록돼 있어 "등원해"가 "[학교]해"가 되던 문제.
+  const dirty = { studentNames: [], schoolNames: ['등원'], staffNames: [] };
+  assert.equal(maskQuestion('몇명이나 등원해?', dirty).masked, `몇명이나 ${MASK.school}해?`);
+  assert.equal(maskQuestion('몇명이나 등원해?', { ...dirty, notNames: ['등원'] }).masked, '몇명이나 등원해?');
+});
+
+test('예외로 막힌 이름은 불확실로도 세지 않는다', () => {
+  const r = maskQuestion('지각처리를 여기서 할 수 있나?', { ...known, notNames: ['여기서'] });
+  assert.equal(r.uncertain, false);
+  assert.equal(r.dropped, false);
+});
+
+test('잡힌 말을 돌려준다 — 오탐이면 예외로 확정할 수 있어야 한다', () => {
+  assert.deepEqual(mask('지각처리를 여기서 할 수 있나?').tokens, ['여기서']);
+  assert.deepEqual(mask('홍길동 왔어요?').tokens, []);
+  // 버려진 문장에서도 무엇이 걸렸는지는 알아야 한다.
+  assert.deepEqual(mask('최민서랑 김영수 둘 다 결석').tokens, ['최민서', '김영수']);
+});

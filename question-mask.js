@@ -17,6 +17,10 @@ export const MASK = {
 // 미확인이 둘이면 명단이 그 문장에 못 미친다는 뜻이라 옆 사람이 있을 확률이 실제로 높다.
 export const DROP_AT_UNKNOWN_NAMES = 2;
 
+// 한 글자짜리는 지우지 않는다. 학생 데이터의 학교 칸에 "0"·"*"·"초" 같은 값이 실제로 들어 있어
+// 그대로 찾아 바꾸면 "8/20까지"가 "8/2[학교]까지"가 된다(2026-08-22 실측).
+const MIN_NAME_CHARS = 2;
+
 // 한국 이름처럼 보이는 덩어리. 조사가 붙어도 앞 2~4자를 잡는다.
 const KOREAN_NAME = /[가-힣]{2,4}/g;
 const PHONE = /\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}/g;
@@ -62,12 +66,13 @@ function hasTense(text) {
   return false;
 }
 
-// 경음 규칙으로도 안 걸러지는 흔한 말. 늘려야 할 만큼 버려지면 그때 추가한다.
-const NOT_NAMES = new Set(['전체적', '문의사', '신청서', '성적표', '안내문']);
+// 경음 규칙으로도 안 걸러지는 흔한 말. 여기 박아 두는 것은 씨앗뿐이고,
+// 실제 목록은 호출자가 notNames로 넘긴다 — 쓰면서 쌓여야 품질이 오른다.
+const SEED_NOT_NAMES = ['전체적', '문의사', '신청서', '성적표', '안내문'];
 
 // 이름으로 보이는 부분만 돌려준다(조사는 뺀다). 이름이 아니면 null.
 // 어디까지가 이름인지 알아야 "김영수는"을 "[이름?]는"으로 바꿀 수 있다.
-function namePart(run) {
+function namePart(run, notNames) {
   if (hasTense(run)) return null;
 
   // 복성 + 이름 두 자. "남궁민수"는 세 자 규칙에 안 걸린다.
@@ -76,23 +81,32 @@ function namePart(run) {
   const token = (run.length === 4 && PARTICLE.has(run[3])) ? run.slice(0, 3) : run;
   if (token.length !== 3) return null;
   if (VERB_TAIL.has(token[2])) return null;
-  if (NOT_NAMES.has(token)) return null;
+  if (notNames.has(token)) return null;
   return SURNAMES.has(token[0]) ? token : null;
 }
 
 /**
  * @param {string} text            질문 원문
- * @param {object} known           { studentNames: string[], staffNames: string[], schoolNames: string[] }
- * @returns {{ masked: string|null, dropped: boolean, reason: string|null, uncertain: boolean }}
+ * @param {object} known           { studentNames, staffNames, schoolNames, notNames }
+ *   notNames는 "이름이 아니라고 확인된 말" 목록이다. 쌓을수록 오탐이 줄어든다.
+ * @returns {{ masked, dropped, reason, uncertain, tokens }}
  *   dropped=true면 쓰지 않는다. uncertain=true면 명단으로 확인하지 못한 이름이 있었다는 뜻이다.
+ *   tokens는 그때 잡힌 말들 — 오탐이면 예외로 확정해 다음부터 지우지 않게 한다.
  */
 export function maskQuestion(text, known = {}) {
   const source = String(text ?? '');
-  if (!source.trim()) return { masked: null, dropped: true, reason: 'empty', uncertain: false };
+  if (!source.trim()) return { masked: null, dropped: true, reason: 'empty', uncertain: false, tokens: [] };
 
-  const students = new Set((known.studentNames ?? []).map(norm).filter(Boolean));
-  const staff = new Set((known.staffNames ?? []).map(norm).filter(Boolean));
-  const schools = new Set((known.schoolNames ?? []).map(norm).filter(Boolean));
+  // 예외는 두 곳 모두에 걸린다: 이름 모양 판정과, 명단에 잘못 들어간 값.
+  // "등원"이 학교 칸에 실제로 등록돼 있어 명단 쪽도 막지 않으면 "등원해"가 "[학교]해"가 된다.
+  const notNames = new Set([...SEED_NOT_NAMES, ...(known.notNames ?? []).map(norm)]);
+  // 한 글자짜리는 지우지 않는다 — 문장을 망가뜨리는 손해가 더 크다.
+  const usable = (list) => new Set((list ?? [])
+    .map(norm)
+    .filter((v) => v.length >= MIN_NAME_CHARS && !notNames.has(v)));
+  const students = usable(known.studentNames);
+  const staff = usable(known.staffNames);
+  const schools = usable(known.schoolNames);
 
   let masked = source.replace(PHONE, MASK.phone).replace(LONG_DIGITS, MASK.phone);
 
@@ -111,17 +125,19 @@ export function maskQuestion(text, known = {}) {
   // 명단에 없는 사람(형제·학부모·타 학원생)이 여기서 걸린다.
   const hits = [];
   for (const match of masked.matchAll(KOREAN_NAME)) {
-    const part = namePart(match[0]);
+    const part = namePart(match[0], notNames);
     if (part) hits.push({ index: match.index, part });
   }
 
+  const tokens = hits.map((h) => h.part);
   if (hits.length >= DROP_AT_UNKNOWN_NAMES) {
-    return { masked: null, dropped: true, reason: 'multiple_unknown_names', uncertain: true };
+    return { masked: null, dropped: true, reason: 'multiple_unknown_names', uncertain: true, tokens };
   }
   // 뒤에서부터 바꿔야 앞 위치가 밀리지 않는다.
   for (const hit of hits.reverse()) {
     masked = masked.slice(0, hit.index) + MASK.unknown + masked.slice(hit.index + hit.part.length);
   }
 
-  return { masked, dropped: false, reason: null, uncertain: hits.length > 0 };
+  // 잡힌 말을 돌려준다 — 호출자가 후보로 쌓아 다음부터 오탐을 줄인다.
+  return { masked, dropped: false, reason: null, uncertain: hits.length > 0, tokens };
 }
