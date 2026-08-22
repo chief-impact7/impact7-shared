@@ -44,6 +44,8 @@ const SCOPED_IMPACT7DB = [
   'operating_procedures',
   // 어시스턴트 일별 집계 — 질문 원문은 180일 뒤 사라지지만 이 수치는 남는다 (원문 없음, TTL 없음)
   'assistant_stats',
+  // 이름이 아니라고 확인된 말 — 마스킹 오탐을 코드가 아니라 데이터로 줄인다
+  'mask_exceptions',
   // 입학·진단 신청과 후속 관리 (newtest, 3b 준비에서 검출)
   'application_quotas', 'consult_surveys', 'diagnostic_applications',
   'follow_up_actions', 'free_test_periods',
