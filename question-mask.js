@@ -7,7 +7,7 @@
 // 확신이 안 서면 문장을 통째로 버린다 — 새는 것보다 표본이 적은 편이 낫다.
 
 export const MASK = {
-  student: '[학생]', phone: '[번호]', school: '[학교]', person: '[이름]',
+  student: '[학생]', phone: '[번호]', person: '[이름]',
   // 명단으로 확인하지 못하고 모양으로만 판정한 것. 물음표가 그 사실을 남긴다.
   unknown: '[이름?]',
 };
@@ -17,9 +17,17 @@ export const MASK = {
 // 미확인이 둘이면 명단이 그 문장에 못 미친다는 뜻이라 옆 사람이 있을 확률이 실제로 높다.
 export const DROP_AT_UNKNOWN_NAMES = 2;
 
-// 한 글자짜리는 지우지 않는다. 학생 데이터의 학교 칸에 "0"·"*"·"초" 같은 값이 실제로 들어 있어
-// 그대로 찾아 바꾸면 "8/20까지"가 "8/2[학교]까지"가 된다(2026-08-22 실측).
+// 한 글자짜리는 지우지 않는다. 명단에는 "0"·"*"·"초" 같은 값이 실제로 섞여 있어
+// 그대로 찾아 바꾸면 "8/20까지"가 "8/2[학생]까지"가 된다(2026-08-22 실측).
 const MIN_NAME_CHARS = 2;
+
+// 사람 이름은 한글로만 되어 있다. 명단에는 "ㅇㅇ"·"고2"·"*" 같은 값이 섞여 있고,
+// 그대로 쓰면 "고2 몇명이야"가 "[학생] 몇명이야"가 된다.
+const HANGUL_ONLY = /^[가-힣]+$/;
+
+// 두 글자 값이 더 긴 낱말 속에 박혀 있으면 그건 그 낱말이지 이름이 아니다.
+// 뒤에 조사가 오면 이름으로 본다 — "강해는"은 이름, "강해졌다"는 아니다.
+const HANGUL = /[가-힣]/;
 
 // 한국 이름처럼 보이는 덩어리. 조사가 붙어도 앞 2~4자를 잡는다.
 const KOREAN_NAME = /[가-힣]{2,4}/g;
@@ -85,9 +93,26 @@ function namePart(run, notNames) {
   return SURNAMES.has(token[0]) ? token : null;
 }
 
+// 두 글자 이름이 더 긴 낱말 속에 있으면 지우지 않는다. 뒤가 조사면 이름으로 본다.
+// 세 글자 이상은 낱말과 겹칠 일이 드물어 그대로 바꾼다.
+function replaceEntry(text, needle, mask) {
+  if (needle.length > MIN_NAME_CHARS) return text.split(needle).join(mask);
+
+  let out = '';
+  let from = 0;
+  for (;;) {
+    const at = text.indexOf(needle, from);
+    if (at < 0) return out + text.slice(from);
+    const next = text[at + needle.length];
+    const isWord = next && HANGUL.test(next) && !PARTICLE.has(next);
+    out += text.slice(from, at) + (isWord ? needle : mask);
+    from = at + needle.length;
+  }
+}
+
 /**
  * @param {string} text            질문 원문
- * @param {object} known           { studentNames, staffNames, schoolNames, notNames }
+ * @param {object} known           { studentNames, staffNames, notNames }
  *   notNames는 "이름이 아니라고 확인된 말" 목록이다. 쌓을수록 오탐이 줄어든다.
  * @returns {{ masked, dropped, reason, uncertain, tokens }}
  *   dropped=true면 쓰지 않는다. uncertain=true면 명단으로 확인하지 못한 이름이 있었다는 뜻이다.
@@ -98,28 +123,21 @@ export function maskQuestion(text, known = {}) {
   if (!source.trim()) return { masked: null, dropped: true, reason: 'empty', uncertain: false, tokens: [] };
 
   // 예외는 두 곳 모두에 걸린다: 이름 모양 판정과, 명단에 잘못 들어간 값.
-  // "등원"이 학교 칸에 실제로 등록돼 있어 명단 쪽도 막지 않으면 "등원해"가 "[학교]해"가 된다.
   const notNames = new Set([...SEED_NOT_NAMES, ...(known.notNames ?? []).map(norm)]);
-  // 한 글자짜리는 지우지 않는다 — 문장을 망가뜨리는 손해가 더 크다.
-  const usable = (list) => new Set((list ?? [])
+  // 한 글자짜리와 한글이 아닌 값은 지우지 않는다 — 문장을 망가뜨리는 손해가 더 크다.
+  const usable = (list) => [...new Set((list ?? [])
     .map(norm)
-    .filter((v) => v.length >= MIN_NAME_CHARS && !notNames.has(v)));
-  const students = usable(known.studentNames);
-  const staff = usable(known.staffNames);
-  const schools = usable(known.schoolNames);
+    .filter((v) => v.length >= MIN_NAME_CHARS && HANGUL_ONLY.test(v) && !notNames.has(v)))];
+
+  // 학생과 직원을 한 줄로 세워 긴 것부터 지운다. 목록별로 따로 돌리면 짧은 쪽이
+  // 긴 이름을 먼저 먹어 이름 일부가 그대로 남는다(2026-08-22 실측).
+  const entries = [
+    ...usable(known.studentNames).map((v) => [v, MASK.student]),
+    ...usable(known.staffNames).map((v) => [v, MASK.person]),
+  ].sort((a, b) => b[0].length - a[0].length);
 
   let masked = source.replace(PHONE, MASK.phone).replace(LONG_DIGITS, MASK.phone);
-
-  // 긴 것부터 지운다 — "양정중"을 먼저 지우면 "양정중학교"가 조각으로 남는다.
-  for (const name of [...schools].sort((a, b) => b.length - a.length)) {
-    masked = masked.split(name).join(MASK.school);
-  }
-  for (const name of [...students].sort((a, b) => b.length - a.length)) {
-    masked = masked.split(name).join(MASK.student);
-  }
-  for (const name of [...staff].sort((a, b) => b.length - a.length)) {
-    masked = masked.split(name).join(MASK.person);
-  }
+  for (const [needle, mask] of entries) masked = replaceEntry(masked, needle, mask);
 
   // 지운 뒤에도 이름처럼 보이는 덩어리가 남으면 명단이 그 문장에 못 미친 것이다.
   // 명단에 없는 사람(형제·학부모·타 학원생)이 여기서 걸린다.
