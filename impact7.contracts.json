@@ -34,8 +34,8 @@
     },
     {
       "id": "safe-input-and-rendering",
-      "signals": ["폼 slug", "IME", "HTML escape", "입력 조합", "폼 컴포넌트"],
-      "exports": ["./form-slug", "./form-components", "./ime-input", "./html-escape"],
+      "signals": ["폼 slug", "IME", "HTML escape", "입력 조합", "폼 컴포넌트", "신청서 학생 후보", "상담 학생 후보"],
+      "exports": ["./form-slug", "./form-components", "./form-student-candidate", "./ime-input", "./html-escape"],
       "consumers": ["forms", "board", "db", "dsc"]
     },
     {

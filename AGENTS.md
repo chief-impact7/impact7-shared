@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 637개 통과.
+- 테스트: `npm test` (`node --test`). 현재 639개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -363,6 +363,16 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `COMPONENT_SETTINGS_DEFAULTS` | const | `{ privacyConsent, marketingConsent, kakaoChannel, footer }` — frozen 기본 문구 |
 | `normalizeComponentSettings` | fn | `(value, cap?, config?) → settings` — cap(서버 길이 제한) 주입 시 저장용, config로 브랜드·연락처 기본값 변경. 공백만·비문자열 값은 기본값 유지 |
 
+### `./form-student-candidate` — `form-student-candidate.js`
+
+스튜디오 신청서 답변을 상담 학생 후보로 바꾸는 순수 계약. 학생 문서 ID는 기존 DB·Functions 규칙(숫자만 추출 후 11자리 0 시작이면 선행 0 제거)을 그대로 따른다.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `formStudentDocumentId` | fn | `(name, guardianPhone) → string` — `이름_보호자전화키`, DB·Functions와 같이 숫자만 추출하고 11자리 0 시작일 때만 선행 0 제거 |
+| `normalizeFormStudentMapping` | fn | `(mapping) → { enabled, fields }` — enabled 상태에서 이름·보호자전화·개인정보동의 키가 없으면 비활성 처리 |
+| `extractFormStudentCandidate` | fn | `(answers, mapping) → candidate \| null` — 동의·이름·보호자전화가 모두 있을 때만 `docId`, `name`, `guardianPhone`, 선택 필드를 반환 |
+
 ### `./html-escape` — `html-escape.js`
 
 순수 문자열 HTML escape. DOM 기반 로컬 구현(DB·DSC)을 대체하는 SSoT.
@@ -426,6 +436,26 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `attributeEvent` | fn | `(event, segments, { bufferDays? }?) → [{ teacher, weight, rule: 'buffer-split'\|'current'\|'unknown', uncertain? }]` — 가중치 합 1.0. scoped event는 같은 account 세그먼트에만 귀속하며 첫 비재원일은 종료 전날 세그먼트로 연결. D와 D-bufferDays의 담당이 다르면 반반 귀책, 같거나 과거 담당이 없으면 D 담당 1.0 |
 | `periodRange` | fn | `(period, semesterSettings?) → { start, end }` — month: `[1일, 말일]`. semester: `{level}-{year}-{nameLower}` 키 start_date ~ 같은 학부 다음 학기 시작 전일(마지막 학기면 오늘). 해석 불가는 `{ start: null, end: null }` |
 | `aggregateRetention` | fn | `({ studentIds, segmentsByStudent, attributionsByStudent, range }) → { byTeacher: { [email]: { exposed, churn, retentionRate, events } } }` — 분모=기간 겹침 `(studentId, accountKey)` 노출 수, 분자=기간 내 account 이탈 귀속 가중 합, retentionRate=exposed>0 ? 1−churn/exposed : null. accountKey 없는 기존 세그먼트는 학생 단위 호환, Map·plain object 및 구·신 이메일 병합 |
+
+### `./class-review` — `class-review.js`
+
+반 생성 직후 서버·클라가 같은 기준으로 특이사항을 훑는 순수 검토 로직.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|--------------|
+| `SEVERITY` | const | `{ block: 'block', warn: 'warn' }` |
+| `classTimesByDay` | fn | `(settings) → { [day]: time }` — default_days/default_time·schedule·free_schedule을 요일별 시각으로 통일 |
+| `reviewClass` | fn | `({ classCode, settings, students?, otherSettings?, today }) → findings[]` — 학생 없음·시간 없음·기간 종료·내신 누락·시간 충돌·요일/학부 혼합을 심각도순 반환 |
+
+### `./question-mask` — `question-mask.js`
+
+질문 원문에서 실제 학생·직원·전화번호를 제거하는 순수 마스킹 로직. 명단으로 확인하지 못한 이름이 많으면 문장을 버린다.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|--------------|
+| `MASK` | const | `{ student, phone, person, unknown }` |
+| `DROP_AT_UNKNOWN_NAMES` | const | `2` — 미확인 이름이 2개 이상이면 dropped 처리 |
+| `maskQuestion` | fn | `(text, known?) → { masked, dropped, reason, uncertain, tokens }` — known은 `{ studentNames, staffNames, notNames }` |
 
 ### `./school-info` — `school-info.js`
 
