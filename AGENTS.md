@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 639개 통과.
+- 테스트: `npm test` (`node --test`). 현재 661개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -186,6 +186,17 @@ Firebase·DOM·외부 의존성 없는 배포 학원 설정. **2026-08-16 계약
 |------|------|----------------|
 | `IMPACT7_CONFIG` | const | `{ brandName, primaryStaffDomain, legacyStaffDomains, formContact }` — frozen **임팩트7의 명시 설정** (기본값 아님). 구 `DEFAULT_ACADEMY_CONFIG` 대체 |
 | `defineAcademyConfig` | fn | `(config) → frozen config` — 전 키 필수, 도메인 정규화·HTTPS 연락처 검증, 누락·잘못된 값 즉시 `TypeError` |
+
+### `./booking-slots` — `booking-slots.js`
+
+예약 슬롯 한 날짜의 가용성 판정. 스튜디오 미리보기·공개 폼 렌더·서버 재검증이 공유하는 순수 로직.
+
+| 심볼 | 종류 | 시그니처 / 값 |
+|------|------|----------------|
+| `SLOT_SETTINGS_DEFAULTS` | const | frozen 기본 설정 `{ weekdayTimes, leadDays, blockHolidays, blockedMessage, periods }` |
+| `normalizeSlotSettings` | fn | `(value) → SlotSettings` — 요일별 시간·리드타임·공휴일 차단·기간 배지 설정 정규화 |
+| `slotAvailability` | fn | `({ date, today, holidayName, settings }) → { times, blocked, reason, message, periodLabel }` |
+| `firstBookableDate` | fn | `(today, settings) → string` — date input의 `min` 날짜 |
 
 ### `./email` — `email.js`
 
