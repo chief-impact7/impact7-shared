@@ -45,6 +45,15 @@ describe('normalizeSlotSettings', () => {
     assert.equal(s.periods[0].label, 'ok');
   });
 
+  it('기간은 rollover되는 불가능한 날짜를 버린다', () => {
+    const s = normalizeSlotSettings({ periods: [
+      { startDate: '2026-07-11', endDate: '2026-07-15', label: 'ok' },
+      { startDate: '2026-02-30', endDate: '2026-03-02', label: 'no' },
+    ]});
+    assert.equal(s.periods.length, 1);
+    assert.equal(s.periods[0].label, 'ok');
+  });
+
   it('멱등 — 자기 출력을 다시 넣어도 같다', () => {
     assert.deepEqual(normalizeSlotSettings(SETTINGS), SETTINGS);
   });
@@ -56,6 +65,11 @@ describe('slotAvailability 차단 순서', () => {
     assert.equal(r.blocked, true);
     assert.equal(r.reason, '');
     assert.deepEqual(r.times, []);
+  });
+
+  it('rollover되는 불가능한 날짜면 차단하고 사유는 비운다', () => {
+    const r = slotAvailability({ date: '2026-02-30', today: '2026-02-25', holidayName: '', settings: SETTINGS });
+    assert.deepEqual(r, { blocked: true, times: [], reason: '', message: '', periodLabel: '' });
   });
 
   it('공휴일이 요일·리드타임보다 먼저다', () => {
@@ -92,6 +106,11 @@ describe('slotAvailability 차단 순서', () => {
 
   it('today 형식이 아니면 리드타임을 조용히 건너뛰지 않고 차단한다', () => {
     const r = slotAvailability({ date: '2026-08-26', today: '2026-8-25', holidayName: '', settings: SETTINGS });
+    assert.deepEqual(r, { blocked: true, times: [], reason: '', message: '', periodLabel: '' });
+  });
+
+  it('today가 rollover되는 불가능한 날짜면 차단한다', () => {
+    const r = slotAvailability({ date: '2026-03-04', today: '2026-02-30', holidayName: '', settings: SETTINGS });
     assert.deepEqual(r, { blocked: true, times: [], reason: '', message: '', periodLabel: '' });
   });
 
@@ -161,5 +180,9 @@ describe('firstBookableDate', () => {
 
   it('leadDays 0이면 오늘', () => {
     assert.equal(firstBookableDate('2026-08-25', normalizeSlotSettings({ leadDays: 0 })), '2026-08-25');
+  });
+
+  it('today가 rollover되는 불가능한 날짜면 비운다', () => {
+    assert.equal(firstBookableDate('2026-02-30', SETTINGS), '');
   });
 });

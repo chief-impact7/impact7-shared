@@ -16,10 +16,22 @@ function normalizeTimes(value) {
   return [...new Set(list.map(text).filter(Boolean))];
 }
 
+// 호출자가 KST 오늘을 문자열로 넣으므로 모든 비교는 UTC 자정 문자열로 맞춘다.
+function utcDate(dateText) {
+  const [year, month, day] = dateText.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+const isoOf = (date) => date.toISOString().slice(0, 10);
+
+function isIsoDate(value) {
+  return ISO_DATE.test(value) && isoOf(utcDate(value)) === value;
+}
+
 function normalizePeriod(value) {
   const startDate = text(value?.startDate);
   const endDate = text(value?.endDate);
-  if (!ISO_DATE.test(startDate) || !ISO_DATE.test(endDate)) return null;
+  if (!isIsoDate(startDate) || !isIsoDate(endDate)) return null;
   if (endDate < startDate) return null;
   return { startDate, endDate, label: text(value?.label) };
 }
@@ -42,18 +54,10 @@ export function normalizeSlotSettings(value) {
   };
 }
 
-// 호출자가 KST 오늘을 문자열로 넣으므로 모든 비교는 UTC 자정 문자열로 맞춘다.
-function utcDate(dateText) {
-  const [year, month, day] = dateText.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
-}
-
-const isoOf = (date) => date.toISOString().slice(0, 10);
-
 export function firstBookableDate(today, settings) {
   const normalized = normalizeSlotSettings(settings);
   const base = text(today);
-  if (!ISO_DATE.test(base)) return '';
+  if (!isIsoDate(base)) return '';
   const date = utcDate(base);
   date.setUTCDate(date.getUTCDate() + normalized.leadDays);
   return isoOf(date);
@@ -74,7 +78,7 @@ export function slotAvailability({ date, today, holidayName, settings } = {}) {
   });
 
   const value = text(date);
-  if (!ISO_DATE.test(value)) return blocked('');
+  if (!isIsoDate(value)) return blocked('');
 
   if (normalized.blockHolidays && text(holidayName)) return blocked(text(holidayName));
 
@@ -83,7 +87,7 @@ export function slotAvailability({ date, today, holidayName, settings } = {}) {
   if (!times.length) return blocked(WEEKDAY_NAMES[day]);
 
   const todayValue = text(today);
-  if (!ISO_DATE.test(todayValue)) return blocked('');
+  if (!isIsoDate(todayValue)) return blocked('');
 
   const earliest = firstBookableDate(todayValue, normalized);
   if (earliest && value < earliest) return blocked(leadReason(normalized.leadDays));
