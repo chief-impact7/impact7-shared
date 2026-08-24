@@ -46,12 +46,48 @@ test('extractFormStudentCandidate: 동의·필수값이 있으면 상담 학생 
             docId: '홍_길_동_821012345678',
             name: '홍 길 동',
             guardianPhone: '01012345678',
+            level: '',
             studentPhone: '01012345678',
             school: '금옥중',
             grade: '중1',
             privacyConsent: true,
         }
     );
+});
+
+test('extractFormStudentCandidate: 매핑에 level이 있으면 학부를 낸다', () => {
+    const candidate = extractFormStudentCandidate(
+        { name: '김민준', phone: '01012345678', consent: true, div: '중등' },
+        { enabled: true, fields: { studentName: 'name', guardianPhone: 'phone', privacyConsent: 'consent', level: 'div' } },
+    );
+    assert.equal(candidate.level, '중등');
+});
+
+test('extractFormStudentCandidate: 학부 표기 편차를 흡수한다', () => {
+    const map = { enabled: true, fields: { studentName: 'name', guardianPhone: 'phone', privacyConsent: 'consent', level: 'div' } };
+    const run = (div) => extractFormStudentCandidate({ name: '김민준', phone: '01012345678', consent: true, div }, map).level;
+    assert.equal(run('중등부'), '중등');
+    assert.equal(run('중'), '중등');
+    assert.equal(run('중학교'), '중등');
+    assert.equal(run('초등부'), '초등');
+    assert.equal(run('고1'), '고등');
+});
+
+test('extractFormStudentCandidate: 모르는 학부 표기는 빈 값이다 — 지어내지 않는다', () => {
+    const candidate = extractFormStudentCandidate(
+        { name: '김민준', phone: '01012345678', consent: true, div: '엉망' },
+        { enabled: true, fields: { studentName: 'name', guardianPhone: 'phone', privacyConsent: 'consent', level: 'div' } },
+    );
+    assert.equal(candidate.level, '');
+});
+
+test('extractFormStudentCandidate: level 매핑이 없어도 후보는 유효하다 — 필수 키가 아니다', () => {
+    const candidate = extractFormStudentCandidate(
+        { name: '김민준', phone: '01012345678', consent: true },
+        { enabled: true, fields: { studentName: 'name', guardianPhone: 'phone', privacyConsent: 'consent' } },
+    );
+    assert.ok(candidate);
+    assert.equal(candidate.level, '');
 });
 
 test("extractFormStudentCandidate: Forms privacyConsent 저장값 '동의합니다'를 동의로 인정한다", () => {

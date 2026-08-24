@@ -6,10 +6,12 @@ const FIELD_KEYS = [
     'studentPhone',
     'school',
     'grade',
+    'level',
     'privacyConsent',
 ];
 const REQUIRED_FIELD_KEYS = ['studentName', 'guardianPhone', 'privacyConsent'];
 const TRUE_CONSENT = new Set(['true', '1', 'yes', 'y', 'agree', 'agreed', '동의', '동의합니다', '예', '네', '확인']);
+const LEVEL_MARKS = [['초', '초등'], ['중', '중등'], ['고', '고등']];
 
 function text(value) {
     if (Array.isArray(value)) return value.map(text).filter(Boolean).join(' ');
@@ -26,6 +28,12 @@ function consent(value) {
     if (value === true) return true;
     if (value === false || value == null) return false;
     return TRUE_CONSENT.has(text(value).toLowerCase());
+}
+
+function level(value) {
+    const valueText = text(value);
+    if (!valueText) return '';
+    return LEVEL_MARKS.find(([mark]) => valueText.startsWith(mark))?.[1] ?? '';
 }
 
 function legacyDocumentPhoneKey(value) {
@@ -68,6 +76,7 @@ export function extractFormStudentCandidate(answers, mapping) {
         docId,
         name,
         guardianPhone,
+        level: level(answer(answers, fields.level)),
         privacyConsent: true,
     };
     const studentPhone = normalizePhoneDigitsKR(answer(answers, fields.studentPhone));
