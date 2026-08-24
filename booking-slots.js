@@ -82,7 +82,10 @@ export function slotAvailability({ date, today, holidayName, settings } = {}) {
   const times = normalized.weekdayTimes[String(day)] ?? [];
   if (!times.length) return blocked(WEEKDAY_NAMES[day]);
 
-  const earliest = firstBookableDate(today, normalized);
+  const todayValue = text(today);
+  if (!ISO_DATE.test(todayValue)) return blocked('');
+
+  const earliest = firstBookableDate(todayValue, normalized);
   if (earliest && value < earliest) return blocked(leadReason(normalized.leadDays));
 
   const period = normalized.periods.find((p) => p.startDate <= value && value <= p.endDate);

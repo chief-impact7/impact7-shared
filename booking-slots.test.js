@@ -90,6 +90,11 @@ describe('slotAvailability 차단 순서', () => {
     assert.equal(next.blocked, false);
   });
 
+  it('today 형식이 아니면 리드타임을 조용히 건너뛰지 않고 차단한다', () => {
+    const r = slotAvailability({ date: '2026-08-26', today: '2026-8-25', holidayName: '', settings: SETTINGS });
+    assert.deepEqual(r, { blocked: true, times: [], reason: '', message: '', periodLabel: '' });
+  });
+
   it('지난 날짜도 리드타임으로 막힌다', () => {
     const r = slotAvailability({ date: '2026-08-20', today: '2026-08-25', holidayName: '', settings: SETTINGS });
     assert.equal(r.blocked, true);
