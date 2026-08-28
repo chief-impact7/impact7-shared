@@ -143,7 +143,7 @@ export const PERMISSION_GROUPS = [
   },
   {
     key: 'hr',
-    title: '채용',
+    title: '인사',
     items: [
       { key: 'canManageOnboarding', label: '온보딩', apps: ['HR'], enforced: 'rules' },
       { key: 'canManageContracts', label: '계약서', apps: ['HR'], enforced: 'rules' },

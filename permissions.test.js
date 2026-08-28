@@ -87,10 +87,10 @@ test('enforced 값은 rules/client/none 3종만', () => {
   }
 });
 
-test('채용 그룹은 온보딩·계약서와 부서별 급여약정서 권한을 제공한다', () => {
+test('인사 그룹은 온보딩·계약서와 부서별 급여약정서 권한을 제공한다', () => {
   const hr = PERMISSION_GROUPS.find((group) => group.key === 'hr');
   assert.ok(hr);
-  assert.equal(hr.title, '채용');
+  assert.equal(hr.title, '인사');
   assert.deepEqual(
     hr.items.filter((item) => !('children' in item)).slice(0, 2).map((item) => [item.key, item.label]),
     [
