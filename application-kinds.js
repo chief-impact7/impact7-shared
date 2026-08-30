@@ -19,7 +19,7 @@ export const APPLICATION_KINDS = Object.freeze([
     pipeline: 'inquiry',
     welcome: null,
     staffLabel: '문의',
-    enabled: true,
+    enabled: false,
   },
 ]);
 
