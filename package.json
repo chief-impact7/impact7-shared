@@ -32,6 +32,7 @@
     "./branch": "./branch.js",
     "./form-slug": "./form-slug.js",
     "./form-components": "./form-components.js",
+    "./application-kinds": "./application-kinds.js",
     "./permissions": "./permissions.js",
     "./staff-status": "./staff-status.js",
     "./attendance-status": "./attendance-status.js",
