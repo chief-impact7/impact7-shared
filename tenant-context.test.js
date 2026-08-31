@@ -12,8 +12,9 @@ import {
   resolvePathMode,
 } from './tenant-context.js';
 
-test('배치표 합계: 이동 71+payments 11+학생 진로 1, 전역 41+진로 공공자료 3, 교집합 없음', () => {
-  assert.equal(ACADEMY_SCOPED_COLLECTIONS.size, 85);
+test('배치표 합계: 이동 71+payments 11+학생 진로 1+골든 답안 1, 전역 41+진로 공공자료 3, 교집합 없음', () => {
+  assert.equal(ACADEMY_SCOPED_COLLECTIONS.size, 86);
+  assert.equal(ACADEMY_SCOPED_COLLECTIONS.has('golden_answers'), true);
   assert.equal(GLOBAL_COLLECTIONS.size, 44);
   for (const name of ACADEMY_SCOPED_COLLECTIONS) {
     assert.equal(GLOBAL_COLLECTIONS.has(name), false, name);
