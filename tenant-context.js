@@ -46,6 +46,8 @@ const SCOPED_IMPACT7DB = [
   'assistant_stats',
   // 운영자가 승인한 Demion 골든 답안 — 테넌트별 일일 동기화 사본
   'golden_answers',
+  // 운영자가 승인한 Demion 행동 지침 — 테넌트별 일일 동기화 사본
+  'assistant_directives',
   // 이름이 아니라고 확인된 말 — 마스킹 오탐을 코드가 아니라 데이터로 줄인다
   'mask_exceptions',
   // 입학·진단 신청과 후속 관리 (newtest, 3b 준비에서 검출)
