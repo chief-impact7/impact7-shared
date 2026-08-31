@@ -4,6 +4,8 @@ import {
     digitsOf,
     formatPhone,
     formatPhoneInput,
+    guardianPhoneDigitsOf,
+    guardianPhoneOf,
     isValidPhoneKR,
     legacyStudentPhoneKeyKR,
     normalizePhoneDigitsKR,
@@ -123,4 +125,20 @@ test('legacyStudentPhoneKeyKR: 학생 문서 ID용 선행 0 제거 규칙을 공
     }
     assert.equal(legacyStudentPhoneKeyKR('02-123-4567'), '021234567');
     assert.equal(legacyStudentPhoneKeyKR(null), '');
+});
+
+test('guardianPhoneOf: guardian 정식 필드를 우선하고 레거시 parent 필드를 읽는다', () => {
+    assert.equal(guardianPhoneOf({ guardianPhone: '010-1111-2222', parentPhone: '010-9999-9999' }), '010-1111-2222');
+    assert.equal(guardianPhoneOf({ guardianPhoneDigits: '01011112222' }), '01011112222');
+    assert.equal(guardianPhoneOf({ parentPhone: '010-2222-3333' }), '010-2222-3333');
+    assert.equal(guardianPhoneOf({ parent1Phone: '010-3333-4444' }), '010-3333-4444');
+    assert.equal(guardianPhoneOf({ additionalGuardianPhone: '010-3333-5555' }), '010-3333-5555');
+    assert.equal(guardianPhoneOf({ parent_phone_1: '', parent_phone_2: '010-4444-5555' }), '010-4444-5555');
+    assert.equal(guardianPhoneOf(null), '');
+});
+
+test('guardianPhoneDigitsOf: 폼·결제·학생 저장 형태를 같은 숫자열로 정규화한다', () => {
+    assert.equal(guardianPhoneDigitsOf({ guardianPhone: '+82 10-1234-5678' }), '01012345678');
+    assert.equal(guardianPhoneDigitsOf({ parent1Phone: '1234-5678' }), '01012345678');
+    assert.equal(guardianPhoneDigitsOf({ parent_phone_1: '010-1234-5678' }), '01012345678');
 });

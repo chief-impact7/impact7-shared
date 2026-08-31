@@ -27,6 +27,30 @@ export function normalizePhoneDigitsKR(value) {
   return digits;
 }
 
+const GUARDIAN_PHONE_FIELDS = [
+  'guardianPhone',
+  'guardianPhoneDigits',
+  'parentPhone',
+  'parent1Phone',
+  'parent_phone_1',
+  'additionalGuardianPhone',
+  'parent2Phone',
+  'parent_phone_2',
+];
+
+export function guardianPhoneOf(record) {
+  if (!record || typeof record !== 'object') return '';
+  for (const field of GUARDIAN_PHONE_FIELDS) {
+    const value = record[field];
+    if (digitsOf(value)) return String(value).trim();
+  }
+  return '';
+}
+
+export function guardianPhoneDigitsOf(record) {
+  return normalizePhoneDigitsKR(guardianPhoneOf(record));
+}
+
 export function legacyStudentPhoneKeyKR(value) {
   const normalized = normalizePhoneDigitsKR(value);
   return normalized.length === 11 && normalized.startsWith('0') ? normalized.slice(1) : normalized;

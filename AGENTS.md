@@ -410,6 +410,8 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `digitsOf` | fn | `(value) → string` — 숫자만 추출, nullish → `''`. 수신번호 정규화 등 소비자 직접 사용 |
 | `formatPhone` | fn | `(phone) → string` — 국내 번호·국가번호(+82)·휴대폰 앞자리 생략 표기를 표준 하이픈 형식으로 통일. 8자리 가입자 번호는 `010`, 대표번호(15xx·16xx·18xx)는 4-4, `02`는 2자리 지역번호 유지, 정규화 불가는 원본, nullish → `''` |
 | `normalizePhoneDigitsKR` | fn | `(value) → string` — `formatPhone`과 같은 규칙으로 발송·검색용 국내 번호 숫자열 반환 |
+| `guardianPhoneOf` | fn | `(record) → string` — 정식 `guardianPhone`을 우선하고 결제·Forms·학생 저장소의 레거시 parent 필드를 순서대로 읽는 호환 경계 |
+| `guardianPhoneDigitsOf` | fn | `(record) → string` — `guardianPhoneOf` 결과를 발송·검색용 국내 번호 숫자열로 정규화 |
 | `legacyStudentPhoneKeyKR` | fn | `(value) → string` — 국내 번호 정규화 후 11자리 휴대폰의 선행 `0`만 제거한 기존 학생 문서 ID용 키. 지역번호는 보존. 일반 저장·표시·발송에는 사용 금지 |
 | `isValidPhoneKR` | fn | `(value) → boolean` — `formatPhone`과 같은 휴대폰 앞자리 정규화 후 `/^01[016789]\d{7,8}$/` 검증. 지역번호는 false |
 | `formatPhoneInput` | fn | `(value) → string` — 완성 번호는 `formatPhone`과 같은 표준 형식, 입력 중 번호는 숫자 최대 11자리의 점진 3-3~4-4 분할, nullish → `''` |
