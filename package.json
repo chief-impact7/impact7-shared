@@ -39,6 +39,7 @@
     "./email": "./email.js",
     "./ai-model-policy": "./ai-model-policy.js",
     "./retention": "./retention.js",
+    "./semester": "./semester.js",
     "./school-info": "./school-info.js",
     "./class-review": "./class-review.js",
     "./question-mask": "./question-mask.js",
