@@ -390,7 +390,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|---------------|
-| `APPLICATION_KINDS` | const | `diagnostic`, `inquiry` 신청 종류의 frozen 배열 |
+| `APPLICATION_KINDS` | const | `diagnostic` 신청 종류의 frozen 배열 |
 | `applicationKind` | fn | `(kind) → applicationKind \| null` |
 | `enabledApplicationKinds` | fn | `() → 활성 applicationKind[]` |
 

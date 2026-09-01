@@ -10,17 +10,6 @@ export const APPLICATION_KINDS = Object.freeze([
     staffLabel: '진단평가 신청',
     enabled: true,
   },
-  {
-    kind: 'inquiry',
-    formSlug: 'inquiry',
-    title: '문의하기',
-    lead: '남겨 주시면 학원에서 전화나 문자로 답드립니다.',
-    requiresLink: false,
-    pipeline: 'inquiry',
-    welcome: null,
-    staffLabel: '문의',
-    enabled: false,
-  },
 ]);
 
 export const applicationKind = (kind) => APPLICATION_KINDS.find((item) => item.kind === kind) ?? null;

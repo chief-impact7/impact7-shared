@@ -1,4 +1,4 @@
-export type ApplicationKindId = 'diagnostic' | 'inquiry';
+export type ApplicationKindId = 'diagnostic';
 
 export interface ApplicationKind {
   kind: ApplicationKindId;
@@ -6,7 +6,7 @@ export interface ApplicationKind {
   title: string;
   lead: string;
   requiresLink: boolean;
-  pipeline: 'application' | 'inquiry';
+  pipeline: 'application';
   welcome: string | null;
   staffLabel: string;
   enabled: boolean;
