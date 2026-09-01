@@ -95,8 +95,12 @@ function namePart(run, notNames) {
 
 // 두 글자 이름이 더 긴 낱말 속에 있으면 지우지 않는다. 뒤가 조사면 이름으로 본다.
 // 세 글자 이상은 낱말과 겹칠 일이 드물어 그대로 바꾼다.
-function replaceEntry(text, needle, mask) {
-  if (needle.length > MIN_NAME_CHARS) return text.split(needle).join(mask);
+function replaceEntry(text, needle, mask, replacements) {
+  if (needle.length > MIN_NAME_CHARS) {
+    const parts = text.split(needle);
+    for (let i = 1; i < parts.length; i += 1) replacements.push({ text: needle, mask });
+    return parts.join(mask);
+  }
 
   let out = '';
   let from = 0;
@@ -105,6 +109,7 @@ function replaceEntry(text, needle, mask) {
     if (at < 0) return out + text.slice(from);
     const next = text[at + needle.length];
     const isWord = next && HANGUL.test(next) && !PARTICLE.has(next);
+    if (!isWord) replacements.push({ text: needle, mask });
     out += text.slice(from, at) + (isWord ? needle : mask);
     from = at + needle.length;
   }
@@ -114,13 +119,15 @@ function replaceEntry(text, needle, mask) {
  * @param {string} text            질문 원문
  * @param {object} known           { studentNames, staffNames, notNames }
  *   notNames는 "이름이 아니라고 확인된 말" 목록이다. 쌓을수록 오탐이 줄어든다.
- * @returns {{ masked, dropped, reason, uncertain, tokens }}
+ * @returns {{ masked, dropped, reason, uncertain, tokens, replacements }}
  *   dropped=true면 쓰지 않는다. uncertain=true면 명단으로 확인하지 못한 이름이 있었다는 뜻이다.
  *   tokens는 그때 잡힌 말들 — 오탐이면 예외로 확정해 다음부터 지우지 않게 한다.
  */
 export function maskQuestion(text, known = {}) {
   const source = String(text ?? '');
-  if (!source.trim()) return { masked: null, dropped: true, reason: 'empty', uncertain: false, tokens: [] };
+  if (!source.trim()) {
+    return { masked: null, dropped: true, reason: 'empty', uncertain: false, tokens: [], replacements: [] };
+  }
 
   // 예외는 두 곳 모두에 걸린다: 이름 모양 판정과, 명단에 잘못 들어간 값.
   const notNames = new Set([...SEED_NOT_NAMES, ...(known.notNames ?? []).map(norm)]);
@@ -136,8 +143,13 @@ export function maskQuestion(text, known = {}) {
     ...usable(known.staffNames).map((v) => [v, MASK.person]),
   ].sort((a, b) => b[0].length - a[0].length);
 
-  let masked = source.replace(PHONE, MASK.phone).replace(LONG_DIGITS, MASK.phone);
-  for (const [needle, mask] of entries) masked = replaceEntry(masked, needle, mask);
+  const replacements = [];
+  const maskPhone = (text) => {
+    replacements.push({ text, mask: MASK.phone });
+    return MASK.phone;
+  };
+  let masked = source.replace(PHONE, maskPhone).replace(LONG_DIGITS, maskPhone);
+  for (const [needle, mask] of entries) masked = replaceEntry(masked, needle, mask, replacements);
 
   // 지운 뒤에도 이름처럼 보이는 덩어리가 남으면 명단이 그 문장에 못 미친 것이다.
   // 명단에 없는 사람(형제·학부모·타 학원생)이 여기서 걸린다.
@@ -148,8 +160,16 @@ export function maskQuestion(text, known = {}) {
   }
 
   const tokens = hits.map((h) => h.part);
+  replacements.push(...hits.map((hit) => ({ text: hit.part, mask: MASK.unknown })));
   if (hits.length >= DROP_AT_UNKNOWN_NAMES) {
-    return { masked: null, dropped: true, reason: 'multiple_unknown_names', uncertain: true, tokens };
+    return {
+      masked: null,
+      dropped: true,
+      reason: 'multiple_unknown_names',
+      uncertain: true,
+      tokens,
+      replacements,
+    };
   }
   // 뒤에서부터 바꿔야 앞 위치가 밀리지 않는다.
   for (const hit of hits.reverse()) {
@@ -157,5 +177,5 @@ export function maskQuestion(text, known = {}) {
   }
 
   // 잡힌 말을 돌려준다 — 호출자가 후보로 쌓아 다음부터 오탐을 줄인다.
-  return { masked, dropped: false, reason: null, uncertain: hits.length > 0, tokens };
+  return { masked, dropped: false, reason: null, uncertain: hits.length > 0, tokens, replacements };
 }

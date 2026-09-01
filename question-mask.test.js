@@ -175,3 +175,19 @@ test('잡힌 말을 돌려준다 — 오탐이면 예외로 확정할 수 있어
   // 버려진 문장에서도 무엇이 걸렸는지는 알아야 한다.
   assert.deepEqual(mask('최민서랑 김영수 둘 다 결석').tokens, ['최민서', '김영수']);
 });
+
+test('실제로 치환한 원문 토큰과 결과를 등장 횟수만큼 돌려준다', () => {
+  const r = mask('홍길동이 홍길동 출결을 여기서 확인했나요?');
+  assert.deepEqual(r.replacements, [
+    { text: '홍길동', mask: MASK.student },
+    { text: '홍길동', mask: MASK.student },
+    { text: '여기서', mask: MASK.unknown },
+  ]);
+});
+
+test('전화번호와 직원 이름 치환도 같은 형식으로 돌려준다', () => {
+  assert.deepEqual(mask('010-1234-5678로 박선생 반에 연락해요.').replacements, [
+    { text: '010-1234-5678', mask: MASK.phone },
+    { text: '박선생', mask: MASK.person },
+  ]);
+});
