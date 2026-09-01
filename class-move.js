@@ -52,8 +52,10 @@ function naesinParityWarning(studentName, sourceItem, targetClassNumber) {
 // - 아직 시작 전(예약) 반이거나 이동일에 시작한 반은 제자리 교체
 // - 기존 다른 예약 조각은 새 예약으로 대체(제거)
 // - 정규 계정이 없거나 2개 이상이면 skipped (배정·정리는 반생성마법사 경로)
+// - semester를 주면 새 조각이 이동일 기준 학기를 받는다. 안 주면 옛 조각의 학기를 그대로 물려받아
+//   학기가 넘어간 뒤의 이동이 지난 학기로 들어간다(2026-09-01 김예은 건).
 export function moveRegularClass(student, {
-  targetLevelSymbol, targetClassNumber, targetDay, moveDate, today,
+  targetLevelSymbol, targetClassNumber, targetDay, moveDate, today, semester,
 }) {
   const enrollments = student.enrollments || [];
   const skipped = (warning) =>
@@ -84,6 +86,7 @@ export function moveRegularClass(student, {
     ...current,
     level_symbol: targetLevelSymbol,
     class_number: targetClassNumber,
+    ...(semester ? { semester } : {}),
     ...(targetDay?.length ? { day: targetDay } : {}),
     start_date: moveDate,
   };

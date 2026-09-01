@@ -193,3 +193,28 @@ test('내신·특강 항목은 건드리지 않고 보존', () => {
   assert.ok(r.updatedEnrollments.includes(naesin));
   assert.ok(r.updatedEnrollments.includes(special));
 });
+
+test('moveRegularClass: semester를 주면 새 조각만 이동일 기준 학기를 받는다', () => {
+  const s = student([{
+    class_type: '정규', level_symbol: 'AX', class_number: '102', semester: '2026-Spring',
+    day: ['화', '목'], start_date: '2026-07-17',
+  }]);
+  const r = moveRegularClass(s, {
+    targetLevelSymbol: 'AX', targetClassNumber: '101', targetDay: ['월', '금'],
+    moveDate: '2026-08-17', today: '2026-08-15', semester: '2026-Summer',
+  });
+  assert.equal(r.updatedEnrollments[0].semester, '2026-Spring');
+  assert.equal(r.updatedEnrollments[0].end_date, '2026-08-16');
+  assert.equal(r.updatedEnrollments[1].semester, '2026-Summer');
+  assert.equal(r.updatedEnrollments[1].start_date, '2026-08-17');
+});
+
+test('moveRegularClass: semester를 안 주면 옛 학기를 그대로 물려받는다 (기존 동작)', () => {
+  const s = student([{
+    class_type: '정규', level_symbol: 'AX', class_number: '102', semester: '2026-Spring', start_date: '2026-07-17',
+  }]);
+  const r = moveRegularClass(s, {
+    targetLevelSymbol: 'AX', targetClassNumber: '101', moveDate: '2026-08-17', today: '2026-08-15',
+  });
+  assert.equal(r.updatedEnrollments[1].semester, '2026-Spring');
+});
