@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  semesterFromSettingsKey, settingsKeyFromSemester, resolveSemesterAt, applySemesterRollover,
+  semesterFromSettingsKey, settingsKeyFromSemester, resolveSemesterAt,
+  semesterRange, enrollmentInSemester, semestersForEnrollment, semesterPool,
 } from './semester.js';
 
 const SETTINGS = {
@@ -26,57 +27,31 @@ test('기준일의 학기는 시작일이 지난 것 중 가장 늦은 것', () 
   assert.equal(resolveSemesterAt('고등', '2026-09-01', SETTINGS).semester, '2026-Autumn');
 });
 
-const roll = (enrollments) => applySemesterRollover(enrollments, {
-  semester: '2026-Summer', semesterStartDate: '2026-07-20', today: '2026-09-01',
+test('학기 범위는 시작일 당일부터 다음 학기 시작 전날까지다', () => {
+  assert.deepEqual(semesterRange('중등', '2026-Spring', SETTINGS), {
+    start: '2026-03-02', end: '2026-07-19',
+  });
+  assert.deepEqual(semesterRange('중등', '2026-Summer', SETTINGS), {
+    start: '2026-07-20', end: null,
+  });
+  assert.equal(semesterRange('초등', '2026-Summer', SETTINGS), null);
 });
 
-test('학기 안에서 시작한 조각은 semester만 교체한다 (김예은 AX101)', () => {
-  const { updatedEnrollments, changes } = roll([
-    { class_type: '정규', level_symbol: 'AX', class_number: '101', semester: '2026-Spring', start_date: '2026-08-17' },
-  ]);
-  assert.equal(changes.length, 1);
-  assert.deepEqual(updatedEnrollments, [
-    { class_type: '정규', level_symbol: 'AX', class_number: '101', semester: '2026-Summer', start_date: '2026-08-17' },
-  ]);
+test('enrollment와 학기 기간은 양끝을 포함해 겹침을 판정한다', () => {
+  const options = { level: '중등', semester: '2026-Spring', semesterSettings: SETTINGS };
+  assert.equal(enrollmentInSemester({ end_date: '2026-03-01' }, options), false);
+  assert.equal(enrollmentInSemester({ end_date: '2026-03-02' }, options), true);
+  assert.equal(enrollmentInSemester({ start_date: '2026-07-19' }, options), true);
+  assert.equal(enrollmentInSemester({ start_date: '2026-07-20' }, options), false);
+  assert.equal(enrollmentInSemester({}, options), true);
+  assert.equal(enrollmentInSemester({}, { ...options, level: '초등' }), false);
 });
 
-test('지난 학기부터 이어지는 조각은 학기 시작 전날에 닫고 새 조각을 연다', () => {
-  const { updatedEnrollments } = roll([
-    { class_type: '정규', level_symbol: 'A', class_number: '102', semester: '2026-Spring', start_date: '2026-03-07', day: ['화'] },
-  ]);
-  assert.deepEqual(updatedEnrollments, [
-    { class_type: '정규', level_symbol: 'A', class_number: '102', semester: '2026-Spring', start_date: '2026-03-07', end_date: '2026-07-19', day: ['화'] },
-    { class_type: '정규', level_symbol: 'A', class_number: '102', semester: '2026-Summer', start_date: '2026-07-20', day: ['화'] },
-  ]);
-});
-
-test('분할 시 예정된 종료일은 새 조각이 이어받는다', () => {
-  const { updatedEnrollments } = roll([
-    { class_type: '정규', class_number: 'A102', semester: '2026-Spring', start_date: '2026-03-07', end_date: '2026-12-31' },
-  ]);
-  assert.equal(updatedEnrollments[0].end_date, '2026-07-19');
-  assert.equal(updatedEnrollments[1].end_date, '2026-12-31');
-});
-
-test('semester가 없던 조각도 현재 학기를 부여받는다', () => {
-  const { updatedEnrollments } = roll([{ class_type: '정규', class_number: 'A102', start_date: '2026-08-01' }]);
-  assert.equal(updatedEnrollments[0].semester, '2026-Summer');
-});
-
-test('닫힌 조각·미래 예약·정규 아닌 수업·이미 현재 학기는 그대로 둔다', () => {
-  const input = [
-    { class_type: '정규', class_number: 'A102', semester: '2026-Spring', start_date: '2026-07-17', end_date: '2026-08-16' },
-    { class_type: '정규', class_number: 'A103', semester: '2026-Spring', start_date: '2026-09-15' },
-    { class_type: '내신', class_number: '', semester: '2026-Spring', start_date: '2026-06-01' },
-    { class_type: '특강', account_type: '특강', class_number: 'SP101', semester: '2026-Spring', start_date: '2026-03-01' },
-    { class_type: '정규', class_number: 'A104', semester: '2026-Summer', start_date: '2026-07-25' },
-  ];
-  const { updatedEnrollments, changes } = roll(input);
-  assert.deepEqual(changes, []);
-  assert.equal(updatedEnrollments, input);
-});
-
-test('학기 정보가 없으면 손대지 않는다', () => {
-  const input = [{ class_type: '정규', class_number: 'A102', semester: '2026-Spring', start_date: '2026-03-07' }];
-  assert.equal(applySemesterRollover(input, { semester: '', semesterStartDate: '', today: '2026-09-01' }).updatedEnrollments, input);
+test('enrollment가 걸친 학기와 학부 학기 풀은 시작일 순서로 반환한다', () => {
+  assert.deepEqual(semesterPool('중등', SETTINGS), ['2026-Spring', '2026-Summer']);
+  assert.deepEqual(semestersForEnrollment(
+    { start_date: '2026-07-19', end_date: '2026-07-20' },
+    { level: '중등', semesterSettings: SETTINGS },
+  ), ['2026-Spring', '2026-Summer']);
+  assert.deepEqual(semesterPool('초등', SETTINGS), []);
 });

@@ -1,5 +1,5 @@
-// 학생 1명의 특정 학기 정규 enrollment를 다른 반으로 이동한 새 배열을 반환한다 (순수 함수, in-place 아님).
-// override·start_date·day·semester는 보존. 대상 정규가 없으면 skipped.
+// 학생 1명의 특정 기간 정규 enrollment를 다른 반으로 이동한 새 배열을 반환한다 (순수 함수, in-place 아님).
+// override·start_date·day는 보존. 대상 정규가 없으면 skipped.
 
 import { enrollmentCode } from './enrollment-derivation.js';
 import { accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
@@ -7,16 +7,19 @@ import { addDays } from './datetime.js';
 
 const isRegular = (e) =>
   accountTypeOf(e) === '정규' && (e.class_type || '정규') === '정규';
+const overlapsPeriod = (enrollment, period) => period
+  && (!enrollment.start_date || !period.end || enrollment.start_date <= period.end)
+  && (!enrollment.end_date || enrollment.end_date >= period.start);
 const lastDigit = (n) => {
   const m = String(n ?? '').match(/(\d)\D*$/);
   return m ? Number(m[1]) : null;
 };
 
-export function moveClass(student, { semester, targetLevelSymbol, targetClassNumber, accountId }) {
+export function moveClass(student, { period, targetLevelSymbol, targetClassNumber, accountId }) {
   const enrollments = student.enrollments || [];
   const idx = enrollments.findIndex((e) =>
     isRegular(e)
-    && e.semester === semester
+    && overlapsPeriod(e, period)
     && (accountId === undefined || e.account_id === accountId));
   if (idx < 0) {
     return { updatedEnrollments: enrollments, before: null, after: null, skipped: true, warning: null };
@@ -52,10 +55,8 @@ function naesinParityWarning(studentName, sourceItem, targetClassNumber) {
 // - 아직 시작 전(예약) 반이거나 이동일에 시작한 반은 제자리 교체
 // - 기존 다른 예약 조각은 새 예약으로 대체(제거)
 // - 정규 계정이 없거나 2개 이상이면 skipped (배정·정리는 반생성마법사 경로)
-// - semester를 주면 새 조각이 이동일 기준 학기를 받는다. 안 주면 옛 조각의 학기를 그대로 물려받아
-//   학기가 넘어간 뒤의 이동이 지난 학기로 들어간다(2026-09-01 김예은 건).
 export function moveRegularClass(student, {
-  targetLevelSymbol, targetClassNumber, targetDay, moveDate, today, semester,
+  targetLevelSymbol, targetClassNumber, targetDay, moveDate, today,
 }) {
   const enrollments = student.enrollments || [];
   const skipped = (warning) =>
@@ -86,7 +87,6 @@ export function moveRegularClass(student, {
     ...current,
     level_symbol: targetLevelSymbol,
     class_number: targetClassNumber,
-    ...(semester ? { semester } : {}),
     ...(targetDay?.length ? { day: targetDay } : {}),
     start_date: moveDate,
   };

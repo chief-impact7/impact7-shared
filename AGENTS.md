@@ -118,12 +118,23 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 
 ### `./class-move` — `class-move.js`
 
-특정 학기 정규 enrollment를 다른 반으로 이동 (순수 함수, in-place 아님).
+특정 기간 정규 enrollment를 다른 반으로 이동 (순수 함수, in-place 아님).
 
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
-| `moveClass` | fn | `(student, { semester, targetLevelSymbol, targetClassNumber, accountId? }) → { updatedEnrollments, before, after, skipped, warning }` — accountId 생략 시 기존 첫 정규 계정 동작 |
+| `moveClass` | fn | `(student, { period, targetLevelSymbol, targetClassNumber, accountId? }) → { updatedEnrollments, before, after, skipped, warning }` — `period`와 조각 기간의 겹침으로 대상을 찾음. accountId 생략 시 기존 첫 정규 계정 동작 |
 | `moveRegularClass` | fn | `(student, { targetLevelSymbol, targetClassNumber, targetDay?, moveDate, today }) → { updatedEnrollments, before, after, skipped, warning }` — 반이동 SSoT. 활성 반은 이동일 전날까지 유지(end_date)하고 새 반을 이동일 시작으로 추가하는 같은 계정 2단 구성. 예약 반은 제자리 교체, 기존 예약 조각은 대체. 정규 계정 0·2개 이상, 과거 이동일은 skipped |
+
+### `./semester` — `semester.js`
+
+학부별 `semester_settings`를 학기 기간 정본으로 사용한다. enrollment의 학기 소속은 저장 필드가 아니라 조각 기간과 학기 기간의 겹침으로 계산한다.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `semesterRange` | fn | `(level, semester, semesterSettings) → { start, end } \| null` |
+| `enrollmentInSemester` | fn | `(enrollment, { level, semester, semesterSettings }) → boolean` |
+| `semestersForEnrollment` | fn | `(enrollment, { level, semesterSettings }) → string[]` |
+| `semesterPool` | fn | `(level, semesterSettings) → string[]` |
 
 ### `./promote-enroll` — `promote-enroll.js`
 
