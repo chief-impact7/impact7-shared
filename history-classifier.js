@@ -99,6 +99,11 @@ export function classifyHistory(log) {
     const afterText = typeof log.after === 'string' ? log.after : '';
     const combined = `${typeof log.before === 'string' ? log.before : ''} ${afterText}`;
 
+    if (t === 'RESTORE' && bS === '종강' && aS === '재원') {
+        const regular = afterText.match(/\(현재 정규 ([^)]+)\)/)?.[1]?.trim();
+        return { label: '계정재개', from: '종료', to: regular ? `정규 ${regular}` : '활성' };
+    }
+
     // 신규 등록 — '이전 → 정규반코드' 표시 (반코드 없으면 '등록')
     if (t === 'ENROLL') return { label: '신규', from: '', to: newClassCode(aC, afterText) || '등록' };
     // 퇴원생 "첫데이터 재입력 + 수업 추가" = 재등원 (수업 추가 없는 단순 재입력은 상태 불변이므로 숨김)
