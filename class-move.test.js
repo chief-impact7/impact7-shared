@@ -160,6 +160,18 @@ test('2단 구성 학생의 재이동: 활성 조각 유지 + 기존 예약 조�
   ]);
 });
 
+test('정규 반이동도 일요일부터 가장 빠른 요일의 반을 기준으로 삼는다', () => {
+  const alternate = regular({ schedule_role: 'alternate', class_number: '103', day: ['일'] });
+  const base = regular({ schedule_role: 'base', class_number: '106', day: ['화'] });
+  const r = moveRegularClass(student([alternate, base]), {
+    targetLevelSymbol: 'SP', targetClassNumber: '107', targetDay: ['수'], moveDate: '2026-08-31', today: TODAY,
+  });
+
+  assert.equal(r.before, 'SP103');
+  const active = r.updatedEnrollments.filter(e => !e.end_date || e.end_date >= '2026-08-31');
+  assert.deepEqual(active.map(e => [e.class_number, e.schedule_role]), [['107', 'alternate'], ['106', 'base']]);
+});
+
 test('요일 미지정이면 기존 요일 유지, 시작일 없는 레거시 활성 반도 분할', () => {
   const s = student([regular({ start_date: undefined })]);
   const r = moveRegularClass(s, {

@@ -1,7 +1,7 @@
 // 학생 1명의 특정 기간 정규 enrollment를 다른 반으로 이동한 새 배열을 반환한다 (순수 함수, in-place 아님).
 // override·start_date·day는 보존. 대상 정규가 없으면 skipped.
 
-import { enrollmentCode } from './enrollment-derivation.js';
+import { assignEnrollmentScheduleRoles, enrollmentCode, enrollmentWeekdayRank } from './enrollment-derivation.js';
 import { accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
 import { addDays } from './datetime.js';
 
@@ -77,9 +77,14 @@ export function moveRegularClass(student, {
 
   const activeAt = (e) =>
     (!e.start_date || e.start_date <= today) && (!e.end_date || e.end_date >= today);
-  const current = regularItems.find(activeAt)
-    || regularItems.find(e => e.start_date && e.start_date > today);
-  if (!current) return skipped('이동할 정규수업반을 찾지 못했습니다.');
+  const activeItems = regularItems.filter(activeAt);
+  const moveCandidates = activeItems.length
+    ? activeItems
+    : regularItems.filter(e => e.start_date && e.start_date > today);
+  if (!moveCandidates.length) return skipped('이동할 정규수업반을 찾지 못했습니다.');
+  const earliestRank = Math.min(...moveCandidates.map(enrollmentWeekdayRank));
+  const earliestCandidates = moveCandidates.filter(e => enrollmentWeekdayRank(e) === earliestRank);
+  const current = earliestCandidates.find(e => e.schedule_role === 'base') || earliestCandidates[0];
 
   const before = enrollmentCode(current);
   const after = `${targetLevelSymbol || ''}${targetClassNumber || ''}`;
@@ -99,12 +104,21 @@ export function moveRegularClass(student, {
     if (e === current) {
       return keepCurrentUntil ? [{ ...e, end_date: addDays(moveDate, -1) }, moved] : [moved];
     }
-    if (isRegularItem(e) && e.start_date && e.start_date > today) return [];
+    if (isRegularItem(e) && e.schedule_role !== 'alternate' && e.start_date && e.start_date > today) return [];
     return [e];
   });
+  const sameRegularAccountAtMove = (e) =>
+    isRegular(e)
+    && (current.account_id ? e.account_id === current.account_id : !e.account_id)
+    && (!e.start_date || e.start_date <= moveDate)
+    && (!e.end_date || e.end_date >= moveDate);
+  const normalizedSchedules = assignEnrollmentScheduleRoles(updatedEnrollments.filter(sameRegularAccountAtMove));
+  let scheduleIndex = 0;
+  const normalizedEnrollments = updatedEnrollments.map(e =>
+    sameRegularAccountAtMove(e) ? normalizedSchedules[scheduleIndex++] : e);
 
   return {
-    updatedEnrollments, before, after, skipped: false,
+    updatedEnrollments: normalizedEnrollments, before, after, skipped: false,
     warning: naesinParityWarning(student.name, current, targetClassNumber),
   };
 }

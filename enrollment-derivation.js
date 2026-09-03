@@ -32,6 +32,28 @@ export function enrollmentCode(e) {
   return `${e.level_symbol || ''}${e.class_number || ''}`;
 }
 
+export const ENROLLMENT_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+export function enrollmentWeekdayRank(enrollment) {
+  const ranks = (enrollment?.day || [])
+    .map(day => ENROLLMENT_WEEKDAYS.indexOf(day))
+    .filter(rank => rank >= 0);
+  return ranks.length ? Math.min(...ranks) : ENROLLMENT_WEEKDAYS.length;
+}
+
+export function assignEnrollmentScheduleRoles(enrollments) {
+  const list = enrollments || [];
+  if (!list.length) return [];
+  const earliestRank = Math.min(...list.map(enrollmentWeekdayRank));
+  const earliestIndexes = list.flatMap((enrollment, index) =>
+    enrollmentWeekdayRank(enrollment) === earliestRank ? [index] : []);
+  const baseIndex = earliestIndexes.find(index => list[index].schedule_role === 'base') ?? earliestIndexes[0];
+  return list.map((enrollment, index) => ({
+    ...enrollment,
+    schedule_role: index === baseIndex ? 'base' : 'alternate',
+  }));
+}
+
 // 활성 내신 enrollment(명시적 내신 또는 정규+override→class_settings 기간 파생) 또는 null.
 // applyNaesinFreeDerivation과 isNaesinActiveAt가 공유하는 단일 판정(SSoT) — 로컬 재구현 금지.
 // current는 호출자가 날짜 필터(미시작·종료 제외)한 활성 enrollment 배열이어야 한다.
