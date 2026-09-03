@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { moveClass, moveRegularClass } from './class-move.js';
+import { changeRegularClassWeekdays, moveClass, moveRegularClass } from './class-move.js';
 
 const student = (enrollments, name = '홍길동') => ({ name, enrollments });
 const SPRING = { start: '2026-03-02', end: '2026-07-19' };
@@ -204,4 +204,63 @@ test('내신·특강 항목은 건드리지 않고 보존', () => {
   });
   assert.ok(r.updatedEnrollments.includes(naesin));
   assert.ok(r.updatedEnrollments.includes(special));
+});
+
+test('정규수업의 화요일·금요일만 서로 다른 반으로 나누고 나머지 상태를 보존', () => {
+  const source = regular({
+    day: ['월', '화', '금'],
+    schedule: { 월: '17:00', 화: '17:00', 금: '17:00' },
+    custom_state: { keep: true },
+  });
+  const special = {
+    account_id: 'sp-1', account_type: '특강', class_type: '특강',
+    class_number: '겨울특강', day: ['토'], start_date: '2026-12-01',
+  };
+  const input = [source, special];
+
+  const result = changeRegularClassWeekdays(student(input), {
+    changes: [
+      { weekday: '화', targetLevelSymbol: 'A', targetClassNumber: '106' },
+      { weekday: '금', targetLevelSymbol: 'A', targetClassNumber: '103' },
+    ],
+    effectiveDate: '2026-08-31',
+    today: TODAY,
+  });
+
+  assert.equal(result.skipped, false);
+  assert.deepEqual(input, [source, special]);
+  assert.strictEqual(result.updatedEnrollments.at(-1), special);
+  assert.deepEqual(result.changes, [
+    { weekday: '화', before: 'SP102', after: 'A106' },
+    { weekday: '금', before: 'SP102', after: 'A103' },
+  ]);
+  assert.deepEqual(result.updatedEnrollments.slice(0, 4).map((enrollment) => ({
+    code: `${enrollment.level_symbol}${enrollment.class_number}`,
+    day: enrollment.day,
+    start: enrollment.start_date,
+    end: enrollment.end_date,
+    role: enrollment.schedule_role,
+    custom: enrollment.custom_state,
+  })), [
+    { code: 'SP102', day: ['월', '화', '금'], start: '2026-03-02', end: '2026-08-30', role: undefined, custom: { keep: true } },
+    { code: 'SP102', day: ['월'], start: '2026-08-31', end: undefined, role: 'base', custom: { keep: true } },
+    { code: 'A106', day: ['화'], start: '2026-08-31', end: undefined, role: 'alternate', custom: { keep: true } },
+    { code: 'A103', day: ['금'], start: '2026-08-31', end: undefined, role: 'alternate', custom: { keep: true } },
+  ]);
+});
+
+test('문자열 요일도 정규화해 선택한 요일만 분리한다', () => {
+  const source = regular({ day: '월, 화요일 · 금' });
+  const result = changeRegularClassWeekdays(student([source]), {
+    changes: [{ weekday: '화', targetLevelSymbol: 'SP', targetClassNumber: '106' }],
+    effectiveDate: '2026-09-01',
+    today: TODAY,
+  });
+
+  assert.equal(result.skipped, false);
+  assert.deepEqual(result.updatedEnrollments.map(({ class_number, day }) => ({ class_number, day })), [
+    { class_number: '102', day: '월, 화요일 · 금' },
+    { class_number: '102', day: ['월', '금'] },
+    { class_number: '106', day: ['화'] },
+  ]);
 });

@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 681개 통과.
+- 테스트: `npm test` (`node --test`). 현재 684개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -124,6 +124,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 |------|------|---------|
 | `moveClass` | fn | `(student, { period, targetLevelSymbol, targetClassNumber, accountId? }) → { updatedEnrollments, before, after, skipped, warning }` — `period`와 조각 기간의 겹침으로 대상을 찾음. accountId 생략 시 기존 첫 정규 계정 동작 |
 | `moveRegularClass` | fn | `(student, { targetLevelSymbol, targetClassNumber, targetDay?, moveDate, today }) → { updatedEnrollments, before, after, skipped, warning }` — 반이동 SSoT. 활성 반은 이동일 전날까지 유지(end_date)하고 새 반을 이동일 시작으로 추가하는 같은 계정 2단 구성. 예약 반은 제자리 교체, 기존 예약 조각은 대체. 정규 계정 0·2개 이상, 과거 이동일은 skipped |
+| `changeRegularClassWeekdays` | fn | `(student, { changes, effectiveDate, today }) → { updatedEnrollments, changes, skipped, warning }` — 선택한 정규수업 요일만 대상 반으로 분할하고 같은 계정의 미지정 요일·기간·부가 상태를 보존 |
 
 ### `./semester` — `semester.js`
 
