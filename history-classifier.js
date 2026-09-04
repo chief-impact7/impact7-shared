@@ -59,6 +59,23 @@ function accountSnapshotLabel(text) {
     }
 }
 
+// 재등원·복귀 로그는 돌아온 반을 텍스트가 아니라 after의 enrollments JSON으로 싣는다.
+// 그 배열은 반이동으로 끝난 조각까지 담고 있으므로(moveRegularClass가 옛 반에 end_date를
+// 남긴다), 아직 끝나지 않은 조각만 현재 반으로 본다. 정규수업반을 우선 보이고,
+// 정규가 없는 특강·기타만의 복귀는 가진 반을 그대로 보인다.
+function enrollmentClassCodes(enrollments) {
+    if (!Array.isArray(enrollments)) return '';
+    const codes = enrollments.map(enrollment => ({
+        code: `${enrollment?.level_symbol || ''}${enrollment?.class_number || ''}`.trim(),
+        open: !enrollment?.end_date,
+        regular: (enrollment?.account_type || '정규') === '정규' && (enrollment?.class_type || '정규') === '정규',
+    })).filter(entry => entry.code);
+    const open = codes.filter(entry => entry.open);
+    const live = open.length ? open : codes;
+    const regular = live.filter(entry => entry.regular);
+    return [...new Set((regular.length ? regular : live).map(entry => entry.code))].join(', ');
+}
+
 // 반 목록 문자열("A104, A102") → 중복·순서·빈값 제거한 정렬 배열.
 // 저장 로그는 같은 반을 두 번 적거나 순서만 바꿔 쓰므로, 집합으로 비교해야 실제 변화만 남는다.
 function classList(classes) {
@@ -77,7 +94,11 @@ export function parseStatusClass(text) {
     if (t.startsWith('{')) {
         try {
             const o = JSON.parse(t);
-            return { status: o.status || '', classes: '', pauseStart: o.pause_start_date || '' };
+            return {
+                status: o.status || '',
+                classes: enrollmentClassCodes(o.enrollments),
+                pauseStart: o.pause_start_date || '',
+            };
         } catch { /* JSON 아니면 아래 파싱 */ }
     }
     // "상태:.." (편집 저장 포맷) 또는 "status:.." (일괄 import 포맷) 둘 다 인식.
@@ -128,10 +149,14 @@ export function classifyHistory(log) {
     if (t === 'WITHDRAW') return { label: '퇴원', from: bS || '재원', to: '퇴원' };
 
     // 상태 전이 기반
+    // 복귀·재등원 로그 하나에 상태 전이와 반 배정이 같이 담긴다(before는 상태만, after에 enrollments).
+    // 어느 반으로 돌아왔는지가 상태만큼 중요하므로 함께 보인다 — 같은 저장이 '수업추가' 짝 로그를
+    // 남긴 경우의 중복은 dedupeHistory가 합친다.
+    const movedTo = aC ? `${aS} (${aC})` : aS;
     if (aS) {
-        if (bS === '퇴원' && (aS === '재원' || aS === '등원예정')) return { label: '재등원', from: '퇴원', to: aS };
+        if (bS === '퇴원' && (aS === '재원' || aS === '등원예정')) return { label: '재등원', from: '퇴원', to: movedTo };
         // 복귀는 '재원' 직행과 '등원예정'(복귀 예약) 둘 다 — pause 기반 복귀 경로와 대칭.
-        if (LEAVE.includes(bS) && (aS === '재원' || aS === '등원예정')) return { label: '복귀', from: bS, to: aS };
+        if (LEAVE.includes(bS) && (aS === '재원' || aS === '등원예정')) return { label: '복귀', from: bS, to: movedTo };
         if (LEAVE.includes(aS) && !LEAVE.includes(bS)) return { label: '휴원', from: bS || '재원', to: aS };
         if (aS === '퇴원' && bS !== '퇴원') return { label: '퇴원', from: bS || '재원', to: '퇴원' };
         if ((bS === '' || bS === '상담') && (aS === '등원예정' || aS === '재원')) return { label: '신규', from: '', to: newClassCode(aC, afterText) || '등록' };
@@ -180,8 +205,26 @@ export function classifyHistory(log) {
 // 이 두 라벨만 인접 병합 대상 — 반·기간 라벨은 to가 다르면 실제로 다른 수업이므로 합치지 않는다.
 const LEAVE_TRANSITION_LABELS = new Set(['휴원', '복귀']);
 
+// 복귀·재등원은 돌아온 반을 to에 담는다. 같은 저장이 '수업추가' 짝 로그도 남기면 같은 반이
+// 두 줄로 보이므로, 인접한 그 짝만 흡수한다(다른 반 추가는 별개 사건이라 남긴다).
+// 반코드는 접두가 겹칠 수 있어(HS1 ⊂ HS10) 문자열 포함이 아니라 코드 단위로 대조한다.
+const RETURN_LABELS = new Set(['재등원', '복귀']);
+const splitCodes = (text) => text.split(',').map(code => code.trim()).filter(Boolean);
+function mentionsClass(returnCat, addCat) {
+    const returned = splitCodes(returnCat.to.match(/\(([^)]*)\)\s*$/)?.[1] ?? '');
+    const added = splitCodes(addCat.to);
+    return added.length > 0 && added.every(code => returned.includes(code));
+}
+
 // 두 표현 중 실제 상태값(실휴원·가휴원 등)을 남긴다. pause 경로가 만드는 '휴원'은 모호한 fallback.
-const preferStatus = (a, b) => (STATUSES.includes(a) || !STATUSES.includes(b) ? a : b);
+// 복귀의 to는 "재원 (PX101)"처럼 반이 붙으므로 상태 부분으로만 비교하고, 같은 상태면 반이 붙은
+// 쪽을 남긴다 — 그러지 않으면 병합이 방금 살려낸 반 정보를 도로 버린다.
+const statusPart = (value) => value.replace(/\s*\([^)]*\)\s*$/, '');
+const preferStatus = (a, b) => {
+    const [left, right] = [statusPart(a), statusPart(b)];
+    if (left === right) return a.length >= b.length ? a : b;
+    return STATUSES.includes(left) || !STATUSES.includes(right) ? a : b;
+};
 
 // 연속 중복 이력 병합. 입력·출력은 `{ log, cat }` 형태의 시간 역순 배열(DB·DSC 공통 렌더 계약).
 export function dedupeHistory(entries) {
@@ -199,6 +242,13 @@ export function dedupeHistory(entries) {
                 };
                 continue;
             }
+        }
+        if (previous && RETURN_LABELS.has(previous.cat.label) && label === '수업추가'
+            && mentionsClass(previous.cat, entry.cat)) continue;
+        if (previous && previous.cat.label === '수업추가' && RETURN_LABELS.has(label)
+            && mentionsClass(entry.cat, previous.cat)) {
+            merged[merged.length - 1] = { ...entry };
+            continue;
         }
         merged.push({ ...entry });
     }

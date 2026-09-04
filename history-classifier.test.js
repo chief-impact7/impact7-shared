@@ -103,6 +103,76 @@ test('shortAuthor', () => {
     assert.equal(shortAuthor(undefined), 'system');
 });
 
+test('복귀·재등원 — enrollments JSON에서 돌아온 반을 꺼낸다', () => {
+    // 실제 RETURN 로그: before는 상태만, after에 enrollments가 실린다 (최이신 08-20 사례)
+    assert.equal(line({
+        change_type: 'RETURN',
+        before: '{"status":"실휴원","pause_start_date":"2026-07-20"}',
+        after: '{"status":"재원","pause_start_date":"","enrollments":[{"account_type":"정규","class_type":"정규","level_symbol":"PX","class_number":"101"}]}',
+    }), '복귀:실휴원>재원 (PX101)');
+    // 정규수업반을 우선 보인다 (특강이 섞여도 정규만)
+    assert.equal(line({
+        change_type: 'RETURN',
+        before: '{"status":"퇴원"}',
+        after: '{"status":"재원","enrollments":[{"account_type":"특강","class_type":"특강","class_number":"수능인덱스 3차 토2"},{"account_type":"정규","class_type":"정규","level_symbol":"HS","class_number":"202"}]}',
+    }), '재등원:퇴원>재원 (HS202)');
+    // 정규가 없으면 가진 반을 그대로
+    assert.equal(line({
+        change_type: 'RETURN',
+        before: '{"status":"퇴원"}',
+        after: '{"status":"재원","enrollments":[{"account_type":"특강","class_type":"특강","class_number":"수요특강"}]}',
+    }), '재등원:퇴원>재원 (수요특강)');
+    // enrollments 없는 로그는 상태만 (기존 계약 유지)
+    assert.equal(line({ change_type: 'RETURN', before: '{"status":"퇴원"}', after: '{"status":"재원"}' }), '재등원:퇴원>재원');
+    // 반이동으로 끝난 조각(end_date 있음)은 돌아온 반이 아니다 — 현재 반만 보인다
+    assert.equal(line({
+        change_type: 'RETURN',
+        before: '{"status":"실휴원"}',
+        after: '{"status":"재원","enrollments":[{"account_type":"정규","class_type":"정규","level_symbol":"A","class_number":"101","end_date":"2026-05-31"},{"account_type":"정규","class_type":"정규","level_symbol":"B","class_number":"202"}]}',
+    }), '복귀:실휴원>재원 (B202)');
+});
+
+test('dedupeHistory: 휴원·복귀 병합이 살려낸 반 정보를 버리지 않는다', () => {
+    const entry = (label, from, to) => ({ log: {}, cat: { label, from, to } });
+    // 같은 저장의 status 경로·pause 경로 복귀 두 건 — 순서와 무관하게 반이 남는다
+    assert.deepStrictEqual(
+        dedupeHistory([entry('복귀', '실휴원', '재원 (PX101)'), entry('복귀', '휴원', '재원')]).map(x => x.cat),
+        [{ label: '복귀', from: '실휴원', to: '재원 (PX101)' }],
+    );
+    assert.deepStrictEqual(
+        dedupeHistory([entry('복귀', '휴원', '재원'), entry('복귀', '실휴원', '재원 (PX101)')]).map(x => x.cat),
+        [{ label: '복귀', from: '실휴원', to: '재원 (PX101)' }],
+    );
+});
+
+test('dedupeHistory: 복귀와 같은 반 수업추가 짝 로그는 한 줄로', () => {
+    const entry = (label, from, to) => ({ log: {}, cat: { label, from, to } });
+    // 같은 저장이 남긴 RETURN 두 건 — 순서와 무관하게 복귀 줄만 남는다 (함지현 08-28 사례)
+    assert.deepStrictEqual(
+        dedupeHistory([entry('수업추가', '', 'HX101'), entry('재등원', '퇴원', '재원 (HX101)')]).map(x => x.cat),
+        [{ label: '재등원', from: '퇴원', to: '재원 (HX101)' }],
+    );
+    assert.deepStrictEqual(
+        dedupeHistory([entry('재등원', '퇴원', '재원 (HX101)'), entry('수업추가', '', 'HX101')]).map(x => x.cat),
+        [{ label: '재등원', from: '퇴원', to: '재원 (HX101)' }],
+    );
+    // 다른 반 추가는 별개 사건이라 남긴다
+    assert.equal(dedupeHistory([
+        entry('복귀', '실휴원', '재원 (PX101)'),
+        entry('수업추가', '', 'SP201'),
+    ]).length, 2);
+    // 반코드 접두가 겹쳐도 코드 단위로 대조한다 (HS1 ⊄ HS101)
+    assert.equal(dedupeHistory([
+        entry('복귀', '실휴원', '재원 (HS101)'),
+        entry('수업추가', '', 'HS1'),
+    ]).length, 2);
+    // 복귀가 돌아온 반을 모두 담고 있으면 그 추가 줄은 흡수한다
+    assert.equal(dedupeHistory([
+        entry('재등원', '퇴원', '재원 (A101, B202)'),
+        entry('수업추가', '', 'B202'),
+    ]).length, 1);
+});
+
 test('반 목록 변화 — 다중 반·첫 배정·전체 해제', () => {
     // 정규+특강 병행처럼 반이 여러 개여도 바뀐 반만 잡는다
     assert.equal(line({
