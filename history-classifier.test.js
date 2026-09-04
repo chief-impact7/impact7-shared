@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { classifyHistory, shortAuthor, HISTORY_BADGE, parseStatusClass } from './history-classifier.js';
+import { classifyHistory, dedupeHistory, shortAuthor, HISTORY_BADGE, parseStatusClass } from './history-classifier.js';
 
 const label = (log) => classifyHistory(log)?.label ?? null;
 const line = (log) => { const c = classifyHistory(log); return c ? `${c.label}:${c.from}>${c.to}` : null; };
@@ -103,10 +103,143 @@ test('shortAuthor', () => {
     assert.equal(shortAuthor(undefined), 'system');
 });
 
+test('반 목록 변화 — 다중 반·첫 배정·전체 해제', () => {
+    // 정규+특강 병행처럼 반이 여러 개여도 바뀐 반만 잡는다
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '상태:재원, 반:A102, FT102, 요일:화, 목',
+        after: '상태:재원, 반:A103, FT102, 요일:화, 목',
+    }), '전반:A102>A103');
+    // 중복 등록된 반 하나가 다른 반으로 바뀐 로그는 "그 반이 늘었다"로 읽는다
+    // (이지훈 SP101,SP101 → SP201,SP101 사례 — SP101 소속은 그대로 유지)
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '상태:재원, 반:SP101, SP101, 요일:월, 수, 금',
+        after: '상태:재원, 반:SP201, SP101, 요일:월, 수, 금',
+    }), '수업추가:>SP201');
+    // 첫 배정 — before 쪽 반이 비어도 수업추가로 보인다 (임채윤 HX106 사례)
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '상태:퇴원, 반:—, 요일:N/A',
+        after: '상태:퇴원, 반:HX106, 요일:화, 목',
+    }), '수업추가:>HX106');
+    // 반 추가 — 기존 반 유지하고 하나 늘어남 (박민아 수토102 사례)
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '상태:재원, 반:AX101, FT101, 요일:월, 금',
+        after: '상태:재원, 반:FT101, AX101, 수토102, 요일:월, 금, 수, 토',
+    }), '수업추가:>수토102');
+    // 전체 해제 (김시헌 HS201 사례)
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '상태:재원, 반:HS201, 요일:월, 금',
+        after: '상태:재원, 반:—, 요일:월, 금',
+    }), '수업종료:HS201>종료');
+});
+
+test('반 목록 노이즈는 숨김 — 순서·중복만 다른 로그', () => {
+    assert.equal(label({
+        change_type: 'UPDATE',
+        before: '상태:가휴원, 반:HS201, 10단지 여름특강 고급A, 요일:월, 금',
+        after: '상태:가휴원, 반:10단지 여름특강 고급A, HS201, 요일:월, 금',
+    }), null);
+    assert.equal(label({
+        change_type: 'UPDATE',
+        before: '상태:재원, 반:HX108, 요일:화, 목',
+        after: '상태:재원, 반:HX108, HX108, 요일:화, 목',
+    }), null);
+    // 요일만 바뀐 로그도 그대로 숨김
+    assert.equal(label({
+        change_type: 'UPDATE',
+        before: '상태:재원, 반:A104, A102, 요일:화, 목',
+        after: '상태:재원, 반:A104, A102, 요일:목, 화',
+    }), null);
+});
+
+test('반 값 뒤에 다른 키가 오는 생산자 포맷 — 키 값을 반코드로 오인하지 않는다', () => {
+    // impact7-functions 서버 자동 감사 로그: "반: …, 상태:…" (요일 키 없음)
+    assert.equal(label({
+        change_type: 'UPDATE',
+        before: '반: 정규정규 A101, 상태:재원',
+        after: '반: 정규정규 A101, 상태:종강 [서버 자동 기록]',
+    }), null);
+    // DSC 반이동·어시스턴트 로그: "상태:…, 반:…, 시작:…"
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '상태:재원, 반:A101',
+        after: '상태:재원, 반:A102, 시작:2026-09-04',
+    }), '전반:A101>A102');
+    assert.deepStrictEqual(
+        parseStatusClass('반: 정규정규 A101, 상태:재원'),
+        { status: '재원', classes: '정규정규 A101', pauseStart: '' },
+    );
+});
+
+test('학기 롤오버 — 반코드와 학기 전환을 표시', () => {
+    // 반 이름에 공백이 있어도 코드 전체를 잡는다 (특강명 사례)
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '학기 롤오버 대상 1건',
+        after: '2026-Autumn 학기 적용 (#0 10단지 여름특강 고급A 2026-Spring→2026-Autumn) [cloud-function]',
+    }), '학기전환:10단지 여름특강 고급A 2026-Spring>2026-Autumn');
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '학기 롤오버 대상 1건',
+        after: '2026-Autumn 학기 적용 (#0 HS104 2026-Spring→2026-Autumn) [cloud-function]',
+    }), '학기전환:HS104 2026-Spring>2026-Autumn');
+    // 분할 표기가 붙어도 학기만 뽑는다
+    assert.equal(line({
+        change_type: 'UPDATE',
+        before: '학기 롤오버 대상 1건',
+        after: '2026-Summer 학기 적용 (#0 AX101 2026-Spring→2026-Summer (2026-07-20 분할)) [cloud-function]',
+    }), '학기전환:AX101 2026-Spring>2026-Summer');
+});
+
+test('dedupeHistory: 휴원·복귀는 한 줄로 합치고 구체 상태를 남긴다', () => {
+    const entry = (label, from, to) => ({ log: {}, cat: { label, from, to } });
+    // 같은 저장이 status·pause 로그로 두 건 남은 휴원 (서윤하 08/31 사례)
+    assert.deepStrictEqual(
+        dedupeHistory([entry('휴원', '재원', '실휴원'), entry('휴원', '재원', '휴원')]).map(x => x.cat),
+        [{ label: '휴원', from: '재원', to: '실휴원' }],
+    );
+    // 모호한 '휴원'이 먼저 와도 실제 상태값을 남긴다
+    assert.deepStrictEqual(
+        dedupeHistory([entry('휴원', '재원', '휴원'), entry('휴원', '재원', '가휴원')]).map(x => x.cat),
+        [{ label: '휴원', from: '재원', to: '가휴원' }],
+    );
+    // 복귀는 from 쪽이 갈린다 (pause 경로 '휴원' vs status 경로 '실휴원')
+    assert.deepStrictEqual(
+        dedupeHistory([entry('복귀', '휴원', '재원'), entry('복귀', '실휴원', '재원')]).map(x => x.cat),
+        [{ label: '복귀', from: '실휴원', to: '재원' }],
+    );
+});
+
+test('dedupeHistory: 완전 동일만 합치고 다른 수업은 남긴다', () => {
+    const entry = (label, from, to) => ({ log: {}, cat: { label, from, to } });
+    // 같은 반 전환이 3번 기록돼도 한 줄 (이지훈 내신전환 사례)
+    assert.equal(dedupeHistory([
+        entry('내신전환', '', '10단지목일중3A'),
+        entry('내신전환', '', '10단지목일중3A'),
+        entry('내신전환', '', '10단지목일중3A'),
+    ]).length, 1);
+    // 서로 다른 반 추가는 각각 남긴다 (이지훈 04/02 SP201·SP101 사례)
+    assert.deepStrictEqual(
+        dedupeHistory([entry('수업추가', '', 'SP201'), entry('수업추가', '', 'SP101')]).map(x => x.cat.to),
+        ['SP201', 'SP101'],
+    );
+    // 인접하지 않으면 합치지 않는다 (휴원 → 복귀 → 휴원)
+    assert.equal(dedupeHistory([
+        entry('휴원', '재원', '실휴원'),
+        entry('복귀', '실휴원', '재원'),
+        entry('휴원', '재원', '실휴원'),
+    ]).length, 3);
+    assert.deepStrictEqual(dedupeHistory([]), []);
+});
+
 test('HISTORY_BADGE 모든 라벨 매핑 존재', () => {
     for (const lab of [
         '신규', '휴원', '복귀', '퇴원', '재등원', '전반', '수업배정', '수업추가',
-        '내신전환', '자유학기전환',
+        '수업종료', '내신전환', '자유학기전환', '학기전환',
         '계정휴원', '계정재개', '계정종료',
     ]) {
         assert.ok(HISTORY_BADGE[lab], `${lab} 뱃지 누락`);
@@ -246,6 +379,16 @@ test('parseStatusClass: 한글 상태: 포맷', () => {
   assert.deepStrictEqual(
     parseStatusClass('상태:퇴원'),
     { status: '퇴원', classes: '', pauseStart: '' },
+  );
+  // 반이 여러 개면 '요일' 직전까지 통째로 (콤마 포함)
+  assert.deepStrictEqual(
+    parseStatusClass('상태:재원, 반:FT102, A102, 수토102, 요일:화, 목, 토'),
+    { status: '재원', classes: 'FT102, A102, 수토102', pauseStart: '' },
+  );
+  // 요일 키가 없으면 문자열 끝까지
+  assert.deepStrictEqual(
+    parseStatusClass('상태:재원, 반:A101'),
+    { status: '재원', classes: 'A101', pauseStart: '' },
   );
 });
 

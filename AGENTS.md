@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 684개 통과.
+- 테스트: `npm test` (`node --test`). 현재 690개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -15,14 +15,15 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 
 ### `./history` — `history-classifier.js`
 
-수업이력 로그를 교사용 13종 이벤트로 분류. DB·DSC가 동일 컬렉션 공유.
+수업이력 로그를 교사용 15종 이벤트로 분류. DB·DSC가 동일 컬렉션 공유.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
-| `HISTORY_BADGE` | const | 수업이력 13종 라벨의 배지 tone 매핑 |
+| `HISTORY_BADGE` | const | 수업이력 15종 라벨의 배지 tone 매핑 (반 변화 `수업추가`·`수업종료`·`전반`, 기간 `내신전환`·`자유학기전환`·`학기전환` 포함) |
 | `classifyHistory` | fn | `(log) → { label, from, to } \| null` |
+| `dedupeHistory` | fn | `(entries) → entries` — `{ log, cat }` 시간 역순 배열의 인접 중복 병합. 휴원·복귀는 status·pause 두 로그를 한 줄로 합치고 구체 상태값을 남긴다 |
 | `historyPeriodLabel` | fn | `(classType) → '내신전환'\|'자유학기전환'\|'수업추가'` |
-| `parseStatusClass` | fn | `(text) → { status, classes, pauseStart }` |
+| `parseStatusClass` | fn | `(text) → { status, classes, pauseStart }` — `classes`는 콤마로 이어진 반 목록 원문 |
 | `shortAuthor` | fn | `(emailOrId) → string` — `@` 앞만, 비문자열→`'system'` |
 | `isAttendedStatus` | fn | `(status) → boolean` — 출석/지각/조퇴만 true |
 | `deriveTenure` | fn | `(logs, getDate, attendances, isCurrentlyEnrolled?) → { start, end, startEvent }` |
@@ -521,7 +522,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 - `ENROLLABLE_STATUSES`, `NON_ENROLLABLE_STATUSES` — 상태 집합 변경 시 소비자 전체 영향
 - `reconcileEnrollments()` 반환 형태 `{ enrollments, valid, reason? }` — 필드명 변경 금지
-- `HISTORY_BADGE` 키 집합 13종 — DB 렌더러가 CSS 클래스로 매핑
+- `HISTORY_BADGE` 키 집합 15종 — DB 렌더러가 CSS 클래스로 매핑
 - `currentSchool(student)` 시그니처 — DSC·DB 다수 사이트에서 호출
 - `SCHOOL_FIELD` 값 (`school_elementary` 등) — Firestore 필드명과 동기화
 

@@ -21,8 +21,10 @@ export const HISTORY_BADGE = {
     '신규': 'badge-enroll', '복귀': 'badge-enroll', '재등원': 'badge-enroll',
     '수업배정': 'badge-enroll', '수업추가': 'badge-enroll',
     '전반': 'badge-update', '내신전환': 'badge-update', '자유학기전환': 'badge-update',
+    '학기전환': 'badge-update',
     '휴원': 'badge-update', '계정휴원': 'badge-update',
-    '계정재개': 'badge-enroll', '퇴원': 'badge-withdraw', '계정종료': 'badge-withdraw',
+    '계정재개': 'badge-enroll', '퇴원': 'badge-withdraw',
+    '수업종료': 'badge-withdraw', '계정종료': 'badge-withdraw',
 };
 
 export function historyPeriodLabel(classType) {
@@ -57,6 +59,14 @@ function accountSnapshotLabel(text) {
     }
 }
 
+// 반 목록 문자열("A104, A102") → 중복·순서·빈값 제거한 정렬 배열.
+// 저장 로그는 같은 반을 두 번 적거나 순서만 바꿔 쓰므로, 집합으로 비교해야 실제 변화만 남는다.
+function classList(classes) {
+    return [...new Set(
+        (classes || '').split(',').map(code => code.trim()).filter(code => code && code !== '—')
+    )].sort();
+}
+
 // history before/after에서 상태·반코드·휴원시작일을 best-effort로 추출.
 // 형태: "상태:재원, 반:A101, 요일:월,금" | "status:재원, pause_start_date:.." (일괄 import)
 //      | {"status":"재원","pause_start_date":"..."} | 단독 상태문자열("재원").
@@ -75,7 +85,10 @@ export function parseStatusClass(text) {
     // 값은 콤마·괄호 전까지 — 일괄퇴원 로그 "학생: 이름 (상태:실휴원)" 포맷 지원.
     const mStatus = t.match(/(?<![가-힣A-Za-z0-9])상태[:\s]*([^,)]+)/) || t.match(/(?:^|,\s*)status:\s*([^,]+)/);
     if (mStatus) {
-        const cls = (t.match(/반[:\s]*([^,]*?)(?:,\s*요일|$)/)?.[1] || '').trim();
+        // 반 값은 "반:A104, A102, 요일:.." 처럼 콤마로 여러 개가 올 수 있어 다음 "키:" 직전까지 통째로 받는다.
+        // 뒤따르는 키는 로그 생산자마다 다르다 — 요일(DB)·상태(서버 감사)·시작(반이동).
+        // '반'도 낱말 시작에서만 — '일반:..' 같은 합성어 오파싱 방지.
+        const cls = (t.match(/(?<![가-힣A-Za-z0-9])반[:\s]*(.*?)(?:,\s*[가-힣A-Za-z_]+\s*:|$)/)?.[1] || '').trim();
         const pause = (t.match(/pause_start_date:\s*([^,]*)/)?.[1] || '').trim();
         return { status: mStatus[1].trim(), classes: cls === '—' ? '' : cls, pauseStart: pause };
     }
@@ -140,10 +153,56 @@ export function classifyHistory(log) {
         if (added) return { label: historyPeriodLabel(classType), from: '', to: added };
     }
 
-    // 전반: 상태 변화 없이 반코드 변경
-    if (bC && aC && bC !== aC) return { label: '전반', from: bC, to: aC };
+    // 학기 롤오버 — "2026-Autumn 학기 적용 (#0 HS104 2026-Spring→2026-Autumn) [cloud-function]"
+    const semesterMoves = [...afterText.matchAll(/#\d+\s+(.+?)\s+(\d{4}-[A-Za-z]+)→(\d{4}-[A-Za-z]+)/g)];
+    if (semesterMoves.length) {
+        const codes = [...new Set(semesterMoves.map(move => move[1]))].join(', ');
+        return { label: '학기전환', from: `${codes} ${semesterMoves[0][2]}`, to: semesterMoves[0][3] };
+    }
+
+    // 반 목록 변화 — 상태 변화 없이 반이 바뀐 경우. 추가·제거를 집합으로 판정해
+    // 다중 반(정규+특강·내신 병행)과 첫 배정·전체 해제까지 모두 잡는다.
+    // 순서만 바뀐 로그(반:A,B → 반:B,A)는 변화 없음으로 걸러진다.
+    const beforeClasses = classList(bC);
+    const afterClasses = classList(aC);
+    const addedClasses = afterClasses.filter(code => !beforeClasses.includes(code));
+    const removedClasses = beforeClasses.filter(code => !afterClasses.includes(code));
+    if (addedClasses.length && removedClasses.length) {
+        return { label: '전반', from: removedClasses.join(', '), to: addedClasses.join(', ') };
+    }
+    if (addedClasses.length) return { label: '수업추가', from: '', to: addedClasses.join(', ') };
+    if (removedClasses.length) return { label: '수업종료', from: removedClasses.join(', '), to: '종료' };
 
     return null;
+}
+
+// 휴원·복귀는 한 번의 저장이 status 로그와 pause 로그로 두 건 남아 같은 사건이 두 줄로 보인다.
+// 이 두 라벨만 인접 병합 대상 — 반·기간 라벨은 to가 다르면 실제로 다른 수업이므로 합치지 않는다.
+const LEAVE_TRANSITION_LABELS = new Set(['휴원', '복귀']);
+
+// 두 표현 중 실제 상태값(실휴원·가휴원 등)을 남긴다. pause 경로가 만드는 '휴원'은 모호한 fallback.
+const preferStatus = (a, b) => (STATUSES.includes(a) || !STATUSES.includes(b) ? a : b);
+
+// 연속 중복 이력 병합. 입력·출력은 `{ log, cat }` 형태의 시간 역순 배열(DB·DSC 공통 렌더 계약).
+export function dedupeHistory(entries) {
+    const merged = [];
+    for (const entry of entries) {
+        const previous = merged.at(-1);
+        const { label, from, to } = entry.cat;
+        if (previous && previous.cat.label === label) {
+            if (previous.cat.from === from && previous.cat.to === to) continue;
+            if (LEAVE_TRANSITION_LABELS.has(label)) {
+                previous.cat = {
+                    label,
+                    from: preferStatus(previous.cat.from, from),
+                    to: preferStatus(previous.cat.to, to),
+                };
+                continue;
+            }
+        }
+        merged.push({ ...entry });
+    }
+    return merged;
 }
 
 // 현재 재원기간(tenure): 마지막 신규/재등원 이벤트 ~ (그 뒤 퇴원이면 그 날, 아니면 진행 중).
