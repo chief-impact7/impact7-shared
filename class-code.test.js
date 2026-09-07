@@ -71,3 +71,25 @@ test('기존 반 검증은 미선택·유형 불일치·변환 불가를 한국�
   assert.match(validateExistingAccountClass(accountSettings, '기타', 'HA101'), /반 생성 마법사/);
   assert.match(validateExistingAccountClass({ HA: {} }, '정규', 'HA'), /변환할 수 없습니다/);
 });
+
+test('반이동은 같은 정규계열이어도 같은 수업종류만 선택하고 검증한다', () => {
+  const settings = {
+    AX103: { account_type: '정규', class_type: '정규' },
+    AX106: {},
+    FX101: { account_type: '정규', class_type: '자유학기' },
+    FX103: { account_type: '정규', class_type: '자유학기' },
+    내신101: { account_type: '정규', class_type: '내신' },
+    특강101: { account_type: '특강', class_type: '특강' },
+    기타101: { account_type: '기타', class_type: '기타' },
+  };
+  assert.equal(selectableAccountClassCodes(settings, '정규').length, 5);
+  assert.deepEqual(selectableAccountClassCodes(settings, '정규', '정규'), ['AX103', 'AX106']);
+  assert.deepEqual(selectableAccountClassCodes(settings, '정규', '자유학기'), ['FX101', 'FX103']);
+  for (const code of ['FX101', 'FX103', '내신101', '특강101', '기타101', '없는반101']) {
+    assert.equal(isSelectableAccountClass('정규', settings[code], '정규'), false);
+    assert.match(validateExistingAccountClass(settings, '정규', code, '정규'), /정규/);
+  }
+  for (const code of ['ax103', 'AX106']) {
+    assert.equal(validateExistingAccountClass(settings, '정규', code, '정규'), null);
+  }
+});

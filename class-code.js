@@ -35,13 +35,15 @@ export function classSettingsAccountType(settings) {
   return null;
 }
 
-export function isSelectableAccountClass(accountType, settings) {
-  return ACCOUNT_TYPES.includes(accountType) && classSettingsAccountType(settings) === accountType;
+export function isSelectableAccountClass(accountType, settings, classType) {
+  return ACCOUNT_TYPES.includes(accountType)
+    && classSettingsAccountType(settings) === accountType
+    && (classType === undefined || (settings.class_type || accountType) === classType);
 }
 
-export function selectableAccountClassCodes(classSettings, accountType) {
+export function selectableAccountClassCodes(classSettings, accountType, classType) {
   return Object.entries(classSettings || {})
-    .filter(([, settings]) => isSelectableAccountClass(accountType, settings))
+    .filter(([, settings]) => isSelectableAccountClass(accountType, settings, classType))
     .map(([code]) => code)
     .sort((a, b) => a.localeCompare(b, 'ko'));
 }
@@ -59,9 +61,12 @@ export function accountClassParts(accountType, classCode) {
   };
 }
 
-export function validateExistingAccountClass(classSettings, accountType, classCode) {
+export function validateExistingAccountClass(classSettings, accountType, classCode, classType) {
   if (!classCode) return '등록할 반을 선택하세요.';
-  if (!isSelectableAccountClass(accountType, classSettingsGet(classSettings, classCode))) {
+  if (!isSelectableAccountClass(accountType, classSettingsGet(classSettings, classCode), classType)) {
+    if (classType !== undefined) {
+      return `"${classCode}"는 ${accountType}계열의 ${classType}수업반이 아닙니다. 같은 수업종류의 반을 선택하세요.`;
+    }
     return `"${classCode}"는 반 생성 마법사에서 생성된 ${accountType}반이 아닙니다.`;
   }
   const { levelSymbol, classNumber } = accountClassParts(accountType, classCode);

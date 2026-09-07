@@ -4,7 +4,8 @@
 import {
   assignEnrollmentScheduleRoles, enrollmentCode, ENROLLMENT_WEEKDAYS, enrollmentWeekdayRank,
 } from './enrollment-derivation.js';
-import { accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
+import { accountTypeOf, groupEnrollmentAccounts, isValidEnrollmentClassType } from './enrollment-status.js';
+import { normalizeClassCode } from './class-code.js';
 import { addDays } from './datetime.js';
 import { normalizedDays } from './expected-arrival.js';
 
@@ -49,6 +50,81 @@ function naesinParityWarning(studentName, sourceItem, targetClassNumber) {
     return `${studentName || ''}: 반번호 끝자리 홀짝(A/B)이 바뀌어 내신 자동매핑이 달라질 수 있음`;
   }
   return null;
+}
+
+export function moveClassEnrollment(student, { targetEnrollment, targetClassCode, effectiveDate, today }) {
+  const enrollments = student.enrollments || [];
+  const skipped = (warning = null, beforeCodes = []) => ({ updatedEnrollments: enrollments, beforeCodes, skipped: true, warning });
+  const classType = targetEnrollment?.class_type;
+  const accountType = accountTypeOf(targetEnrollment);
+  const targetCode = normalizeClassCode(targetClassCode);
+  if (!targetCode || !isValidEnrollmentClassType(accountType, classType)) return skipped('대상 반과 수업종류를 확인하세요.');
+  if (!effectiveDate || !today || effectiveDate < today) return skipped('적용일은 오늘 이후여야 합니다.');
+  if (targetEnrollment.end_date && targetEnrollment.end_date < effectiveDate) return skipped('대상 반의 종료일이 이동일보다 빠릅니다.');
+
+  const current = enrollments.filter(e => accountTypeOf(e) === accountType && (!e.end_date || e.end_date >= today));
+  const candidates = current.map(enrollment => ({
+    enrollment,
+    code: normalizeClassCode(classType === '내신' && isRegular(enrollment) && normalizedDays(enrollment.day).length
+      ? enrollment.naesin_class_override
+      : (enrollment.class_type || accountTypeOf(enrollment)) === classType ? enrollmentCode(enrollment) : ''),
+  })).filter(item => item.code);
+  const beforeCodes = [...new Set(candidates.map(item => item.code).filter(code => code !== targetCode))];
+  if (!beforeCodes.length) return skipped();
+  if (beforeCodes.length > 1) return skipped('같은 수업종류의 원반이 여러 개라 자동 이동할 수 없습니다.', beforeCodes);
+  const accountIds = new Set(candidates.map(({ enrollment }) => enrollment.account_id || null));
+  if (accountIds.size > 1) return skipped('이동할 반이 여러 계정에 있어 자동 이동할 수 없습니다.', beforeCodes);
+  const source = candidates.find(item => item.code !== targetCode).enrollment;
+  const sameAccount = e => (e.account_id || null) === (source.account_id || null);
+  if (classType === '자유학기' && !current.some(e => isRegular(e) && sameAccount(e)
+    && normalizedDays(e.day).length && normalizeClassCode(enrollmentCode(e))
+    && (!e.start_date || e.start_date <= effectiveDate)
+    && (!e.end_date || e.end_date >= effectiveDate))) {
+    return skipped('이동일에 유효한 같은 계정의 기준 정규반이 없어 자유학기반을 이동할 수 없습니다.', beforeCodes);
+  }
+  const previousDay = addDays(effectiveDate, -1);
+  const keepBeforeMove = e => {
+    if (e.end_date && e.end_date < effectiveDate) return [e];
+    return e.start_date && e.start_date >= effectiveDate ? [] : [{ ...e, end_date: previousDay }];
+  };
+
+  if (classType === '내신') {
+    const bases = new Set(current.filter(e => isRegular(e) && sameAccount(e) && normalizedDays(e.day).length
+      && normalizeClassCode(enrollmentCode(e))
+      && (!e.end_date || e.end_date >= effectiveDate)));
+    if (![...bases].some(e => !e.start_date || e.start_date <= effectiveDate)) {
+      return skipped('이동일에 유효한 기준 정규반이 없어 내신반을 이동할 수 없습니다.', beforeCodes);
+    }
+    const overlays = new Set(current.filter(e => e.class_type === '내신' && sameAccount(e)));
+    const updatedEnrollments = enrollments.flatMap(e => {
+      if (bases.has(e)) {
+        if (normalizeClassCode(e.naesin_class_override) === targetCode) return [e];
+        const moved = {
+          ...e,
+          naesin_class_override: targetClassCode,
+          start_date: e.start_date && e.start_date > effectiveDate ? e.start_date : effectiveDate,
+        };
+        delete moved.naesin_days;
+        delete moved.naesin_schedule;
+        if (targetEnrollment.day?.length) moved.naesin_days = [...targetEnrollment.day];
+        if (targetEnrollment.schedule) moved.naesin_schedule = { ...targetEnrollment.schedule };
+        return [...keepBeforeMove(e), moved];
+      }
+      return overlays.has(e) ? keepBeforeMove(e) : [e];
+    });
+    return { updatedEnrollments, beforeCodes, skipped: false, warning: null };
+  }
+
+  const moved = { ...source };
+  for (const field of ['end_date', 'end_reason', 'start_time', 'schedule']) delete moved[field];
+  Object.assign(moved, targetEnrollment, { start_date: effectiveDate, account_type: accountType });
+  if (source.account_id) moved.account_id = source.account_id;
+  else delete moved.account_id;
+  if (classType === '정규') moved.schedule_role = 'base';
+  const replacements = new Set(candidates.map(item => item.enrollment));
+  const updatedEnrollments = enrollments.flatMap(e => replacements.has(e) ? keepBeforeMove(e) : [e]);
+  updatedEnrollments.push(moved);
+  return { updatedEnrollments, beforeCodes, skipped: false, warning: null };
 }
 
 // 정규 반이동 SSoT — 이동일 기준으로 옛 반을 전날까지 유지하고 새 반을 이동일부터 시작하는

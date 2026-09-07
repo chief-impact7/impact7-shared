@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { changeRegularClassWeekdays, moveClass, moveRegularClass } from './class-move.js';
+import { changeRegularClassWeekdays, moveClass, moveClassEnrollment, moveRegularClass } from './class-move.js';
 
 const student = (enrollments, name = '홍길동') => ({ name, enrollments });
 const SPRING = { start: '2026-03-02', end: '2026-07-19' };
@@ -263,4 +263,166 @@ test('문자열 요일도 정규화해 선택한 요일만 분리한다', () => 
     { class_number: '102', day: ['월', '금'] },
     { class_number: '106', day: ['화'] },
   ]);
+});
+
+test('마법사 이동은 같은 종류의 모든 요일 조각을 닫고 새 반의 계정·시간을 적용한다', () => {
+  for (const classType of ['정규', '자유학기', '특강', '기타']) {
+    const accountType = ['특강', '기타'].includes(classType) ? classType : '정규';
+    const source = { account_id: 'original', account_type: accountType, class_type: classType, level_symbol: 'A', class_number: '101', day: ['월'], start_date: '2026-08-01', start_time: '16:30', schedule: { 월: '16:30' }, pause_start_date: '2026-08-10' };
+    const secondDay = { ...source, day: ['금'], schedule_role: 'alternate' };
+    const history = { ...source, class_number: '100', end_date: '2026-07-31' };
+    const other = regular({ account_id: classType === '자유학기' ? 'original' : 'other', class_type: classType === '정규' ? '자유학기' : '정규' });
+    const input = [source, secondDay, history, other];
+    const snapshot = structuredClone(input);
+    const result = moveClassEnrollment(student(input), {
+      targetEnrollment: { class_type: classType, account_type: accountType, account_id: 'new-uuid', level_symbol: 'A', class_number: '103', day: ['화'] },
+      targetClassCode: 'A103', effectiveDate: '2026-09-07', today: '2026-09-07',
+    });
+    assert.equal(result.skipped, false);
+    assert.deepEqual(result.beforeCodes, ['A101']);
+    assert.deepEqual(input, snapshot);
+    assert.deepEqual(result.updatedEnrollments.slice(0, 2).map(e => e.end_date), ['2026-09-06', '2026-09-06']);
+    assert.strictEqual(result.updatedEnrollments[2], history);
+    assert.strictEqual(result.updatedEnrollments[3], other);
+    const target = result.updatedEnrollments.at(-1);
+    assert.equal(target.account_id, 'original');
+    assert.equal(target.start_date, '2026-09-07');
+    assert.equal(target.class_number, '103');
+    assert.equal(target.start_time, undefined);
+    assert.equal(target.schedule, undefined);
+    assert.equal(target.pause_start_date, '2026-08-10');
+    assert.deepEqual(target.day, ['화']);
+  }
+});
+
+test('마법사 예약 이동은 적용일 전날까지 보존하고 아직 시작하지 않은 구간은 교체한다', () => {
+  const targetEnrollment = { class_type: '정규', level_symbol: 'A', class_number: '103', day: ['화'] };
+  const args = { targetEnrollment, targetClassCode: 'A103', effectiveDate: '2026-09-14', today: '2026-09-07' };
+  const result = moveClassEnrollment(student([regular()]), args);
+  assert.equal(result.updatedEnrollments[0].end_date, '2026-09-13');
+  assert.equal(result.updatedEnrollments[1].start_date, '2026-09-14');
+  const future = moveClassEnrollment(student([regular({ start_date: '2026-10-01' })]), args);
+  assert.equal(future.updatedEnrollments.length, 1);
+  assert.equal(future.updatedEnrollments[0].start_date, '2026-09-14');
+});
+
+test('마법사 이동은 신규·기존 대상반만 있으면 건너뛰고 여러 원반은 경고로 중단한다', () => {
+  const targetEnrollment = { class_type: '정규', level_symbol: 'A', class_number: '103', day: ['화'] };
+  const args = { targetEnrollment, targetClassCode: 'A103', effectiveDate: '2026-09-07', today: '2026-09-07' };
+  for (const input of [[], [targetEnrollment], [regular({ end_date: '2026-09-06' })]]) {
+    const result = moveClassEnrollment(student(input), args);
+    assert.equal(result.skipped, true);
+    assert.equal(result.warning, null);
+    assert.strictEqual(result.updatedEnrollments, input);
+  }
+  const input = [regular(), regular({ class_number: '104', day: ['금'] })];
+  const result = moveClassEnrollment(student(input), args);
+  assert.equal(result.skipped, true);
+  assert.match(result.warning, /여러/);
+  assert.strictEqual(result.updatedEnrollments, input);
+});
+
+test('마법사 내신 이동은 기준 정규반 날짜를 나눠 이전 배정을 보존하고 자유학기를 유지한다', () => {
+  const base = regular({ naesin_class_override: '내신A', naesin_days: ['월'], naesin_schedule: { 월: '16:30' } });
+  const second = { ...base, day: ['금'], schedule_role: 'alternate' };
+  const direct = { account_id: 'acct-1', account_type: '정규', class_type: '내신', class_number: '내신A', start_date: '2026-09-01', end_date: '2026-09-30' };
+  const free = { account_id: 'acct-1', account_type: '정규', class_type: '자유학기', class_number: 'FX101', start_date: '2026-09-01', end_date: '2026-09-30' };
+  const input = [base, second, direct, free];
+  const snapshot = structuredClone(input);
+  const result = moveClassEnrollment(student(input), {
+    targetEnrollment: { class_type: '내신', account_type: '정규', account_id: 'new-uuid', day: ['화'], end_date: '2026-09-30' },
+    targetClassCode: '내신B', effectiveDate: '2026-09-14', today: '2026-09-07',
+  });
+  assert.equal(result.skipped, false);
+  assert.deepEqual(result.beforeCodes, ['내신A']);
+  assert.deepEqual(input, snapshot);
+  const oldBases = result.updatedEnrollments.filter(e => e.naesin_class_override === '내신A');
+  const newBases = result.updatedEnrollments.filter(e => e.naesin_class_override === '내신B');
+  assert.deepEqual(oldBases.map(e => e.end_date), ['2026-09-13', '2026-09-13']);
+  assert.deepEqual(newBases.map(e => e.start_date), ['2026-09-14', '2026-09-14']);
+  assert.ok(newBases.every(e => e.account_id === 'acct-1' && e.class_type === '정규' && e.class_number === '102' && !e.end_date));
+  assert.ok(newBases.every(e => e.naesin_schedule === undefined));
+  assert.deepEqual(newBases[0].naesin_days, ['화']);
+  assert.equal(result.updatedEnrollments.find(e => e.class_type === '내신').end_date, '2026-09-13');
+  assert.ok(result.updatedEnrollments.includes(free));
+});
+
+test('마법사 내신 이동은 자동 학교 매핑을 만들지 않고 기준 정규 없는 명시 내신은 중단한다', () => {
+  const args = { targetEnrollment: { class_type: '내신', day: ['월'] }, targetClassCode: '내신B', effectiveDate: '2026-09-07', today: '2026-09-07' };
+  const unassigned = moveClassEnrollment(student([regular({ naesin_class_override: undefined })]), args);
+  assert.equal(unassigned.skipped, true);
+  assert.equal(unassigned.warning, null);
+  const orphan = moveClassEnrollment(student([{ class_type: '내신', class_number: '내신A' }]), args);
+  assert.equal(orphan.skipped, true);
+  assert.match(orphan.warning, /기준 정규/);
+  for (const levelSymbol of ['', ' ']) {
+    const placeholder = regular({ level_symbol: levelSymbol, class_number: '', naesin_class_override: '내신A' });
+    const result = moveClassEnrollment(student([placeholder]), args);
+    assert.equal(result.skipped, true);
+    assert.match(result.warning, /기준 정규/);
+    assert.strictEqual(result.updatedEnrollments[0], placeholder);
+  }
+});
+
+test('마법사 내신 이동은 적용일 기준 정규반을 요구하고 연결된 미래 정규 조각의 배정을 유지한다', () => {
+  const args = {
+    targetEnrollment: { class_type: '내신', day: ['월'], end_date: '2026-09-30' },
+    targetClassCode: '내신B', effectiveDate: '2026-09-07', today: '2026-09-07',
+  };
+  const lateBase = regular({ start_date: '2026-10-01', naesin_class_override: '내신A' });
+  const invalid = moveClassEnrollment(student([lateBase]), args);
+  assert.equal(invalid.skipped, true);
+  assert.match(invalid.warning, /이동일.*기준 정규/);
+  assert.strictEqual(invalid.updatedEnrollments[0], lateBase);
+
+  const currentBase = regular({ end_date: '2026-09-20', naesin_class_override: '내신A' });
+  const futureBase = regular({ start_date: '2026-09-21', naesin_class_override: undefined });
+  const result = moveClassEnrollment(student([currentBase, futureBase]), args);
+  assert.equal(result.skipped, false);
+  assert.deepEqual(result.updatedEnrollments.map(e => [e.start_date, e.end_date, e.naesin_class_override]), [
+    ['2026-03-02', '2026-09-06', '내신A'],
+    ['2026-09-07', '2026-09-20', '내신B'],
+    ['2026-09-21', undefined, '내신B'],
+  ]);
+  assert.equal(futureBase.naesin_class_override, undefined);
+});
+
+test('마법사 자유학기 이동은 이동일에 유효한 같은 계정의 기준 정규반을 요구한다', () => {
+  const free = { account_id: 'acct-1', account_type: '정규', class_type: '자유학기', level_symbol: 'FX', class_number: '101', day: ['월'], start_date: '2026-09-01', end_date: '2026-09-30' };
+  const args = {
+    targetEnrollment: { ...free, class_number: '103' }, targetClassCode: 'FX103',
+    effectiveDate: '2026-09-14', today: '2026-09-07',
+  };
+  for (const bases of [
+    [],
+    [regular({ account_id: 'different' })],
+    [regular({ end_date: '2026-09-13' })],
+    [regular({ start_date: '2026-09-15' })],
+    [regular({ day: [] })],
+  ]) {
+    const input = [...bases, free];
+    const result = moveClassEnrollment(student(input), args);
+    assert.equal(result.skipped, true);
+    assert.match(result.warning, /같은 계정.*기준 정규/);
+    assert.strictEqual(result.updatedEnrollments, input);
+  }
+  const base = regular({ start_date: '2026-09-14', end_date: '2026-09-30' });
+  const result = moveClassEnrollment(student([base, free]), args);
+  assert.equal(result.skipped, false);
+  assert.ok(result.updatedEnrollments.includes(base));
+  assert.equal(result.updatedEnrollments.at(-1).account_id, base.account_id);
+});
+
+test('마법사 이동은 다른 계정·과거 적용일·종료된 대상 기간을 자동으로 병합하지 않는다', () => {
+  const args = { targetEnrollment: { class_type: '정규', level_symbol: 'A', class_number: '103' }, targetClassCode: 'A103', effectiveDate: '2026-09-07', today: '2026-09-07' };
+  for (const [input, options] of [
+    [[regular(), regular({ account_id: 'second' })], args],
+    [[regular()], { ...args, effectiveDate: '2026-09-06' }],
+    [[regular()], { ...args, targetEnrollment: { ...args.targetEnrollment, end_date: '2026-09-06' } }],
+  ]) {
+    const result = moveClassEnrollment(student(input), options);
+    assert.equal(result.skipped, true);
+    assert.ok(result.warning);
+    assert.strictEqual(result.updatedEnrollments, input);
+  }
 });

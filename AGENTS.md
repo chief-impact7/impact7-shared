@@ -124,6 +124,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `moveClass` | fn | `(student, { period, targetLevelSymbol, targetClassNumber, accountId? }) → { updatedEnrollments, before, after, skipped, warning }` — `period`와 조각 기간의 겹침으로 대상을 찾음. accountId 생략 시 기존 첫 정규 계정 동작 |
+| `moveClassEnrollment` | fn | `(student, { targetEnrollment, targetClassCode, effectiveDate, today }) → { updatedEnrollments, beforeCodes, skipped, warning }` — 5종 같은 수업종류의 모든 원반 조각을 적용일 전날 종료하고 같은 계정으로 이동. 내신은 기준 정규반을 날짜 분할해 override 이력 보존. 자유학기는 이동일에 유효한 같은 계정의 기준 정규반 필요. 신규·대상반만 있으면 skipped, 복수 원반·계정은 warning과 함께 중단 |
 | `moveRegularClass` | fn | `(student, { targetLevelSymbol, targetClassNumber, targetDay?, moveDate, today }) → { updatedEnrollments, before, after, skipped, warning }` — 반이동 SSoT. 활성 반은 이동일 전날까지 유지(end_date)하고 새 반을 이동일 시작으로 추가하는 같은 계정 2단 구성. 예약 반은 제자리 교체, 기존 예약 조각은 대체. 정규 계정 0·2개 이상, 과거 이동일은 skipped |
 | `changeRegularClassWeekdays` | fn | `(student, { changes, effectiveDate, today }) → { updatedEnrollments, changes, skipped, warning }` — 선택한 정규수업 요일만 대상 반으로 분할하고 같은 계정의 미지정 요일·기간·부가 상태를 보존 |
 
@@ -332,10 +333,10 @@ Gemini 모델 선택·폴백·3.x 요청 설정 정규화 SSoT. SDK·Firebase �
 | `normalizeClassCode` | fn | `(code) → string` — trim + 대문자 (`'ks132'→'KS132'`), 비교·저장 전 정규화 |
 | `classSettingsGet` | fn | `(classSettings, code) → setting \| undefined` — 표기 차이(ks132 ≡ KS132)를 양방향 흡수하는 조회. 파생 계층(enrollment-derivation·expected-arrival)이 사용 |
 | `classSettingsAccountType` | fn | `(settings) → '정규'\|'특강'\|'기타'\|null` — 명시 `account_type` 우선, 레거시 `class_type` 파생 |
-| `isSelectableAccountClass` | fn | `(accountType, settings) → boolean` — 계정 유형과 반 설정 유형 일치 |
-| `selectableAccountClassCodes` | fn | `(classSettings, accountType) → string[]` — 해당 계정 유형의 반코드 정렬 |
+| `isSelectableAccountClass` | fn | `(accountType, settings, classType?) → boolean` — 수업계열 일치, classType 지정 시 같은 수업종류도 검사 |
+| `selectableAccountClassCodes` | fn | `(classSettings, accountType, classType?) → string[]` — 해당 수업계열·선택적 수업종류의 반코드 정렬 |
 | `accountClassParts` | fn | `(accountType, classCode) → { levelSymbol, classNumber }` — 정규화 후 정규는 문자/숫자 분해, 특강·기타는 전체 코드 사용 |
-| `validateExistingAccountClass` | fn | `(classSettings, accountType, classCode) → string\|null` — 기존 반 선택·유형·변환 검증 |
+| `validateExistingAccountClass` | fn | `(classSettings, accountType, classCode, classType?) → string\|null` — 기존 반 선택·수업계열·선택적 수업종류·변환 검증 |
 
 ### `./datetime` — `datetime.js`
 
