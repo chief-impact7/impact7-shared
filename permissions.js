@@ -9,6 +9,12 @@
 //   'none'   — 카탈로그만 (앱 미연동, 아직 미강제)
 
 const STAFF_ROLE_RANK = Object.freeze({ member: 0, manager: 1, supervisor: 2, director: 3 });
+const ROLE_TEMPLATE_KEYS = Object.freeze({
+  member: ['member'],
+  manager: ['member', 'manager'],
+  supervisor: ['member', 'manager', 'supervisor'],
+  director: ['member', 'manager', 'supervisor', 'director'],
+});
 
 export function canManageStaffPermissions(role) {
   return Object.hasOwn(STAFF_ROLE_RANK, role) && STAFF_ROLE_RANK[role] > 0;
@@ -202,6 +208,29 @@ export function hasAppAccess(user, permission) {
 
 export function hasRequestPermission(hrUser, permission) {
   return hasPermission(hrUser, permission);
+}
+
+function departmentTemplateKey(department) {
+  if (department === '교수') return 'faculty';
+  if (department === '행정') return 'administration';
+  if (department === '단기') return 'shortterm';
+  return null;
+}
+
+export function materializeStaffPermissions(staff, templates = {}, overrides = {}, keys = ALL_PERMISSION_KEYS) {
+  const departmentKey = departmentTemplateKey(staff?.department);
+  const roleKey = Object.hasOwn(ROLE_TEMPLATE_KEYS, staff?.role) ? staff.role : 'member';
+  const roleTemplateKeys = ROLE_TEMPLATE_KEYS[roleKey];
+  return Object.fromEntries(
+    keys.map((key) => {
+      if (key === 'canManagePermissions' && canManageStaffPermissions(roleKey)) return [key, true];
+      const base =
+        templates?.all?.[key] === true ||
+        roleTemplateKeys.some((templateKey) => templates?.[templateKey]?.[key] === true) ||
+        (departmentKey !== null && templates?.[departmentKey]?.[key] === true);
+      return [key, Object.hasOwn(overrides || {}, key) ? overrides[key] === true : base];
+    }),
+  );
 }
 
 export function canCreateLeaveRequest(hrUser) {

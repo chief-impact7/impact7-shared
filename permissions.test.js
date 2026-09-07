@@ -10,6 +10,7 @@ import {
   canManageStaffPermissions,
   canManageStaffRole,
   hasRequestPermission,
+  materializeStaffPermissions,
   SENSITIVE_PERMISSION_KEYS,
 } from './permissions.js';
 
@@ -221,4 +222,41 @@ test('공용 권한 helper는 앱 접근과 기능 권한을 구분한다', () =
 test('그룹 key 중복 없음', () => {
   const keys = PERMISSION_GROUPS.map((g) => g.key);
   assert.equal(new Set(keys).size, keys.length);
+});
+
+test('직원 권한은 전체·부서·누적 역할 기본값에 개인 변경을 마지막으로 적용한다', () => {
+  assert.deepEqual(
+    materializeStaffPermissions(
+      { department: '교수', role: 'manager' },
+      {
+        all: { canAccessImpact7DSC: true, canViewStudentPrivateInfo: true },
+        faculty: { canViewStudents: true },
+        manager: { canEditStudents: true },
+      },
+      { canViewStudentPrivateInfo: false },
+      ['canAccessImpact7DSC', 'canViewStudents', 'canEditStudents', 'canViewStudentPrivateInfo'],
+    ),
+    {
+      canAccessImpact7DSC: true,
+      canViewStudents: true,
+      canEditStudents: true,
+      canViewStudentPrivateInfo: false,
+    },
+  );
+});
+
+test('권한 템플릿이 없으면 기본 권한은 닫고 manager 이상 권한관리만 역할에서 계산한다', () => {
+  assert.deepEqual(
+    materializeStaffPermissions(
+      { department: '교수', role: 'manager' },
+      {},
+      {},
+      ['canAccessImpact7DSC', 'canViewStudents', 'canManagePermissions'],
+    ),
+    {
+      canAccessImpact7DSC: false,
+      canViewStudents: false,
+      canManagePermissions: true,
+    },
+  );
 });

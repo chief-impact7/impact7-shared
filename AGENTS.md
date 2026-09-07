@@ -458,6 +458,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `PERMISSION_GROUPS` | const | `[{ key, title, items: PermissionEntry[] }]` — 항목은 권한 `{ key, label, apps, enforced }` 또는 재귀 하위 목록 `{ id, label, children }`. 그룹 13종. `enforced`: `'rules'`(firestore.rules 서버 강제) \| `'client'`(앱 화면 제어만) \| `'none'`(카탈로그만) |
 | `ALL_PERMISSION_KEYS` | const | `PERMISSION_GROUPS`의 중첩 항목을 재귀 순회한 권한 키 62종 |
 | `SENSITIVE_PERMISSION_KEYS` | const | `['canViewPopulationStats', 'canViewClassCounts']` — 오너/원장만 부여·회수 |
+| `materializeStaffPermissions` | fn | `(staff, templates?, overrides?, keys?) → 권한 맵` — 전체·부서·누적 직급 템플릿에 개인 변경을 적용. HR과 직원 계정 동기화에서 공용 사용 |
 
 ### `./retention` — `retention.js`
 
