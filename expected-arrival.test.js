@@ -22,6 +22,31 @@ test('startTime — enrollment.schedule 우선', () => {
   assert.equal(startTime({}, '수', {}), '');
 });
 
+test('기간별 개별 등원시간은 반 기본시간보다 우선하고 종료 다음 날 정규시간으로 복귀한다', () => {
+  for (const class_type of ['자유학기', '내신']) {
+    const regular = {
+      account_id: 'regular-1', account_type: '정규', class_type: '정규',
+      level_symbol: 'HA', class_number: '101', day: ['월', '화'],
+      start_date: '2026-01-01', start_time: '16:00',
+    };
+    const period = {
+      ...regular, class_type, class_number: '102',
+      start_date: '2026-09-07', end_date: '2026-09-14',
+      schedule: { 월: '17:30', 화: '18:30' },
+    };
+    const args = {
+      enrollments: [regular, period],
+      classSettings: { HA102: { schedule: { 월: '18:00', 화: '19:00' }, free_schedule: { 월: '18:00', 화: '19:00' } } },
+    };
+    assert.equal(computeExpectedArrival({ ...args, date: '2026-08-31' }), '16:00');
+    assert.equal(computeExpectedArrival({ ...args, date: '2026-09-07' }), '17:30');
+    assert.equal(computeExpectedArrival({ ...args, date: '2026-09-08' }), '18:30');
+    assert.equal(computeExpectedArrival({ ...args, date: '2026-09-14' }), '17:30');
+    assert.equal(computeExpectedArrival({ ...args, date: '2026-09-15' }), '16:00');
+    assert.equal(regular.start_time, '16:00');
+  }
+});
+
 test('earliestExpectedTime — 여러 소스 중 가장 이른 값', () => {
   const got = earliestExpectedTime({
     enrollments: [{ schedule: { 수: '16:00' } }],

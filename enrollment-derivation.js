@@ -32,6 +32,14 @@ export function enrollmentCode(e) {
   return `${e.level_symbol || ''}${e.class_number || ''}`;
 }
 
+export function withEnrollmentSchedule(enrollments, enrollment, schedule) {
+  const index = enrollments.indexOf(enrollment);
+  const updated = { ...enrollment, schedule: { ...enrollment.schedule, ...schedule } };
+  return index < 0
+    ? [...enrollments, updated]
+    : enrollments.map((item, position) => position === index ? updated : item);
+}
+
 export const ENROLLMENT_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 export function enrollmentWeekdayRank(enrollment) {

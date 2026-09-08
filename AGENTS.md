@@ -101,6 +101,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | 심볼 | 종류 | 시그니처 |
 |------|------|---------|
 | `enrollmentCode` | fn | `(e) → level_symbol+class_number` — 예: `'HA101'`. 아래 두 함수의 옵션 기본값 |
+| `withEnrollmentSchedule` | fn | `(enrollments, enrollment, schedule) → enrollments` — 선택한 등록의 요일별 개인 특별등원시간만 병합. 원본·다른 요일·수업 보존. 파생 등록은 해당 기간의 명시 등록으로 추가 |
 | `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment[]` — 내신/자유학기 활성 시 정규를 치환한 배열 |
 | `deriveActiveNaesinEnrollment` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → enrollment\|null` — 활성 내신 enrollment(명시/파생) 또는 null. 아래 predicate와 applyNaesinFreeDerivation의 SSoT |
 | `isNaesinActiveAt` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → boolean` — 기준일 내신기간 활성 여부. 내신 active 판정은 로컬 재구현 말고 이 함수 사용(current는 호출자가 날짜 필터한 활성 enrollment 배열) |
@@ -156,7 +157,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `getDayName` | fn | `(dateStr) → '일'~'토'` — TZ 무관(UTC 산술), 실존하지 않는 날짜('2026-02-30')는 `''` |
 | `normalizedDays` | fn | `(day) → string[]` — '요일' 접미·구분자 제거 |
 | `resolveNaesinCsKey` | fn | `(regularEnroll) → string \| null` — naesin_class_override 기반 |
-| `startTime` | fn | `(enrollment, dayName, classSettings) → 'HH:MM' \| ''` |
+| `startTime` | fn | `(enrollment, dayName, classSettings) → 'HH:MM' \| ''` — 학생 `schedule[요일]` 우선. 자유학기 반 기본은 `free_schedule`, 내신은 `schedule` 사용 |
 | `earliestExpectedTime` | fn | `({ enrollments, dayName, classSettings, rec, hwTasks, testTasks, absences, date }) → 'HH:MM' \| ''` — 분 단위 최솟값('9:30' 한 자리 시 허용) |
 | `computeExpectedArrival` | fn | `({ enrollments, classSettings, rec, hwTasks, testTasks, absences, date }) → 'HH:MM' \| ''` — 날짜필터→내신/자유학기 파생→요일필터 후 earliest |
 | `isLate` | fn | `(arrivalHHMM, expectedHHMM, graceMin=5) → boolean` — 같은 날 비교 계약. 자정 넘김은 판정하지 않음(호출자가 businessDay 기준으로 날짜를 짝지을 것) |

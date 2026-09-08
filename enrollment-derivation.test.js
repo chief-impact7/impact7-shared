@@ -2,8 +2,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyNaesinFreeDerivation, deriveActiveNaesinEnrollment,
-  isNaesinActiveAt, enrollmentCode as sharedEnrollmentCode,
+  isNaesinActiveAt, enrollmentCode as sharedEnrollmentCode, withEnrollmentSchedule,
 } from './enrollment-derivation.js';
+
+test('withEnrollmentSchedule: 원본과 다른 등록을 보존하며 선택한 요일만 변경한다', () => {
+  const regular = { class_type: '정규', start_time: '16:00' };
+  const period = { class_type: '내신', start_date: '2026-09-01', end_date: '2026-09-14', schedule: { 월: '18:00', 화: '19:00' } };
+  const base = [regular, period];
+  const result = withEnrollmentSchedule(base, period, { 화: '17:30' });
+  assert.deepEqual(result, [regular, { ...period, schedule: { 월: '18:00', 화: '17:30' } }]);
+  assert.equal(period.schedule.화, '19:00');
+  assert.deepEqual(withEnrollmentSchedule([regular], period, { 화: '17:30' }), result);
+});
 
 test('enrollmentCode: level_symbol+class_number 결합', () => {
   assert.equal(sharedEnrollmentCode({ level_symbol: 'HA', class_number: '101' }), 'HA101');

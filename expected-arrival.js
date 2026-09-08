@@ -36,9 +36,6 @@ export function startTime(enrollment, dayName, classSettings) {
   const classTime = enrollment?.class_type === '자유학기'
     ? c?.free_schedule?.[dayName]
     : c?.schedule?.[dayName];
-  if (enrollment?.class_type === '자유학기') {
-    return classTime || scheduledTime || enrollment?.start_time || enrollment?.time || c?.default_time || '';
-  }
   if (enrollment?.class_type === '정규') {
     return scheduledTime || enrollment?.start_time || enrollment?.time || c?.default_time || classTime || '';
   }
