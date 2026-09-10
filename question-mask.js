@@ -84,7 +84,9 @@ function namePart(run, notNames) {
   if (hasTense(run)) return null;
 
   // 복성 + 이름 두 자. "남궁민수"는 세 자 규칙에 안 걸린다.
-  if (run.length === 4 && COMPOUND_SURNAMES.has(run.slice(0, 2))) return run;
+  if (run.length === 4 && COMPOUND_SURNAMES.has(run.slice(0, 2))) {
+    return notNames.has(run) ? null : run;
+  }
 
   const token = (run.length === 4 && PARTICLE.has(run[3])) ? run.slice(0, 3) : run;
   if (token.length !== 3) return null;
@@ -129,12 +131,12 @@ export function maskQuestion(text, known = {}) {
     return { masked: null, dropped: true, reason: 'empty', uncertain: false, tokens: [], replacements: [] };
   }
 
-  // 예외는 두 곳 모두에 걸린다: 이름 모양 판정과, 명단에 잘못 들어간 값.
+  // 예외는 이름 모양 판정에만 걸린다. 실제 명단 이름은 예외와 무관하게 지운다.
   const notNames = new Set([...SEED_NOT_NAMES, ...(known.notNames ?? []).map(norm)]);
   // 한 글자짜리와 한글이 아닌 값은 지우지 않는다 — 문장을 망가뜨리는 손해가 더 크다.
   const usable = (list) => [...new Set((list ?? [])
     .map(norm)
-    .filter((v) => v.length >= MIN_NAME_CHARS && HANGUL_ONLY.test(v) && !notNames.has(v)))];
+    .filter((v) => v.length >= MIN_NAME_CHARS && HANGUL_ONLY.test(v)))];
 
   // 학생과 직원을 한 줄로 세워 긴 것부터 지운다. 목록별로 따로 돌리면 짧은 쪽이
   // 긴 이름을 먼저 먹어 이름 일부가 그대로 남는다(2026-08-22 실측).
