@@ -138,11 +138,26 @@ test('notNames는 이름 모양 판정을 막는다', () => {
   assert.equal(maskQuestion(q, { ...known, notNames: ['여기서'] }).masked, q);
 });
 
-test('notNames는 명단에 잘못 들어간 값도 막는다', () => {
-  // 명단에 잘못 들어간 흔한 말은 예외로 막는다.
+test('notNames는 실제 명단 이름을 풀지 않는다', () => {
   const dirty = { studentNames: ['등원'], staffNames: [] };
   assert.equal(maskQuestion('오늘 등원은 몇명?', dirty).masked, `오늘 ${MASK.student}은 몇명?`);
-  assert.equal(maskQuestion('오늘 등원은 몇명?', { ...dirty, notNames: ['등원'] }).masked, '오늘 등원은 몇명?');
+  assert.equal(maskQuestion('오늘 등원은 몇명?', { ...dirty, notNames: ['등원'] }).masked, `오늘 ${MASK.student}은 몇명?`);
+  assert.equal(maskQuestion('박선생 오시나요?', { staffNames: ['박선생'], notNames: ['박선생'] }).masked,
+    `${MASK.person} 오시나요?`);
+  assert.equal(maskQuestion('성적표 왔나요?', { studentNames: ['성적표'] }).masked,
+    `${MASK.student} 왔나요?`);
+});
+
+test('notNames는 복성 휴리스틱 판정을 막되 실제 명단 이름은 풀지 않는다', () => {
+  const q = '남궁민수 왔나요?';
+  assert.equal(maskQuestion(q, { notNames: ['남궁민수'] }).masked, q);
+  assert.equal(maskQuestion(q, { studentNames: ['남궁민수'], notNames: ['남궁민수'] }).masked,
+    `${MASK.student} 왔나요?`);
+});
+
+test('notNames는 전화번호 마스킹을 풀지 않는다', () => {
+  assert.equal(maskQuestion('010-1234-5678로 연락해요.', { notNames: ['010-1234-5678'] }).masked,
+    `${MASK.phone}로 연락해요.`);
 });
 
 test('짧은 이름이 긴 이름을 먼저 먹지 않는다', () => {
