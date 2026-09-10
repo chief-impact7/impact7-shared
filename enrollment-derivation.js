@@ -13,7 +13,7 @@
 //
 // 우선순위: 내신(기간 활성) > 자유학기(기간 활성) > 그대로. 내신/자유학기가 활성이면 정규를 숨긴다.
 import { classSettingsGet } from './class-code.js';
-import { accountTypeOf, groupEnrollmentAccounts } from './enrollment-status.js';
+import { accountTypeOf, activeEnrollmentsAt, groupEnrollmentAccounts } from './enrollment-status.js';
 
 const _validDate = (d) => !!d && /^\d{4}-/.test(d);
 const accountFieldsOf = (e) => ({
@@ -38,6 +38,52 @@ export function withEnrollmentSchedule(enrollments, enrollment, schedule) {
   return index < 0
     ? [...enrollments, updated]
     : enrollments.map((item, position) => position === index ? updated : item);
+}
+
+// 내신/자유학기 파생 enrollment의 학생 개별 override 필드 (기준 정규 enrollment에 저장).
+const PERIOD_OVERRIDE_FIELDS = {
+  '내신': { days: 'naesin_days', schedule: 'naesin_schedule' },
+  '자유학기': { days: 'free_days', schedule: 'free_schedule' },
+};
+
+const _prunedSchedule = (schedule, days) => Object.fromEntries(
+  Object.entries(schedule || {}).filter(([day]) => !days || days.includes(day)));
+
+// 파생 enrollment의 기준(정규/자유학기) enrollment. 파생과 같은 계정 판정·활성 필터를 쓴다 —
+// 전체 배열에서 첫 정규를 고르면 종료된 옛 반에 override가 기록돼 편집이 조용히 무효가 된다.
+function _periodBaseIndex(list, derived, dateStr) {
+  const active = new Set(activeEnrollmentsAt(list, dateStr));
+  return list.findIndex(e => e && typeof e === 'object' && active.has(e)
+    && (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number
+    && (derived.account_id
+      ? e.account_id === derived.account_id
+      : !e.account_id && accountTypeOf(e) === accountTypeOf(derived)));
+}
+
+// 등원 요일·시간 편집을 저장 가능한 enrollments 배열로 되돌린다.
+// - 명시적 enrollment: 자기 자신의 day·schedule을 갱신.
+// - 파생 내신/자유학기: 기준 정규 enrollment의 naesin_days·naesin_schedule /
+//   free_days·free_schedule override를 갱신 (파생본을 새 enrollment로 추가하지 않는다).
+// 기준을 찾지 못하면 throw — 조용히 새 enrollment를 만들면 요일 편집이 통째로 유실된다.
+export function withPeriodEnrollmentEdit(enrollments, enrollment, { day, schedule, dateStr } = {}) {
+  const list = enrollments || [];
+  const index = list.indexOf(enrollment);
+  const fields = index >= 0
+    ? { days: 'day', schedule: 'schedule' }
+    : PERIOD_OVERRIDE_FIELDS[enrollment.class_type];
+  if (!fields) throw new Error(`${enrollment.class_type || '이'} 수업은 개인 등원 요일·시간을 저장할 수 없습니다.`);
+  const targetIndex = index >= 0 ? index : _periodBaseIndex(list, enrollment, dateStr || enrollment.start_date);
+  if (targetIndex < 0) throw new Error('기준 정규 등록을 찾지 못해 개인 등원 요일·시간을 저장할 수 없습니다.');
+  const target = list[targetIndex];
+  // 요일을 바꿀 때만 선택 밖 시간을 정리한다 — 시간만 고칠 때 다른 요일 설정을 지우면 데이터 손실.
+  const merged = day?.length
+    ? _prunedSchedule({ ...target[fields.schedule], ...schedule }, day)
+    : { ...target[fields.schedule], ...schedule };
+  const updated = { ...target };
+  if (day?.length) updated[fields.days] = day;
+  if (Object.keys(merged).length) updated[fields.schedule] = merged;
+  else delete updated[fields.schedule];
+  return list.map((item, position) => position === targetIndex ? updated : item);
 }
 
 export const ENROLLMENT_WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -132,13 +178,17 @@ export function applyNaesinFreeDerivation(current, { classSettings, dateStr, res
       const c = classSettingsGet(cs, csKey);
       if (!c?.free_start || !c?.free_end) return null;
       if (c.free_start > today || c.free_end < today) return null;
+      // 학생 개별 override: free_days(요일)·free_schedule(요일별 시간)가 반 기본을 덮는다 (내신 naesin_days와 대칭).
+      const studentFreeDays = Array.isArray(regularEnroll.free_days) && regularEnroll.free_days.length > 0
+        ? regularEnroll.free_days
+        : Object.keys(c.free_schedule || {});
       return {
         class_type: '자유학기',
         level_symbol: regularEnroll.level_symbol || '',
         class_number: regularEnroll.class_number || '',
         ...accountFieldsOf(regularEnroll),
-        day: Object.keys(c.free_schedule || {}),
-        schedule: c.free_schedule || {},
+        day: studentFreeDays,
+        schedule: { ...(c.free_schedule || {}), ...(regularEnroll.free_schedule || {}) },
         start_date: c.free_start,
         end_date: c.free_end,
       };

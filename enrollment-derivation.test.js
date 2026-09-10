@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   applyNaesinFreeDerivation, deriveActiveNaesinEnrollment,
   isNaesinActiveAt, enrollmentCode as sharedEnrollmentCode, withEnrollmentSchedule,
+  withPeriodEnrollmentEdit,
 } from './enrollment-derivation.js';
 
 test('withEnrollmentSchedule: 원본과 다른 등록을 보존하며 선택한 요일만 변경한다', () => {
@@ -326,4 +327,58 @@ test('정규 2개 보유 학생도 자유학기 활성이면 둘 다 숨김 (전
     classSettings: cs, dateStr: '2026-07-01', resolveNaesinCsKey: () => null,
   });
   assert.deepEqual(out.map(e => `${e.class_type}:${e.level_symbol}${e.class_number}`), ['자유학기:HX104']);
+});
+
+test('자유학기 파생: 학생 free_days·free_schedule override가 반 기본을 덮는다', () => {
+  const cs = { HA101: { free_start: '2026-05-01', free_end: '2026-12-31', free_schedule: { 월: '18:00', 화: '19:00' } } };
+  const regular = {
+    class_type: '정규', level_symbol: 'HA', class_number: '101', day: ['월', '화'],
+    free_days: ['월', '목'], free_schedule: { 목: '20:00' },
+  };
+  const [out] = applyNaesinFreeDerivation([regular], deps(cs));
+  assert.equal(out.class_type, '자유학기');
+  assert.deepEqual(out.day, ['월', '목']);
+  assert.equal(out.schedule.월, '18:00');
+  assert.equal(out.schedule.목, '20:00');
+});
+
+test('withPeriodEnrollmentEdit: 명시적 enrollment는 자기 day·schedule을 갱신하고 삭제한 요일의 시간을 정리', () => {
+  const regular = { class_type: '정규', start_time: '16:00' };
+  const period = { class_type: '내신', day: ['월', '화'], schedule: { 월: '18:00', 화: '19:00' } };
+  const out = withPeriodEnrollmentEdit([regular, period], period, { day: ['월', '목'], schedule: { 목: '20:00' } });
+  assert.deepEqual(out, [regular, { class_type: '내신', day: ['월', '목'], schedule: { 월: '18:00', 목: '20:00' } }]);
+  assert.deepEqual(period.day, ['월', '화']);
+});
+
+test('withPeriodEnrollmentEdit: 파생 내신·자유학기는 기준 정규의 override 필드에 저장(새 enrollment 추가 없음)', () => {
+  const regular = { account_id: 'a', class_type: '정규', level_symbol: 'HA', class_number: '101', day: ['월', '화'] };
+  for (const [classType, daysField, scheduleField] of [['내신', 'naesin_days', 'naesin_schedule'], ['자유학기', 'free_days', 'free_schedule']]) {
+    const derived = { account_id: 'a', class_type: classType, day: ['월', '화'], schedule: { 월: '18:00', 화: '19:00' } };
+    const out = withPeriodEnrollmentEdit([regular], derived, { day: ['월', '목'], schedule: { 목: '20:00' } });
+    assert.equal(out.length, 1);
+    assert.deepEqual(out[0], { ...regular, [daysField]: ['월', '목'], [scheduleField]: { 목: '20:00' } });
+  }
+});
+
+test('withPeriodEnrollmentEdit: 종료된 옛 정규가 앞에 있어도 활성 기준 정규에 override를 쓴다', () => {
+  const old = { account_id: 'a', class_type: '정규', level_symbol: 'HA', class_number: '101', day: ['월'], start_date: '2026-01-01', end_date: '2026-03-31' };
+  const current = { account_id: 'a', class_type: '정규', level_symbol: 'HB', class_number: '201', day: ['월', '화'], start_date: '2026-04-01' };
+  const derived = { account_id: 'a', class_type: '자유학기', day: ['월', '화'], schedule: { 월: '18:00' } };
+  const out = withPeriodEnrollmentEdit([old, current], derived, { day: ['월', '목'], schedule: { 목: '20:00' }, dateStr: '2026-05-28' });
+  assert.deepEqual(out[0], old);
+  assert.deepEqual(out[1], { ...current, free_days: ['월', '목'], free_schedule: { 목: '20:00' } });
+});
+
+test('withPeriodEnrollmentEdit: 기준 정규가 없으면 새 enrollment를 만들지 않고 throw', () => {
+  const derived = { account_id: 'a', class_type: '내신', day: ['월'], schedule: { 월: '18:00' } };
+  assert.throws(() => withPeriodEnrollmentEdit([], derived, { day: ['목'] }), /기준 정규 등록/);
+  assert.throws(
+    () => withPeriodEnrollmentEdit([], { class_type: '특강', day: ['월'] }, { day: ['목'] }),
+    /저장할 수 없습니다/);
+});
+
+test('withPeriodEnrollmentEdit: 시간만 고치면 선택 밖 요일의 기존 시간을 지우지 않는다', () => {
+  const period = { class_type: '내신', day: ['월', '화'], schedule: { 월: '18:00', 화: '19:00', 목: '20:00' } };
+  const out = withPeriodEnrollmentEdit([period], period, { schedule: { 화: '17:30' } });
+  assert.deepEqual(out[0].schedule, { 월: '18:00', 화: '17:30', 목: '20:00' });
 });

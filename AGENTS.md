@@ -102,7 +102,8 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 |------|------|---------|
 | `enrollmentCode` | fn | `(e) → level_symbol+class_number` — 예: `'HA101'`. 아래 두 함수의 옵션 기본값 |
 | `withEnrollmentSchedule` | fn | `(enrollments, enrollment, schedule) → enrollments` — 선택한 등록의 요일별 개인 특별등원시간만 병합. 원본·다른 요일·수업 보존. 파생 등록은 해당 기간의 명시 등록으로 추가 |
-| `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment[]` — 내신/자유학기 활성 시 정규를 치환한 배열 |
+| `withPeriodEnrollmentEdit` | fn | `(enrollments, enrollment, { day?, schedule? }) → enrollments` — 등원 요일·시간 편집 저장. 명시 등록은 자기 `day`·`schedule`을, 파생 내신/자유학기는 기준 정규 등록의 `naesin_days`·`naesin_schedule` / `free_days`·`free_schedule` override를 갱신(파생본을 새 등록으로 추가하지 않음). 선택 요일 밖 시간은 정리 |
+| `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment[]` — 내신/자유학기 활성 시 정규를 치환한 배열. 학생 개별 override(`naesin_days`·`naesin_schedule` / `free_days`·`free_schedule`)가 반 기본 요일·시간을 덮는다 |
 | `deriveActiveNaesinEnrollment` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → enrollment\|null` — 활성 내신 enrollment(명시/파생) 또는 null. 아래 predicate와 applyNaesinFreeDerivation의 SSoT |
 | `isNaesinActiveAt` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → boolean` — 기준일 내신기간 활성 여부. 내신 active 판정은 로컬 재구현 말고 이 함수 사용(current는 호출자가 날짜 필터한 활성 enrollment 배열) |
 | `deriveClassPeriodHistory` | fn | `(enrollments, classSettings, { enrollmentCode? }?) → [{ class_type, code, start_date, end_date, account_id?, account_type? }]` — 명시 기간 존재를 계정별 판정 |
