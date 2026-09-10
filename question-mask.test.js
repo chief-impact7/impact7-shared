@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { maskQuestion, MASK } from './question-mask.js';
+import { maskQuestion, maskQuestionNumbers, MASK } from './question-mask.js';
 
 const known = {
   studentNames: ['홍길동', '김영희', '이서준'],
@@ -17,6 +17,83 @@ test('명단에 있는 학생 이름을 지우고 문장은 남긴다', () => {
 test('전화번호는 형식이 달라도 지운다', () => {
   assert.equal(mask('010-1234-5678로 문자 갔나요?').masked, `${MASK.phone}로 문자 갔나요?`);
   assert.equal(mask('01012345678 맞나요?').masked, `${MASK.phone} 맞나요?`);
+  assert.equal(maskQuestionNumbers('0505-1234-5678 / 080-123-4567 / 010)1234-5678'),
+    `${MASK.phone} / ${MASK.phone} / ${MASK.phone}`);
+});
+
+test('일반 날짜·금액·점수·접수번호는 숫자 길이만으로 지우지 않는다', () => {
+  const q = '20260910 접수 12345678, 120000원, 100점, 30명 맞나요?';
+  assert.equal(mask(q).masked, q);
+  assert.equal(maskQuestionNumbers(q), q);
+});
+
+test('보호 표현 뒤라도 단위가 명확한 금액·업무 수치는 보존한다', () => {
+  for (const text of ['카드 12000000원', '전화 10000000회', '카드 12000000원입니다.']) {
+    assert.equal(maskQuestionNumbers(text), text);
+  }
+  assert.equal(maskQuestionNumbers('010-1234-5678원장 연락처'), `${MASK.phone}원장 연락처`);
+});
+
+test('주민등록번호·외국인등록번호·전화번호는 구조만으로 지운다', () => {
+  assert.equal(mask('주민번호 900101-1234567, 외국인 900101-5234567').masked,
+    `주민번호 ${MASK.phone}, 외국인 ${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('9001011234567 / 0001015123456 확인'),
+    `${MASK.phone} / ${MASK.phone} 확인`);
+  assert.equal(mask('+82 10 1234 5678 또는 02-123-4567').masked,
+    `${MASK.phone} 또는 ${MASK.phone}`);
+});
+
+test('계좌·카드·인증번호는 라벨이 앞뒤 줄에 있어도 지운다', () => {
+  assert.equal(maskQuestionNumbers('계좌:\n110123456789\n으로 입금했어요'),
+    `계좌:\n${MASK.phone}\n으로 입금했어요`);
+  assert.equal(maskQuestionNumbers('연락처 1234-5678, 계좌 123-456789'),
+    `연락처 ${MASK.phone}, 계좌 ${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('계좌 1234.5678.9012'),
+    `계좌 ${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('계좌는123456789012으로 받았어요'),
+    `계좌는${MASK.phone}으로 받았어요`);
+  assert.equal(maskQuestionNumbers('{"value":"123456","label":"인증번호"}'),
+    `{"value":"${MASK.phone}","label":"인증번호"}`);
+  assert.equal(maskQuestionNumbers('{"label":"인증번호","value":"123456"}'),
+    `{"label":"인증번호","value":"${MASK.phone}"}`);
+  assert.equal(maskQuestionNumbers('{"label":"계좌","value":"123456789012"}'),
+    `{"label":"계좌","value":"${MASK.phone}"}`);
+  assert.equal(maskQuestionNumbers('{"label":"PIN","value":"4829"}'),
+    `{"label":"PIN","value":"${MASK.phone}"}`);
+  assert.equal(maskQuestionNumbers('{"label":"인증번호","expires":"20260910","value":"123456"}'),
+    '{"label":"인증번호","expires":"20260910","value":"123456"}');
+  assert.equal(maskQuestionNumbers('인증번호 20260910'),
+    `인증번호 ${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('인증번호는 482951, 482952이 인증번호'),
+    `인증번호는 ${MASK.phone}, ${MASK.phone}이 인증번호`);
+  assert.equal(maskQuestionNumbers('PIN:4829\nOTP:\n482951'),
+    `PIN:${MASK.phone}\nOTP:\n${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('카드 1234-5678-9012-3456 승인'),
+    `카드 ${MASK.phone} 승인`);
+});
+
+test('민감 라벨이 같은 문장에 있어도 직접 붙지 않은 숫자는 지우지 않는다', () => {
+  assert.equal(maskQuestionNumbers('계좌 안내했고 매출12000000원, 접수 1234567890123입니다.'),
+    '계좌 안내했고 매출12000000원, 접수 1234567890123입니다.');
+  assert.equal(maskQuestionNumbers('인증 만료 20260910, 업무 code 4829'),
+    '인증 만료 20260910, 업무 code 4829');
+  assert.equal(maskQuestionNumbers('접수 9901321234567, 영수증 01012345678999'),
+    '접수 9901321234567, 영수증 01012345678999');
+  assert.equal(maskQuestionNumbers('계좌 123-456\n789-012'),
+    `계좌 ${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('카드:\n1234-5678\n9012-3456'),
+    `카드:\n${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('계좌:\n123\n456\n789'),
+    `계좌:\n${MASK.phone}`);
+  assert.equal(maskQuestionNumbers('계좌 안내\n금액12000000원'),
+    '계좌 안내\n금액12000000원');
+});
+
+test('명확한 카드번호는 라벨 없이도 전체를 지운다', () => {
+  assert.equal(maskQuestionNumbers('4111111111111111 승인됐나요?'),
+    `${MASK.phone} 승인됐나요?`);
+  assert.equal(maskQuestionNumbers('1234567812345670 승인됐나요?'),
+    '1234567812345670 승인됐나요?');
 });
 
 test('직원 이름도 지운다', () => {
@@ -205,4 +282,11 @@ test('전화번호와 직원 이름 치환도 같은 형식으로 돌려준다',
     { text: '010-1234-5678', mask: MASK.phone },
     { text: '박선생', mask: MASK.person },
   ]);
+});
+
+test('숫자 마스킹 치환도 같은 형식으로 돌려준다', () => {
+  const replacements = [];
+  assert.equal(maskQuestionNumbers('인증번호 123456', (text, maskValue) => replacements.push({ text, mask: maskValue })),
+    `인증번호 ${MASK.phone}`);
+  assert.deepEqual(replacements, [{ text: '123456', mask: MASK.phone }]);
 });

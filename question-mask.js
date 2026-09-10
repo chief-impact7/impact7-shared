@@ -31,10 +31,131 @@ const HANGUL = /[가-힣]/;
 
 // 한국 이름처럼 보이는 덩어리. 조사가 붙어도 앞 2~4자를 잡는다.
 const KOREAN_NAME = /[가-힣]{2,4}/g;
-const PHONE = /\d{2,4}[-.\s]?\d{3,4}[-.\s]?\d{4}/g;
-const LONG_DIGITS = /\d{7,}/g;
+const PHONE = /(?<!\d)(?:\+?82[-.)\s]?(?:0?1[016789]|0?2|0?[3-6][1-5]|0?50\d|0?70|0?80)[-.)\s]?\d{3,4}[-.)\s]?\d{4}|0(?:1[016789]|2|[3-6][1-5]|50\d|70|80)[-.)\s]?\d{3,4}[-.)\s]?\d{4})(?!\d)/g;
+const REGISTRATION_NUMBER = /(?<!\d)\d{6}[-\s]?[1-8]\d{6}(?!\d)/g;
+const GROUPED_CARD = /(?<!\d)\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}(?!\d)/g;
+const GROUPED_ACCOUNT = /(?<!\d)\d{2,6}(?:[- ]\d{2,8}){1,4}(?!\d)/g;
+const COMPACT_CARD = /(?<!\d)\d{13,19}(?!\d)/g;
+const CONTEXT_NUMBER = /(?<!\d)\d{4,20}(?!\d)/g;
+const SENSITIVE_NUMBER_LABEL = '(?:전화|연락처|휴대폰|핸드폰|폰번호|주민등록번호|주민번호|외국인등록번호|외국인번호|계좌번호|계좌|카드번호|카드|인증번호|인증코드|OTP|otp|PIN|pin|보안코드|비밀번호|password)';
+const LABEL_BEFORE_NUMBER = new RegExp(`${SENSITIVE_NUMBER_LABEL}(?:[은는이가])?[\\s"'()\\[\\]{}:：=,.-]*$`);
+const LABEL_AFTER_NUMBER = new RegExp(`^[\\s"'()\\[\\]{}:：=,.-]*(?:[은는이가][\\s"'()\\[\\]{}:：=,.-]*)?(?:label[\\s"'()\\[\\]{}:：=,.-]*)?${SENSITIVE_NUMBER_LABEL}`);
+const JSON_LABEL_BEFORE_VALUE = new RegExp(`(?:^|[,{])\\s*["']label["']\\s*:\\s*["']${SENSITIVE_NUMBER_LABEL}["']\\s*,\\s*["']value["']\\s*:\\s*["']?$`);
+const LABELLED_NUMBER_VALUE = new RegExp(`${SENSITIVE_NUMBER_LABEL}(?:[은는이가])?[\\s"'()\\[\\]{}:：=,.-]*([0-9][0-9.\\-\\s]*[0-9])`, 'g');
+
+const BUSINESS_UNIT = /^(?:원|점|명|회|건)(?=$|[\s.,!?)]|입니다|이에요|[은는이가을를의])/;
 
 const norm = (v) => String(v ?? '').trim().replace(/\s+/g, '');
+
+function isDateDigits(text) {
+  if (!/^(?:19|20)\d{6}$/.test(text)) return false;
+  const month = Number(text.slice(4, 6));
+  const day = Number(text.slice(6, 8));
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+function isYYMMDD(digits) {
+  const month = Number(digits.slice(2, 4));
+  const day = Number(digits.slice(4, 6));
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+function isRegistrationNumber(text) {
+  const digits = text.replace(/\D/g, '');
+  return digits.length === 13 && isYYMMDD(digits.slice(0, 6)) && /^[1-8]$/.test(digits[6]);
+}
+
+function luhnOk(digits) {
+  if (!digits) return false;
+  let sum = 0;
+  let alt = false;
+  for (let i = digits.length - 1; i >= 0; i -= 1) {
+    let n = Number(digits[i]);
+    if (alt) {
+      n *= 2;
+      if (n > 9) n -= 9;
+    }
+    sum += n;
+    alt = !alt;
+  }
+  return sum % 10 === 0;
+}
+
+function isCardNumber(text) {
+  const digits = text.replace(/\D/g, '');
+  const first2 = Number(digits.slice(0, 2));
+  const first4 = Number(digits.slice(0, 4));
+  const issuer =
+    (digits[0] === '4' && [13, 16, 19].includes(digits.length)) ||
+    (digits.length === 16 && (first2 >= 51 && first2 <= 55 || first4 >= 2221 && first4 <= 2720)) ||
+    (digits.length === 15 && (first2 === 34 || first2 === 37)) ||
+    ([16, 19].includes(digits.length) && (digits.startsWith('6011') || digits.startsWith('65') || first4 >= 6440 && first4 <= 6499)) ||
+    (digits.length === 14 && [36, 38, 39].includes(first2)) ||
+    ([16, 19].includes(digits.length) && first4 >= 3528 && first4 <= 3589);
+  return issuer && luhnOk(digits);
+}
+
+function hasDirectSensitiveLabel(source, start, end) {
+  return LABEL_BEFORE_NUMBER.test(source.slice(Math.max(0, start - 40), start))
+    || LABEL_AFTER_NUMBER.test(source.slice(end, Math.min(source.length, end + 40)))
+    || JSON_LABEL_BEFORE_VALUE.test(source.slice(Math.max(0, start - 80), start));
+}
+
+function addLabelledNumberValueMatches(source, spans) {
+  LABELLED_NUMBER_VALUE.lastIndex = 0;
+  for (const match of source.matchAll(LABELLED_NUMBER_VALUE)) {
+    const text = match[1];
+    if (text.replace(/\D/g, '').length < 4) continue;
+    const start = match.index + match[0].length - text.length;
+    const end = start + text.length;
+    if (BUSINESS_UNIT.test(source.slice(end))) continue;
+    spans.push({ start, end, text });
+  }
+}
+
+function addNumberMatches(source, pattern, spans, { needsLabel = false, validate } = {}) {
+  pattern.lastIndex = 0;
+  for (const match of source.matchAll(pattern)) {
+    const text = match[0];
+    const start = match.index;
+    const end = start + text.length;
+    if (needsLabel && !hasDirectSensitiveLabel(source, start, end)) continue;
+    if (validate && !validate(text)) continue;
+    if ((!needsLabel && isDateDigits(text)) || BUSINESS_UNIT.test(source.slice(end))) continue;
+    spans.push({ start, end, text });
+  }
+}
+
+export function maskQuestionNumbers(text, onReplace) {
+  const source = String(text ?? '');
+  const spans = [];
+  addLabelledNumberValueMatches(source, spans);
+  addNumberMatches(source, PHONE, spans);
+  addNumberMatches(source, REGISTRATION_NUMBER, spans, { validate: isRegistrationNumber });
+  addNumberMatches(source, GROUPED_CARD, spans, { needsLabel: true });
+  addNumberMatches(source, GROUPED_CARD, spans, { validate: isCardNumber });
+  addNumberMatches(source, COMPACT_CARD, spans, { validate: isCardNumber });
+  addNumberMatches(source, GROUPED_ACCOUNT, spans, { needsLabel: true });
+  addNumberMatches(source, CONTEXT_NUMBER, spans, { needsLabel: true });
+
+  const selected = [];
+  for (const span of spans.sort((a, b) => a.start - b.start || a.end - b.end)) {
+    const last = selected[selected.length - 1];
+    if (last && span.start < last.end) {
+      last.end = Math.max(last.end, span.end);
+      last.text = source.slice(last.start, last.end);
+    } else {
+      selected.push({ ...span });
+    }
+  }
+
+  let masked = source;
+  for (const span of selected.reverse()) {
+    onReplace?.(span.text, MASK.phone);
+    masked = masked.slice(0, span.start) + MASK.phone + masked.slice(span.end);
+  }
+  return masked;
+}
 
 // 명단으로 못 지운 이름을 잡는 두 번째 그물. 한국 이름은 성(닫힌 집합) + 1~2자 꼴이라
 // "3자이면서 성으로 시작"이면 이름일 가능성이 높다. 오타·별명·형제 이름이 여기 걸린다
@@ -146,11 +267,10 @@ export function maskQuestion(text, known = {}) {
   ].sort((a, b) => b[0].length - a[0].length);
 
   const replacements = [];
-  const maskPhone = (text) => {
+  const maskNumber = (text) => {
     replacements.push({ text, mask: MASK.phone });
-    return MASK.phone;
   };
-  let masked = source.replace(PHONE, maskPhone).replace(LONG_DIGITS, maskPhone);
+  let masked = maskQuestionNumbers(source, maskNumber);
   for (const [needle, mask] of entries) masked = replaceEntry(masked, needle, mask, replacements);
 
   // 지운 뒤에도 이름처럼 보이는 덩어리가 남으면 명단이 그 문장에 못 미친 것이다.
