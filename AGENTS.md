@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 708개 통과.
+- 테스트: `npm test` (`node --test`). 현재 715개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -488,13 +488,14 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 
 ### `./question-mask` — `question-mask.js`
 
-질문 원문에서 실제 학생·직원·전화번호를 제거하는 순수 마스킹 로직. 명단으로 확인하지 못한 이름이 많으면 문장을 버린다.
+질문 원문에서 실제 학생·직원·민감 번호를 제거하는 순수 마스킹 로직. 명단으로 확인하지 못한 이름이 많으면 문장을 버린다.
 
 | 심볼 | 종류 | 시그니처 / 값 |
 |------|------|--------------|
 | `MASK` | const | `{ student, phone, person, unknown }` |
 | `DROP_AT_UNKNOWN_NAMES` | const | `2` — 미확인 이름이 2개 이상이면 dropped 처리 |
-| `maskQuestion` | fn | `(text, known?) → { masked, dropped, reason, uncertain, tokens }` — known은 `{ studentNames, staffNames, notNames }` |
+| `maskQuestionNumbers` | fn | `(text, onReplace?) → string` — 전화·주민/외국인등록번호·카드번호와 계좌/인증번호 라벨 주변 숫자만 `[번호]`로 치환. 날짜·금액·점수·인원·일반 접수번호는 길이만으로 지우지 않는다 |
+| `maskQuestion` | fn | `(text, known?) → { masked, dropped, reason, uncertain, tokens, replacements }` — known은 `{ studentNames, staffNames, notNames }` |
 
 ### `./school-info` — `school-info.js`
 
