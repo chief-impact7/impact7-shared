@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 715개 통과.
+- 테스트: `npm test` (`node --test`). 현재 721개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -103,6 +103,7 @@ enrollment 배열에서 파생 계산. classSettings를 참조.
 | `enrollmentCode` | fn | `(e) → level_symbol+class_number` — 예: `'HA101'`. 아래 두 함수의 옵션 기본값 |
 | `withEnrollmentSchedule` | fn | `(enrollments, enrollment, schedule) → enrollments` — 선택한 등록의 요일별 개인 특별등원시간만 병합. 원본·다른 요일·수업 보존. 파생 등록은 해당 기간의 명시 등록으로 추가 |
 | `withPeriodEnrollmentEdit` | fn | `(enrollments, enrollment, { day?, schedule? }) → enrollments` — 등원 요일·시간 편집 저장. 명시 등록은 자기 `day`·`schedule`을, 파생 내신/자유학기는 기준 정규 등록의 `naesin_days`·`naesin_schedule` / `free_days`·`free_schedule` override를 갱신(파생본을 새 등록으로 추가하지 않음). 선택 요일 밖 시간은 정리 |
+| `PERIOD_OVERRIDE_FIELDS` | const | `{ '내신': { days, schedule }, '자유학기': { days, schedule } }` — 기간 override 필드명 매핑. 기준 정규의 기간 override를 정리·조회하는 소비자(DSC 등)가 리터럴 재구현 대신 사용 |
 | `applyNaesinFreeDerivation` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode? }) → enrollment[]` — 내신/자유학기 활성 시 정규를 치환한 배열. 학생 개별 override(`naesin_days`·`naesin_schedule` / `free_days`·`free_schedule`)가 반 기본 요일·시간을 덮는다 |
 | `deriveActiveNaesinEnrollment` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → enrollment\|null` — 활성 내신 enrollment(명시/파생) 또는 null. 아래 predicate와 applyNaesinFreeDerivation의 SSoT |
 | `isNaesinActiveAt` | fn | `(current, { classSettings, dateStr, resolveNaesinCsKey }) → boolean` — 기준일 내신기간 활성 여부. 내신 active 판정은 로컬 재구현 말고 이 함수 사용(current는 호출자가 날짜 필터한 활성 enrollment 배열) |

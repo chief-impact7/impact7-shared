@@ -41,7 +41,7 @@ export function withEnrollmentSchedule(enrollments, enrollment, schedule) {
 }
 
 // 내신/자유학기 파생 enrollment의 학생 개별 override 필드 (기준 정규 enrollment에 저장).
-const PERIOD_OVERRIDE_FIELDS = {
+export const PERIOD_OVERRIDE_FIELDS = {
   '내신': { days: 'naesin_days', schedule: 'naesin_schedule' },
   '자유학기': { days: 'free_days', schedule: 'free_schedule' },
 };
