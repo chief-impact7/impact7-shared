@@ -9,6 +9,7 @@ import {
     isValidPhoneKR,
     legacyStudentPhoneKeyKR,
     normalizePhoneDigitsKR,
+    phoneVariants,
 } from './phone.js';
 
 test('formatPhone: 휴대폰 번호를 국내 표준 형식으로 정규화', () => {
@@ -141,4 +142,17 @@ test('guardianPhoneDigitsOf: 폼·결제·학생 저장 형태를 같은 숫자�
     assert.equal(guardianPhoneDigitsOf({ guardianPhone: '+82 10-1234-5678' }), '01012345678');
     assert.equal(guardianPhoneDigitsOf({ parent1Phone: '1234-5678' }), '01012345678');
     assert.equal(guardianPhoneDigitsOf({ parent_phone_1: '010-1234-5678' }), '01012345678');
+});
+
+test('phoneVariants: 같은 번호가 저장될 수 있는 표기 후보를 모은다', () => {
+    assert.deepEqual(phoneVariants('010-1234-5678'), [
+        '01012345678',
+        '010-1234-5678',
+        '1012345678',
+        '821012345678',
+        '+82 10 1234 5678',
+        '010 1234 5678',
+    ]);
+    // 표기가 섞여 있어도 정규화 기준으로 같은 후보를 낸다
+    assert.deepEqual(phoneVariants('+82 10 1234 5678'), phoneVariants('01012345678'));
 });

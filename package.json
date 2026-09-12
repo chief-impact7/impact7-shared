@@ -1,6 +1,6 @@
 {
   "name": "@impact7/shared",
-  "version": "1.72.20",
+  "version": "1.72.21",
   "description": "Impact7 에코시스템 공유 순수 로직",
   "type": "module",
   "exports": {
@@ -43,7 +43,8 @@
     "./school-info": "./school-info.js",
     "./class-review": "./class-review.js",
     "./question-mask": "./question-mask.js",
-    "./form-student-candidate": "./form-student-candidate.js"
+    "./form-student-candidate": "./form-student-candidate.js",
+    "./student-identity": "./student-identity.js"
   },
   "files": [
     "*.js",

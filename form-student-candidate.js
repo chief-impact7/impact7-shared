@@ -1,4 +1,5 @@
 import { normalizePhoneDigitsKR } from './phone.js';
+import { studentDocId } from './student-identity.js';
 
 const FIELD_KEYS = [
     'studentName',
@@ -36,16 +37,8 @@ function level(value) {
     return LEVEL_MARKS.find(([mark]) => valueText.startsWith(mark))?.[1] ?? '';
 }
 
-function legacyDocumentPhoneKey(value) {
-    const digits = String(value ?? '').replace(/\D/g, '');
-    return digits.length === 11 && digits.startsWith('0') ? digits.slice(1) : digits;
-}
-
 export function formStudentDocumentId(name, guardianPhone) {
-    const nameText = text(name);
-    const phone = legacyDocumentPhoneKey(guardianPhone);
-    if (!nameText || !phone) return '';
-    return `${nameText}_${phone}`.replace(/\s+/g, '_');
+    return studentDocId(text(name), guardianPhone);
 }
 
 export function normalizeFormStudentMapping(mapping) {

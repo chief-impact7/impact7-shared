@@ -7,7 +7,7 @@ Claude Code · Codex · Antigravity 등 모든 AI 에이전트가 이 파일을 
 `@impact7/shared` — impact7 에코시스템의 **순수 로직 SSoT**.
 - DB·DSC·Forms 등 소비자가 `npm i` 로 갱신해 사용한다.
 - 의존성 없음. DOM·Firebase·날짜 라이브러리 import 금지.
-- 테스트: `npm test` (`node --test`). 현재 731개 통과.
+- 테스트: `npm test` (`node --test`). 현재 741개 통과.
 - 문서↔코드 drift 검사: `node scripts/check-drift.mjs` (exports·디스크·이 문서 표 대조, 고아 소스 검출)
 - 학생·수업·출결·강사·전화·학교/학부/학년 로직은 앱 로컬 탐색·작성 전에 아래 공개 API와 해당 소스·테스트를 먼저 읽는다. 같은 의미의 로컬 helper를 새로 만들지 않는다.
 
@@ -401,6 +401,15 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `normalizeFormStudentMapping` | fn | `(mapping) → { enabled, fields }` — enabled 상태에서 이름·보호자전화·개인정보동의 키가 없으면 비활성 처리 |
 | `extractFormStudentCandidate` | fn | `(answers, mapping) → candidate \| null` — 동의·이름·보호자전화가 모두 있을 때만 `docId`, `name`, `guardianPhone`, 선택 필드를 반환 |
 
+### `./student-identity` — `student-identity.js`
+
+학생 문서 ID(이름_보호자전화) 생성 규칙과 ID-이름 어긋남 문서 매칭의 SSoT. DB 수정 모드가 ID를 유지한 채 이름·전화만 바꿀 수 있어 실측 문서 80여 건의 ID와 현재 이름이 어긋나며, ID를 다시 계산해 생성하는 창구가 그 학생을 복제한다 — 생성(DSC·DB·Functions·newtest)과 매칭이 이 모듈을 공유한다.
+
+| 심볼 | 종류 | 시그니처 |
+|------|------|---------|
+| `studentDocId` | fn | `(name, guardianPhone) → string` — `이름_보호자전화키`. 숫자만 추출 후 11자리 0 시작일 때만 선행 0 제거. 이름은 trim하지 않는다(앞뒤 공백도 밑줄로 치환되는 레거시 admission 규칙 보존). 이름 또는 전화가 비면 `''` |
+| `matchStudentIdentity` | fn | `(candidates, { name }) → { match, ambiguous }` — 같은 보호자 전화로 호출자가 미리 모은 후보 `{ id, data }[]`에서 이름 일치 또는 ID 접두 일치(`id.startsWith(이름+'_')`)로 학생을 찾는다. 2건 이상이면 활성(퇴원·종강 아님) 우선, 그래도 2건 이상이면 `match: null`과 `ambiguous` 배열 |
+
 ### `./application-kinds` — `application-kinds.js`
 
 신청 종류와 폼·완료 흐름·안내 문구를 앱·Forms·Functions가 공유하는 정적 레지스트리.
@@ -432,6 +441,7 @@ Firestore ID·고정 함수명 같은 통제된 값만 삽입할 것.
 | `legacyStudentPhoneKeyKR` | fn | `(value) → string` — 국내 번호 정규화 후 11자리 휴대폰의 선행 `0`만 제거한 기존 학생 문서 ID용 키. 지역번호는 보존. 일반 저장·표시·발송에는 사용 금지 |
 | `isValidPhoneKR` | fn | `(value) → boolean` — `formatPhone`과 같은 휴대폰 앞자리 정규화 후 `/^01[016789]\d{7,8}$/` 검증. 지역번호는 false |
 | `formatPhoneInput` | fn | `(value) → string` — 완성 번호는 `formatPhone`과 같은 표준 형식, 입력 중 번호는 숫자 최대 11자리의 점진 3-3~4-4 분할, nullish → `''` |
+| `phoneVariants` | fn | `(value) → string[]` — 같은 번호가 DB에 저장됐을 수 있는 표기(숫자만·하이픈·국가번호·선행 0 제거) 후보 전부. where '==' 정확 일치 쿼리로 표기 차이 문서를 찾는 학생 매칭 창구가 사용 |
 
 ### `./branch` — `branch.js`
 

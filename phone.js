@@ -95,3 +95,18 @@ export function formatPhoneInput(value) {
   if (digits.length <= 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
 }
+
+// 하나의 번호가 DB에 저장됐을 수 있는 표기(숫자만·하이픈·국가번호·선행 0 제거) 후보 전부.
+// where '==' 정확 일치 쿼리로 표기 차이 문서를 찾는 학생 매칭 창구가 사용한다.
+/** @param {unknown} value */
+export function phoneVariants(value) {
+  const normalized = normalizePhoneDigitsKR(value);
+  return [...new Set([
+    normalized,
+    formatPhone(normalized),
+    legacyStudentPhoneKeyKR(normalized),
+    normalized.startsWith('0') ? `82${normalized.slice(1)}` : '',
+    normalized.startsWith('0') ? `+82 ${normalized.slice(1, 3)} ${normalized.slice(3, 7)} ${normalized.slice(7)}` : '',
+    normalized.length === 11 ? `${normalized.slice(0, 3)} ${normalized.slice(3, 7)} ${normalized.slice(7)}` : '',
+  ].filter(Boolean))];
+}
