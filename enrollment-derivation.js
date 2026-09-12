@@ -108,15 +108,35 @@ export function assignEnrollmentScheduleRoles(enrollments) {
   }));
 }
 
+// 명시 기간 조각(내신·자유학기)이 기준일에 유효한가. 구체화 산출물은 반 설정 기간을 상속해 항상
+// end_date를 가지므로, end_date 없는 조각은 레거시 데이터 — 무시하고 파생(override+반 설정 기간)으로 fallback한다.
+// 호출자의 날짜 필터는 end_date가 유효한 과거일 때만 제외하므로 여기서 걸러야 무종료 조각이 영원히 정규를 가리지 않는다.
+const _explicitPeriodActive = (e, today) =>
+  _validDate(e.start_date) && e.start_date <= today && _validDate(e.end_date);
+// 파생이 이긴 계정에서 무시된 레거시 조각까지 남기면 내신·자유학기가 두 줄로 노출되므로 함께 제거한다.
+const _legacyPeriod = (e) =>
+  (e.class_type === '내신' || e.class_type === '자유학기') && !_validDate(e.end_date);
+// 같은 계정에 이번 반 설정 기간 [start, end]와 겹치는 명시 조각(이미 종료된 것 포함)이 있으면 파생하지 않는다 —
+// 구체화로 요일을 좁혀둔 학생이 반 설정 기간 확장(naesin_end 연장)만으로 반 전체 요일로 부활하는 사고를 막는다.
+// 종료된 조각은 호출자의 날짜 필터에서 빠지므로 필터 전 전체 목록(allEnrollments)으로 본다. 겹치지 않는 창(다음 학기)은
+// 파생을 다시 허용한다. 무종료 조각은 _explicitPeriodActive와 같은 이유로 레거시로 보고 겹침 판정에서 제외한다.
+const _hasOverlappingExplicit = (all, base, classType, start, end) => {
+  const account = { accountId: base.account_id || null, accountType: accountTypeOf(base) };
+  return itemsOfAccount(all, account).some(e =>
+    e.class_type === classType && _validDate(e.start_date) && _validDate(e.end_date)
+    && e.start_date <= end && e.end_date >= start);
+};
+
 // 활성 내신 enrollment(명시적 내신 또는 정규+override→class_settings 기간 파생) 또는 null.
 // applyNaesinFreeDerivation과 isNaesinActiveAt가 공유하는 단일 판정(SSoT) — 로컬 재구현 금지.
 // current는 호출자가 날짜 필터(미시작·종료 제외)한 활성 enrollment 배열이어야 한다.
-export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, resolveNaesinCsKey }) {
+// allEnrollments(선택)는 날짜 필터 전 전체 배열 — 종료된 명시 조각과의 기간 겹침 판정에 쓴다. 생략 시 current.
+export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, resolveNaesinCsKey, allEnrollments }) {
   const today = dateStr;
   const cs = classSettings || {};
   const explicit = current.find(e =>
     accountTypeOf(e) === '정규'
-    && e.class_type === '내신' && _validDate(e.start_date) && e.start_date <= today);
+    && e.class_type === '내신' && _explicitPeriodActive(e, today));
   if (explicit) return explicit;
   const regularEnroll = current.find(e =>
     accountTypeOf(e) === '정규'
@@ -127,6 +147,7 @@ export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, 
   const c = classSettingsGet(cs, csKey); // 대소문자 표기 차이 흡수
   if (!c?.naesin_start || !c?.naesin_end) return null;
   if (c.naesin_start > today || c.naesin_end < today) return null;
+  if (_hasOverlappingExplicit(allEnrollments || current, regularEnroll, '내신', c.naesin_start, c.naesin_end)) return null;
   // 학생 개별 override: naesin_days(요일)·naesin_schedule(요일별 시간)가 반 기본을 덮는다.
   const studentDays = Array.isArray(regularEnroll.naesin_days) && regularEnroll.naesin_days.length > 0
     ? regularEnroll.naesin_days
@@ -145,11 +166,11 @@ export function deriveActiveNaesinEnrollment(current, { classSettings, dateStr, 
 
 // 기준일에 내신기간이 활성인가(boolean). 등원일정 파생(applyNaesinFreeDerivation)과
 // 동일 판정을 공유하므로 '내신 라벨'과 '파생 등원일정'이 항상 일치한다.
-export function isNaesinActiveAt(current, { classSettings, dateStr, resolveNaesinCsKey }) {
-  return !!deriveActiveNaesinEnrollment(current, { classSettings, dateStr, resolveNaesinCsKey });
+export function isNaesinActiveAt(current, deps) {
+  return !!deriveActiveNaesinEnrollment(current, deps);
 }
 
-export function applyNaesinFreeDerivation(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode: code = enrollmentCode }) {
+export function applyNaesinFreeDerivation(current, { classSettings, dateStr, resolveNaesinCsKey, enrollmentCode: code = enrollmentCode, allEnrollments }) {
   const today = dateStr;
   const cs = classSettings || {};
   let changed = false;
@@ -161,23 +182,24 @@ export function applyNaesinFreeDerivation(current, { classSettings, dateStr, res
       (e.class_type === '정규' || e.class_type === '자유학기') && e.class_number);
 
     const activeNaesin = deriveActiveNaesinEnrollment(accountItems, {
-      classSettings: cs, dateStr: today, resolveNaesinCsKey,
+      classSettings: cs, dateStr: today, resolveNaesinCsKey, allEnrollments,
     });
     if (activeNaesin) {
       changed = true;
-      const nonRegular = items.filter(e => !['정규', '자유학기', ''].includes(e.class_type || ''));
+      const nonRegular = items.filter(e => !['정규', '자유학기', ''].includes(e.class_type || '') && !_legacyPeriod(e));
       return [activeNaesin, ...nonRegular.filter(e => e !== activeNaesin)];
     }
 
     const activeFree = (() => {
       const explicit = accountItems.find(e =>
-        e.class_type === '자유학기' && _validDate(e.start_date) && e.start_date <= today);
+        e.class_type === '자유학기' && _explicitPeriodActive(e, today));
       if (explicit) return explicit;
       if (!regularEnroll) return null;
       const csKey = code(regularEnroll);
       const c = classSettingsGet(cs, csKey);
       if (!c?.free_start || !c?.free_end) return null;
       if (c.free_start > today || c.free_end < today) return null;
+      if (_hasOverlappingExplicit(allEnrollments || current, regularEnroll, '자유학기', c.free_start, c.free_end)) return null;
       // 학생 개별 override: free_days(요일)·free_schedule(요일별 시간)가 반 기본을 덮는다 (내신 naesin_days와 대칭).
       const studentFreeDays = Array.isArray(regularEnroll.free_days) && regularEnroll.free_days.length > 0
         ? regularEnroll.free_days
@@ -197,7 +219,7 @@ export function applyNaesinFreeDerivation(current, { classSettings, dateStr, res
       changed = true;
       return [
         activeFree,
-        ...items.filter(e => e.class_type !== '정규' && e !== activeFree),
+        ...items.filter(e => e.class_type !== '정규' && e !== activeFree && !_legacyPeriod(e)),
       ];
     }
 
@@ -220,8 +242,9 @@ export function deriveClassPeriodHistory(enrollments, classSettings, { enrollmen
   for (const account of groupEnrollmentAccounts(list)) {
     if (account.accountType !== '정규') continue;
     const accountItems = itemsOfAccount(list, account);
-    const hasExplicitNaesin = accountItems.some(e => e.class_type === '내신');
-    const hasExplicitFree = accountItems.some(e => e.class_type === '자유학기');
+    // 무종료 명시 조각은 _explicitPeriodActive와 같은 이유로 레거시 — 파생 이력 항목을 누르지 않게 한다.
+    const hasExplicitNaesin = accountItems.some(e => e.class_type === '내신' && _validDate(e.end_date));
+    const hasExplicitFree = accountItems.some(e => e.class_type === '자유학기' && _validDate(e.end_date));
 
     for (const e of account.items) {
       if (e.class_type !== '정규' && e.class_type !== '자유학기') continue;

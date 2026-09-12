@@ -69,9 +69,10 @@ export function earliestExpectedTime({ enrollments, dayName, classSettings, rec,
 export function computeExpectedArrival({ enrollments, classSettings, rec, hwTasks, testTasks, absences, date }) {
   const dayName = getDayName(date);
   const cs = classSettings || {};
-  const current = activeEnrollmentsAt((enrollments || []).filter(Boolean), date);
+  const all = (enrollments || []).filter(Boolean);
+  const current = activeEnrollmentsAt(all, date);
   const derived = applyNaesinFreeDerivation(current, {
-    classSettings: cs, dateStr: date, resolveNaesinCsKey, enrollmentCode,
+    classSettings: cs, dateStr: date, resolveNaesinCsKey, enrollmentCode, allEnrollments: all,
   });
   const todayEnrolls = derived.filter((e) => normalizedDays(e.day).includes(dayName));
   return earliestExpectedTime({

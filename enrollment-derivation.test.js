@@ -183,10 +183,22 @@ test('수업이력 파생: 명시적 내신 enrollment 있으면 override 파생
   const cs = { '2단지선유고1B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03' } };
   const enr = [
     { class_type: '정규', level_symbol: 'HX', class_number: '101', naesin_class_override: '2단지선유고1B' },
-    { class_type: '내신', class_number: '', start_date: '2026-05-15' },
+    { class_type: '내신', class_number: '', start_date: '2026-05-15', end_date: '2026-07-03' },
   ];
   const out = deriveClassPeriodHistory(enr, cs, { enrollmentCode: ec });
   assert.equal(out.length, 0);
+});
+
+test('수업이력 파생: 무종료 명시 내신(레거시)은 override 파생을 누르지 않는다', () => {
+  const cs = { '2단지선유고1B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03' } };
+  const enr = [
+    { class_type: '정규', level_symbol: 'HX', class_number: '101', naesin_class_override: '2단지선유고1B' },
+    { class_type: '내신', class_number: '', start_date: '2026-05-15' },
+  ];
+  const out = deriveClassPeriodHistory(enr, cs, { enrollmentCode: ec });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].class_type, '내신');
+  assert.equal(out[0].code, '2단지선유고1B');
 });
 
 test('수업이력 파생: override 빈 문자열/내신기간 없음 → 파생 안 함', () => {
@@ -211,7 +223,7 @@ test('수업이력 파생은 명시 기간을 계정별 판정하고 파생 항�
     },
     {
       account_id: 'a', account_type: '정규', class_type: '내신',
-      class_number: '내신A', start_date: '2026-05-01',
+      class_number: '내신A', start_date: '2026-05-01', end_date: '2026-06-30',
     },
     {
       account_id: 'b', account_type: '정규', class_type: '정규',
@@ -239,7 +251,7 @@ test('isNaesinActiveAt: 정규+override + 활성 내신기간 → true', () => {
 });
 
 test('isNaesinActiveAt: 명시적 내신 enrollment → true', () => {
-  const naesin = { class_type: '내신', start_date: '2026-05-01', level_symbol: '', class_number: 'X' };
+  const naesin = { class_type: '내신', start_date: '2026-05-01', end_date: '2026-06-30', level_symbol: '', class_number: 'X' };
   assert.equal(isNaesinActiveAt([reg(undefined), naesin], deps({})), true);
 });
 
@@ -262,6 +274,111 @@ test('isNaesinActiveAt가 applyNaesinFreeDerivation 내신 파생과 항상 일�
   const active = isNaesinActiveAt([reg('2단지선유고2B')], deps(cs));
   const derived = applyNaesinFreeDerivation([reg('2단지선유고2B')], deps(cs));
   assert.equal(active, derived[0].class_type === '내신');
+});
+
+// ─── 이슈 #8: 레거시 무종료(end_date 없음) 명시 기간 조각 방어 ───
+// 구체화 산출물은 반 설정 기간을 상속해 항상 end_date를 가진다. end 없는 명시 조각은 레거시라 무시한다.
+test('무종료 명시 내신은 무시되고 override+반 설정 기간 파생으로 fallback', () => {
+  const cs = { '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03', schedule: { 화: '17:00' } } };
+  const legacy = { class_type: '내신', class_number: '옛내신', day: ['월'], start_date: '2026-03-01' };
+  const out = applyNaesinFreeDerivation([reg('2단지선유고2B'), legacy], deps(cs));
+  assert.equal(out.length, 1);
+  assert.equal(out[0].class_type, '내신');
+  assert.equal(out[0].class_number, '2단지선유고2B');
+  assert.equal(out[0].end_date, '2026-07-03');
+  assert.equal(deriveActiveNaesinEnrollment([reg('2단지선유고2B'), legacy], deps(cs)).class_number, '2단지선유고2B');
+});
+
+test('무종료 명시 내신 무시 + 파생 조건 없음 → 정규 노출, 내신 비활성', () => {
+  const legacy = { class_type: '내신', class_number: '옛내신', day: ['월'], start_date: '2026-03-01' };
+  const current = [reg(undefined), legacy];
+  const out = applyNaesinFreeDerivation(current, deps({}));
+  assert.deepEqual(out, current);
+  assert.equal(isNaesinActiveAt(current, deps({})), false);
+  assert.equal(deriveActiveNaesinEnrollment(current, deps({})), null);
+});
+
+test('무종료 명시 자유학기 무시 → 반 설정 기간 파생 또는 정규 복귀', () => {
+  const legacy = { class_type: '자유학기', level_symbol: 'FR', class_number: '901', start_date: '2026-01-01' };
+  const regular = { class_type: '정규', level_symbol: 'HX', class_number: '104' };
+  const cs = { HX104: { free_start: '2026-05-01', free_end: '2026-12-31', free_schedule: { 월: [] } } };
+  const derived = applyNaesinFreeDerivation([regular, legacy], deps(cs, '2026-07-01'));
+  assert.deepEqual(derived.map(e => `${e.class_type}:${e.level_symbol}${e.class_number}`), ['자유학기:HX104']);
+  assert.equal(derived[0].end_date, '2026-12-31');
+  const plain = applyNaesinFreeDerivation([regular, legacy], deps({}, '2026-07-01'));
+  assert.deepEqual(plain, [regular, legacy]);
+});
+
+test('유효 end_date를 가진 명시 내신·자유학기는 현행대로 파생을 이기고 정규를 숨김', () => {
+  const cs = {
+    '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03', schedule: { 화: '17:00' } },
+    HX104: { free_start: '2026-05-01', free_end: '2026-12-31', free_schedule: { 월: [] } },
+  };
+  const naesin = { class_type: '내신', class_number: '명시내신', day: ['월'], start_date: '2026-05-15', end_date: '2026-07-03' };
+  const outNaesin = applyNaesinFreeDerivation([reg('2단지선유고2B'), naesin], deps(cs));
+  assert.deepEqual(outNaesin, [naesin]);
+  const free = { class_type: '자유학기', level_symbol: 'FR', class_number: '901', start_date: '2026-05-01', end_date: '2026-12-31' };
+  const outFree = applyNaesinFreeDerivation([{ ...reg(undefined), naesin_class_override: undefined }, free], deps(cs));
+  assert.deepEqual(outFree, [free]);
+});
+
+// ─── 이슈 #5: 반 설정 기간 확장 시 종료된 명시 조각이 있는 학생의 파생 부활 방지 ───
+// 구체화 학생: 명시 내신 조각(요일 좁힘)이 종료된 뒤 관리자가 반 설정 naesin_end를 늦추면
+// 명시가 날짜 필터에서 빠져 파생 fallback이 반 전체 요일로 부활하던 사고. 전체 목록(allEnrollments)으로 겹침 판정.
+const specific = { class_type: '내신', class_number: '2단지선유고2B', day: ['월'], start_date: '2026-05-14', end_date: '2026-06-10' };
+const extended = { '2단지선유고2B': { naesin_start: '2026-05-14', naesin_end: '2026-07-03', schedule: { 월: '17:00', 수: '17:00', 금: '17:00' } } };
+const activeAt = (all, date) => all.filter(e =>
+  !(e.start_date && e.start_date > date) && !(e.end_date && e.end_date < date));
+
+test('구체화 학생: 명시 조각 종료 후 반 설정 기간 확장 → 파생 부활 안 함(정규 유지)', () => {
+  const all = [reg('2단지선유고2B'), specific];
+  const current = activeAt(all, '2026-06-20');
+  assert.deepEqual(current, [all[0]]);
+  const out = applyNaesinFreeDerivation(current, { ...deps(extended, '2026-06-20'), allEnrollments: all });
+  assert.deepEqual(out, current);
+  assert.equal(isNaesinActiveAt(current, { ...deps(extended, '2026-06-20'), allEnrollments: all }), false);
+  assert.equal(deriveActiveNaesinEnrollment(current, { ...deps(extended, '2026-06-20'), allEnrollments: all }), null);
+  // allEnrollments 미전달 시 기존 소비자와 동일하게 current만 본다(호환).
+  assert.equal(applyNaesinFreeDerivation(current, deps(extended, '2026-06-20'))[0].class_type, '내신');
+});
+
+test('구체화 학생: 다음 학기처럼 겹치지 않는 반 설정 기간에서는 파생 허용', () => {
+  const all = [reg('2단지선유고2B'), specific];
+  const next = { '2단지선유고2B': { naesin_start: '2026-09-01', naesin_end: '2026-10-15', schedule: { 월: '17:00', 수: '17:00' } } };
+  const current = activeAt(all, '2026-09-10');
+  const out = applyNaesinFreeDerivation(current, { ...deps(next, '2026-09-10'), allEnrollments: all });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].class_type, '내신');
+  assert.deepEqual(out[0].day, ['월', '수']);
+  assert.equal(out[0].end_date, '2026-10-15');
+});
+
+test('명시 없는 파생 학생: 반 설정 기간 확장 시 반 전체 요일로 부활(현행 유지)', () => {
+  const all = [reg('2단지선유고2B')];
+  const out = applyNaesinFreeDerivation(activeAt(all, '2026-06-20'), { ...deps(extended, '2026-06-20'), allEnrollments: all });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].class_type, '내신');
+  assert.deepEqual(out[0].day, ['월', '수', '금']);
+});
+
+test('겹침 판정은 같은 계정만 본다 — 다른 계정의 종료 명시 조각은 파생을 막지 않는다', () => {
+  const regular = { ...reg('2단지선유고2B'), account_id: 'A' };
+  const other = { ...specific, account_id: 'B' };
+  const all = [regular, other];
+  const out = applyNaesinFreeDerivation(activeAt(all, '2026-06-20'), { ...deps(extended, '2026-06-20'), allEnrollments: all });
+  assert.equal(out[0].class_type, '내신');
+  const same = [regular, { ...specific, account_id: 'A' }];
+  assert.deepEqual(applyNaesinFreeDerivation(activeAt(same, '2026-06-20'), { ...deps(extended, '2026-06-20'), allEnrollments: same }), [regular]);
+});
+
+test('자유학기도 대칭: 종료된 명시 자유학기 조각이 겹치면 반 설정 기간 확장으로 부활하지 않는다', () => {
+  const regular = { class_type: '정규', level_symbol: 'HX', class_number: '104', day: ['화', '목'], start_date: '2026-03-01' };
+  const free = { class_type: '자유학기', level_symbol: 'HX', class_number: '104', day: ['화'], start_date: '2026-05-01', end_date: '2026-06-10' };
+  const cs = { HX104: { free_start: '2026-05-01', free_end: '2026-07-31', free_schedule: { 화: [], 목: [] } } };
+  const all = [regular, free];
+  const current = activeAt(all, '2026-06-20');
+  assert.deepEqual(applyNaesinFreeDerivation(current, { ...deps(cs, '2026-06-20'), allEnrollments: all }), current);
+  assert.equal(applyNaesinFreeDerivation(current, deps(cs, '2026-06-20'))[0].class_type, '자유학기');
 });
 
 // ─── 2026-07-05 적대적 리뷰 회귀 (C4) — deriveLevelPeriod 신설 테스트 ───
@@ -308,7 +425,7 @@ test('소문자 반코드 enrollment도 내신·자유학기 파생 성공 (표�
 test('명시적 자유학기의 반코드가 정규와 달라도 정규를 숨김 (헤더 계약)', () => {
   const current = [
     { class_type: '정규', level_symbol: 'HA', class_number: '101' },
-    { class_type: '자유학기', level_symbol: 'FR', class_number: '901', start_date: '2026-01-01' },
+    { class_type: '자유학기', level_symbol: 'FR', class_number: '901', start_date: '2026-01-01', end_date: '2026-12-31' },
     { class_type: '특강', class_number: '112' },
   ];
   const out = applyNaesinFreeDerivation(current, {
